@@ -1983,6 +1983,15 @@ function App(): React.JSX.Element {
           return;
         }
 
+        const isSpeechLicensed = await Speech.setLicense(
+          'MTc3NDkwNDQwMDAwMA==-z/W+fYYTMV1BNZqFL2eKFcETpOideVer8igwlAA4OWI='
+        );
+        if (!isSpeechLicensed) {
+          console.error('No License!!! - Speech.setLicense returned', isLicensed);
+          setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
+          return;
+        }
+
         /* Below code with enableDucking/disableDucking and startKeywordDetection(xxx, false, ...) - where
         false is the second argument is used to initialze other audio sessions before wake word to duck others etc'
         You can aslo make wake word use the same settings and not chaning audio session.

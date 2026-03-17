@@ -56,3 +56,4 @@ ios/Podfile.lock
 example**/android/app/.cxx/*
 example/.yarn/*
 example**/.yarn/*
+.gradle-local/**
