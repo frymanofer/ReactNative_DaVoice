@@ -4,11 +4,12 @@ React Native Voice AI on device for **speaker identification**, **speaker verifi
 
 This repository shows how to build a full **on-device voice AI** experience in React Native with DaVoice. Instead of stitching together separate mobile voice packages that often conflict around microphones, audio routing, speech sessions, and iOS behavior, this solution is designed to run the full voice pipeline in a coordinated way:
 
-- Wake word / keyword detection
-- Speaker identification and speaker verification
-- Real-time speech to text
-- On-device text to speech
-- Shared audio-session handling across the flow
+- **Speaker identification / speaker verification** - onboarding and real-time
+- **Wake word / keyword detection / Hotword** - Real time Wake Word detection. **Supports real time speaker verified and isolation**.
+- **Speech to Text / Real time ASR** - Real time ASR, Supports all languages. **Supports real time speaker verified and isolation**.
+- **Voice Cloning / Text to Speech** - Cloning any voice any language.
+- **On-device Text to Speech** - Human like text to speech, quality bits top cloud providers. Supports all cloned voices.
+- **Smooth audio flow between all voice components** - Audio session handling across the flows.
 - React Native support for iOS and Android
 
 For teams searching for **React Native text to speech**, **React Native speech to text**, **React Native wake word**, **React Native speaker identification**, or **React Native speaker verification**, this repository is intended as a full on-device solution rather than a single isolated feature.
@@ -21,7 +22,6 @@ Most mobile voice stacks break down when you try to combine:
 
 - wake word detection with live ASR
 - speaker verification with speech recognition
-- speech recognition with text to speech
 - iOS audio routing with always-listening experiences
 - React Native wrappers from different vendors
 
@@ -29,12 +29,12 @@ This repository demonstrates a unified **React Native voice AI** flow that avoid
 
 The example app shows how to:
 
-- start from an always-listening wake word
-- optionally require a saved speaker signature
-- pause wake word detection at the right moment
-- transition into speech recognition
-- speak back using on-device TTS
-- resume the voice pipeline cleanly
+- start from speaker identificaiton onboarding - or use a saved verification signature.
+- Move to an always-listening wake word - configurable: with speaker identification or without.
+- pause wake word detection at the right moment.
+- transition into speech recognition.
+- speak back using on-device TTS.
+- resume the voice pipeline cleanly.
 
 ## Core capabilities
 
