@@ -8,7 +8,7 @@ This example app demonstrates a full **React Native voice AI** flow running on d
 - on-device text to speech
 - coordinated pause/resume between wake word and ASR
 
-The key implementation is in [App.tsx](/Volumes/T9/projects/ReactNative_DaVoice/example/App.tsx).
+The key implementation is in [App.tsx](./App.tsx).
 
 ## What the demo shows
 
@@ -73,7 +73,7 @@ npx react-native run-ios
 
 ### Metro assets
 
-Make sure your Metro configuration supports DaVoice model assets such as `.onnx` and `.dm` files. See [react-native.config.js](/Volumes/T9/projects/ReactNative_DaVoice/example/react-native.config.js) and the project asset setup.
+Make sure your Metro configuration supports DaVoice model assets such as `.onnx` and `.dm` files. See [react-native.config.js](./react-native.config.js) and the project asset setup.
 
 ### Native permissions
 
@@ -85,10 +85,10 @@ The example can share recorded wake-word audio. On Android that uses a `FileProv
 
 ## Relevant files
 
-- [App.tsx](/Volumes/T9/projects/ReactNative_DaVoice/example/App.tsx): end-to-end voice flow
-- [package.json](/Volumes/T9/projects/ReactNative_DaVoice/example/package.json): example dependencies
-- [AndroidManifest.xml](/Volumes/T9/projects/ReactNative_DaVoice/example/android/app/src/main/AndroidManifest.xml): Android permissions and file sharing
-- [share_file_paths.xml](/Volumes/T9/projects/ReactNative_DaVoice/example/android/app/src/main/res/xml/share_file_paths.xml): Android file-sharing resource
+- [App.tsx](./App.tsx): end-to-end voice flow
+- [package.json](./package.json): example dependencies
+- [AndroidManifest.xml](./android/app/src/main/AndroidManifest.xml): Android permissions and file sharing
+- [share_file_paths.xml](./android/app/src/main/res/xml/share_file_paths.xml): Android file-sharing resource
 
 ## Search-friendly summary
 

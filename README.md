@@ -91,7 +91,7 @@ For teams searching for **React Native text to speech on device** or **offline T
 
 ## Example app flow
 
-The implementation in [example/App.tsx](/Volumes/T9/projects/ReactNative_DaVoice/example/App.tsx) demonstrates a complete voice journey:
+The implementation in [example/App.tsx](./example/App.tsx) demonstrates a complete voice journey:
 
 1. Request microphone permissions.
 2. Optionally onboard a speaker or reuse a saved speaker signature.
@@ -125,17 +125,17 @@ This repository is specifically valuable because it tackles those integration ed
 
 ## Repository structure
 
-- [README.md](/Volumes/T9/projects/ReactNative_DaVoice/README.md): main overview for the full voice AI solution
-- [example/README.md](/Volumes/T9/projects/ReactNative_DaVoice/example/README.md): how to run and understand the demo app
-- [example/App.tsx](/Volumes/T9/projects/ReactNative_DaVoice/example/App.tsx): full end-to-end React Native example
-- [docs/react-native-speaker-identification.md](/Volumes/T9/projects/ReactNative_DaVoice/docs/react-native-speaker-identification.md): focused page for speaker identification / verification
-- [docs/react-native-wake-word-detection.md](/Volumes/T9/projects/ReactNative_DaVoice/docs/react-native-wake-word-detection.md): focused page for wake word / keyword spotting
-- [docs/react-native-speech-to-text.md](/Volumes/T9/projects/ReactNative_DaVoice/docs/react-native-speech-to-text.md): focused page for ASR / STT
-- [docs/react-native-text-to-speech.md](/Volumes/T9/projects/ReactNative_DaVoice/docs/react-native-text-to-speech.md): focused page for TTS
+- [README.md](./README.md): main overview for the full voice AI solution
+- [example/README.md](./example/README.md): how to run and understand the demo app
+- [example/App.tsx](./example/App.tsx): full end-to-end React Native example
+- [docs/react-native-speaker-identification.md](./docs/react-native-speaker-identification.md): focused page for speaker identification / verification
+- [docs/react-native-wake-word-detection.md](./docs/react-native-wake-word-detection.md): focused page for wake word / keyword spotting
+- [docs/react-native-speech-to-text.md](./docs/react-native-speech-to-text.md): focused page for ASR / STT
+- [docs/react-native-text-to-speech.md](./docs/react-native-text-to-speech.md): focused page for TTS
 
 ## Running the demo
 
-See [example/README.md](/Volumes/T9/projects/ReactNative_DaVoice/example/README.md) for setup and demo notes.
+See [example/README.md](./example/README.md) for setup and demo notes.
 
 In short:
 

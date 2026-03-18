@@ -14,5 +14,5 @@ This is especially useful for teams building:
 
 Related pages:
 
-- [Main README](/Volumes/T9/projects/ReactNative_DaVoice/README.md)
-- [Example README](/Volumes/T9/projects/ReactNative_DaVoice/example/README.md)
+- [Main README](../README.md)
+- [Example README](../example/README.md)

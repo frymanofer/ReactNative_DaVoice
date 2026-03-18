@@ -19,5 +19,5 @@ That orchestration is important because wake word detection alone is rarely enou
 
 For the full implementation, see:
 
-- [Main README](/Volumes/T9/projects/ReactNative_DaVoice/README.md)
-- [Example App](/Volumes/T9/projects/ReactNative_DaVoice/example/App.tsx)
+- [Main README](../README.md)
+- [Example App](../example/App.tsx)

@@ -14,5 +14,5 @@ Many React Native text-to-speech integrations work for basic playback but become
 
 Related pages:
 
-- [Main README](/Volumes/T9/projects/ReactNative_DaVoice/README.md)
-- [Example App](/Volumes/T9/projects/ReactNative_DaVoice/example/App.tsx)
+- [Main README](../README.md)
+- [Example App](../example/App.tsx)
