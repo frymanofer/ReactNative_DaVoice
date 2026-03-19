@@ -33,7 +33,7 @@ const RICH = 1;
 
 const SPEAKER = 0;
 
-const RICH_SPEAKER_SPEED = 0.95;
+const RICH_SPEAKER_SPEED = 0.9;
 const ARIANA_SPEAKER_SPEED = 0.9; //0.75;
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
 //const SPEAKER_SPEED = 0.75;
@@ -114,11 +114,11 @@ const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
 //const ttsModel = 'model.onnx';
 
 // If you want to use only TTS:
-import { DaVoiceTTSInstance } from 'react-native-davoice-tts';
+import { DaVoiceTTSInstance } from 'react-native-davoice';
 let tts = new DaVoiceTTSInstance();
 // If you want to use only STT
-//import STT from 'react-native-davoice-tts/stt';
-import Speech from 'react-native-davoice-tts/speech';
+//import STT from 'react-native-davoice/stt';
+import Speech from 'react-native-davoice/speech';
 // import Speech from '@react-native-voice/voice';
 
 import type { PropsWithChildren } from 'react';
@@ -1080,10 +1080,10 @@ function App(): React.JSX.Element {
   const ttsModelChoiceResolverRef = useRef<
     null | ((choice: { quality: TTSQualityChoice; voice: TTSVoiceChoice }) => void)
   >(null);
-  const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('heavy');
+  const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('lite');
   const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Ariana');
   const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Ariana');
-  const selectedTTSModelRef = useRef(ttsModelSlow);
+  const selectedTTSModelRef = useRef(ttsModelFast);
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
   const [lastSVScore, setLastSVScore] = useState<{ score: number; isMatch: boolean } | null>(null);
@@ -1413,8 +1413,9 @@ function App(): React.JSX.Element {
         const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
         //await Speech.speak("Hi, Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!");
         await Speech.speak(newText, SPEAKER, adjustedSpeed);
-        resetTranscript();
         await Speech.unPauseSpeechRecognition(1);
+        await sleep(300);
+        resetTranscript();
       }
       //await Speech.start('en-US');
     }, silenceThresholdMsRef.current);
@@ -1450,6 +1451,7 @@ function App(): React.JSX.Element {
         const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
         await Speech.speak(newText, SPEAKER, adjustedSpeed);
         await Speech.unPauseSpeechRecognition(1);
+        await sleep(300);
         // Reset phrase state per timeout cycle so OS transcript rewrites
         // (e.g. "one" -> "1 2") don't break delta logic.
         resetTranscript();
@@ -1537,7 +1539,7 @@ function App(): React.JSX.Element {
       if (pathsForSharing.length > 0) {
         setLatestWakewordRecordingPaths(pathsForSharing);
       }
-      await sleep(1500);
+      await sleep(1000);
 
       console.log('detected keyword: ', keywordIndex);
       const keywordText = String(keywordIndex ?? '');
@@ -1610,7 +1612,7 @@ function App(): React.JSX.Element {
           }
         }
         if (isFirstCall) {
-          setTtsQualityChoice('heavy');
+          setTtsQualityChoice('lite');
           setTtsVoiceChoice('Ariana');
           setShowTTSModelPrompt(true);
           const selectedModelChoice = await new Promise<{ quality: TTSQualityChoice; voice: TTSVoiceChoice }>((resolve) => {
@@ -1721,7 +1723,6 @@ function App(): React.JSX.Element {
          await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
       } finally {
         setIsIntroSpeaking(false);
-        resetTranscript();
       }
       // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
       // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
@@ -1764,6 +1765,8 @@ function App(): React.JSX.Element {
       */
       await waitForNextInteraction();
       await Speech.unPauseSpeechRecognition(-1);
+      await sleep(300);
+      resetTranscript();
 
       /*
       setTimeout(async () => {
@@ -2264,20 +2267,20 @@ function App(): React.JSX.Element {
                 <TouchableOpacity
                   style={[
                     styles.svButton,
-                    ttsQualityChoice === 'heavy' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsQualityChoice('heavy')}>
-                  <Text style={styles.svButtonText}>Heavy</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
                     ttsQualityChoice === 'lite' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
                   ]}
                   activeOpacity={0.7}
                   onPress={() => setTtsQualityChoice('lite')}>
                   <Text style={styles.svButtonText}>Lite</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.svButton,
+                    ttsQualityChoice === 'heavy' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => setTtsQualityChoice('heavy')}>
+                  <Text style={styles.svButtonText}>Heavy</Text>
                 </TouchableOpacity>
               </View>
             </View>
