@@ -1,7 +1,9 @@
 package com.exampleapp
 
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import android.content.pm.PackageManager
 import androidx.core.content.FileProvider
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -37,22 +39,40 @@ class WakewordRecordingShareModule(
       }
 
       val chooserTitle = title ?: "Share recordings"
+      val mimeType = if (uris.size == 1) "audio/*" else "*/*"
       val sendIntent =
         if (uris.size == 1) {
           Intent(Intent.ACTION_SEND).apply {
-            type = "audio/wav"
+            type = mimeType
             putExtra(Intent.EXTRA_STREAM, uris[0])
             putExtra(Intent.EXTRA_SUBJECT, chooserTitle)
+            clipData = ClipData.newUri(context.contentResolver, chooserTitle, uris[0])
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
           }
         } else {
           Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "audio/wav"
+            type = mimeType
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
             putExtra(Intent.EXTRA_SUBJECT, chooserTitle)
+            clipData = ClipData.newUri(context.contentResolver, chooserTitle, uris[0]).apply {
+              for (i in 1 until uris.size) {
+                addItem(ClipData.Item(uris[i]))
+              }
+            }
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
           }
         }
+
+      val resolvedActivities = context.packageManager.queryIntentActivities(
+        sendIntent,
+        PackageManager.MATCH_DEFAULT_ONLY,
+      )
+      for (resolveInfo in resolvedActivities) {
+        val packageName = resolveInfo.activityInfo?.packageName ?: continue
+        for (uri in uris) {
+          context.grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+      }
 
       val chooserIntent = Intent.createChooser(sendIntent, chooserTitle)
       val activity = getCurrentActivity()
