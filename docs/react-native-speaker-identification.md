@@ -1,6 +1,6 @@
-# React Native Speaker Identification and Speaker Verification
+# <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer">React Native Speaker Identification and Speaker Verification</a>
 
-If you are looking for **React Native speaker identification** or **React Native speaker verification**, this repository demonstrates an on-device approach for iOS and Android.
+If you are looking for <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer"><strong>React Native speaker identification</strong></a> or <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer"><strong>React Native speaker verification</strong></a>, this repository demonstrates an on-device approach for iOS and Android.
 
 In the example app, users can:
 

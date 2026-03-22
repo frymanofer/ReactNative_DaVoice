@@ -1,11 +1,11 @@
 # React Native Voice AI On Device by DaVoice
 
-React Native Voice AI on device for **speaker identification**, **speaker verification**, **wake word detection**, **keyword spotting**, **speech to text**, and **text to speech** on **iOS** and **Android**.
+On-Device, complete Voice AI for React Native. Including <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer"><strong>speaker identification</strong></a>, <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer"><strong>speaker verification</strong></a>, <a href="https://davoice.io/wake-word" target="_blank" rel="noopener noreferrer"><strong>wake word detection</strong></a>, **speech to text**, and **text to speech** on **iOS** and **Android**.
 
 This repository shows how to build a full **on-device voice AI** experience in React Native with DaVoice. Instead of stitching together separate mobile voice packages that often conflict around microphones, audio routing, speech sessions, and iOS behavior, this solution is designed to run the full voice pipeline in a coordinated way:
 
-- **Speaker identification / speaker verification** - onboarding and real-time
-- **Wake word / keyword detection / Hotword** - Real time Wake Word detection. **Supports real time speaker verified and isolation**.
+- <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer"><strong>Speaker Identification / Speaker Verification</strong></a> - onboarding and real-time
+- <a href="https://davoice.io/wake-word" target="_blank" rel="noopener noreferrer"><strong>Wake word / keyword detection / Hotword</strong></a> - Real time Wake Word detection. **Supports real time speaker verified and isolation**.
 - **Speech to Text / Real time ASR** - Real time ASR, Supports all languages. **Supports real time speaker verified and isolation**.
 - **Voice Cloning / Text to Speech** - Cloning any voice any language.
 - **On-device Text to Speech** - Human like text to speech, quality bits top cloud providers. Supports all cloned voices.
@@ -38,7 +38,7 @@ The example app shows how to:
 
 ## Core capabilities
 
-### 1. React Native wake word detection
+### 1. <a href="https://davoice.io/integration-guides-wake-word/react-native" target="_blank" rel="noopener noreferrer">React Native wake word detection</a>
 
 Use custom wake words and keyword spotting locally on the device. This is useful for hands-free experiences such as assistants, smart controls, in-car flows, accessibility, healthcare workflows, industrial apps, and branded voice triggers.
 
@@ -51,7 +51,7 @@ Also known as:
 - phrase spotting
 - voice trigger
 
-### 2. React Native speaker identification and speaker verification
+### 2. <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer">React Native speaker identification and speaker verification</a>
 
 The example supports speaker onboarding and reuse of a saved speaker signature. You can choose to:
 

@@ -10,7 +10,7 @@ The example app includes:
 - pause/resume coordination with speech recognition
 - a manual TTS test mode
 
-Many React Native text-to-speech integrations work for basic playback but become unstable when combined with wake word detection or speech recognition. This repository is useful because it shows how TTS can live inside a coordinated end-to-end voice flow on iOS and Android.
+Many React Native text-to-speech integrations work for basic playback but become unstable when combined with <a href="https://davoice.io/wake-word" target="_blank" rel="noopener noreferrer">wake word detection</a> or speech recognition. This repository is useful because it shows how TTS can live inside a coordinated end-to-end voice flow on iOS and Android.
 
 Related pages:
 
