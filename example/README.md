@@ -2,8 +2,8 @@
 
 This example app demonstrates a full **React Native voice AI** flow running on device:
 
-- wake word detection
-- speaker identification / speaker verification
+- <a href="https://davoice.io/wake-word" target="_blank" rel="noopener noreferrer">wake word detection</a>
+- <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer">speaker identification / speaker verification</a>
 - real-time speech to text
 - on-device text to speech
 - coordinated pause/resume between wake word and ASR
@@ -18,8 +18,8 @@ The example includes:
 
 - optional speaker onboarding
 - using a saved speaker signature
-- wake-word detection with recorded wake-word audio
-- clean transition from wake word into speech recognition
+- <a href="https://davoice.io/wake-word" target="_blank" rel="noopener noreferrer">wake-word detection</a> with recorded wake-word audio
+- clean transition from <a href="https://davoice.io/wake-word" target="_blank" rel="noopener noreferrer">wake word</a> into speech recognition
 - an intentional pause before STT to improve flow
 - selectable TTS voices and model quality
 - manual TTS test mode
@@ -29,7 +29,7 @@ The example includes:
 
 1. Launch the app and grant microphone permissions.
 2. Choose whether to create or reuse a speaker signature.
-3. Start wake word detection.
+3. Start <a href="https://davoice.io/integration-guides-wake-word/react-native" target="_blank" rel="noopener noreferrer">wake word detection</a>.
 4. Say the wake phrase.
 5. The app pauses wake-word detection before moving into ASR.
 6. If speaker verification is enabled, the app can enforce the onboarded speaker.

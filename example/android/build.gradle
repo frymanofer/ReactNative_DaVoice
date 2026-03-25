@@ -24,8 +24,8 @@ allprojects {
     maven { url "${project(":react-native-wakeword").projectDir}/libs" }
     maven { url "${project(":react-native-davoice").projectDir}/libs" }
 
-    // background-fetch repos (unchanged)
-    maven { url("${project(':react-native-background-fetch').projectDir}/libs") }
+    // // background-fetch repos (unchanged)
+    // maven { url("${project(':react-native-background-fetch').projectDir}/libs") }
 
     // RN + JSC from node_modules
     maven {

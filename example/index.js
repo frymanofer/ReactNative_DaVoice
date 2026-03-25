@@ -2,7 +2,7 @@ import { AppRegistry } from 'react-native';
 import { registerRootComponent } from 'expo';
 import App from './App';
 import { AppState } from 'react-native';
-import BackgroundFetch from 'react-native-background-fetch';
+// import BackgroundFetch from 'react-native-background-fetch';
 import { Platform } from 'react-native';
 import {name as appName} from './app.json';
 
