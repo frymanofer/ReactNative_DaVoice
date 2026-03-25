@@ -75,27 +75,27 @@ export async function ensureMicPermission(): Promise<boolean> {
     }
     return false;
   } else {
- /*   // iOS: request explicitly
-    const mic = await check(PERMISSIONS.IOS.MICROPHONE);
-    if (mic === RESULTS.GRANTED) return true;
-
-    if (mic === RESULTS.BLOCKED) {
-      Alert.alert('Microphone permission required', 'Enable it in Settings.', [
-        { text: 'Open Settings', onPress: () => openSettings() },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-      return false;
-    }
-
-    const micReq = await request(PERMISSIONS.IOS.MICROPHONE);
-    if (micReq !== RESULTS.GRANTED) return false;
-
-    // Optional but usually needed for dictation/STT APIs:
-    const sr = await check(PERMISSIONS.IOS.SPEECH_RECOGNITION);
-    if (sr === RESULTS.GRANTED) return true;
-
-    const srReq = await request(PERMISSIONS.IOS.SPEECH_RECOGNITION);
-    return srReq === RESULTS.GRANTED;*/
+    /*   // iOS: request explicitly
+       const mic = await check(PERMISSIONS.IOS.MICROPHONE);
+       if (mic === RESULTS.GRANTED) return true;
+   
+       if (mic === RESULTS.BLOCKED) {
+         Alert.alert('Microphone permission required', 'Enable it in Settings.', [
+           { text: 'Open Settings', onPress: () => openSettings() },
+           { text: 'Cancel', style: 'cancel' },
+         ]);
+         return false;
+       }
+   
+       const micReq = await request(PERMISSIONS.IOS.MICROPHONE);
+       if (micReq !== RESULTS.GRANTED) return false;
+   
+       // Optional but usually needed for dictation/STT APIs:
+       const sr = await check(PERMISSIONS.IOS.SPEECH_RECOGNITION);
+       if (sr === RESULTS.GRANTED) return true;
+   
+       const srReq = await request(PERMISSIONS.IOS.SPEECH_RECOGNITION);
+       return srReq === RESULTS.GRANTED;*/
   }
 }
 
@@ -137,14 +137,15 @@ import LinearGradient from 'react-native-linear-gradient';
 
 // import KeyWordRNBridge from 'react-native-wakeword';
 import { KeyWordRNBridgeInstance } from 'react-native-wakeword';
-import { createKeyWordRNBridgeInstance,
+import {
+  createKeyWordRNBridgeInstance,
   hasIOSMicPermissions,
   requestIOSMicPermissions,
   hasIOSSpeechRecognitionPermissions,
   requestIOSSpeechRecognitionPermissions
- } from 'react-native-wakeword';
+} from 'react-native-wakeword';
 
- // If you created audioRoutingConfig.ts in the lib:
+// If you created audioRoutingConfig.ts in the lib:
 import { setWakewordAudioRoutingConfig } from 'react-native-wakeword';
 import type { AudioRoutingConfig } from 'react-native-wakeword';
 import {
@@ -240,15 +241,15 @@ async function startEndlessVerificationWithEnrollmentFix(
   const stop = async () => {
     if (stopped) return;
     stopped = true;
-    try { offR?.(); } catch {}
-    try { offE?.(); } catch {}
-    try { await ctrl.stop?.(); } catch {}
-    try { await ctrl.destroy?.(); } catch {}
+    try { offR?.(); } catch { }
+    try { offE?.(); } catch { }
+    try { await ctrl.stop?.(); } catch { }
+    try { await ctrl.destroy?.(); } catch { }
     if (!firstDone) {
       firstDone = true;
-      try { firstResolve({ stopped: true }); } catch {}
+      try { firstResolve({ stopped: true }); } catch { }
     }
-    try { stoppedResolve?.(); } catch {}
+    try { stoppedResolve?.(); } catch { }
   };
 
   const offE = onSpeakerVerificationError((e) => {
@@ -258,7 +259,7 @@ async function startEndlessVerificationWithEnrollmentFix(
 
     if (!firstDone) {
       firstDone = true;
-      try { firstReject(new Error(e?.error ?? 'SV_ERROR')); } catch {}
+      try { firstReject(new Error(e?.error ?? 'SV_ERROR')); } catch { }
     }
     stop(); // stop on error
   });
@@ -288,7 +289,7 @@ async function startEndlessVerificationWithEnrollmentFix(
 
     if (!firstDone) {
       firstDone = true;
-      try { firstResolve(e); } catch {}
+      try { firstResolve(e); } catch { }
     }
 
     // Native endless mode keeps emitting; only stop here if requested.
@@ -371,15 +372,15 @@ async function startEndlessVerificationWithEnrollment(
   const stop = async () => {
     if (stopped) return;
     stopped = true;
-    try { offR?.(); } catch {}
-    try { offE?.(); } catch {}
-    try { await ctrl.stop?.(); } catch {}
-    try { await ctrl.destroy?.(); } catch {}
+    try { offR?.(); } catch { }
+    try { offE?.(); } catch { }
+    try { await ctrl.stop?.(); } catch { }
+    try { await ctrl.destroy?.(); } catch { }
     if (!firstDone) {
       firstDone = true;
-      try { firstResolve({ stopped: true }); } catch {}
+      try { firstResolve({ stopped: true }); } catch { }
     }
-    try { stoppedResolve?.(); } catch {}
+    try { stoppedResolve?.(); } catch { }
   };
 
   const offE = onSpeakerVerificationError((e) => {
@@ -389,7 +390,7 @@ async function startEndlessVerificationWithEnrollment(
 
     if (!firstDone) {
       firstDone = true;
-      try { firstReject(new Error(e?.error ?? 'SV_ERROR')); } catch {}
+      try { firstReject(new Error(e?.error ?? 'SV_ERROR')); } catch { }
     }
 
     stop(); // stop on error
@@ -406,7 +407,7 @@ async function startEndlessVerificationWithEnrollment(
 
     if (!firstDone) {
       firstDone = true;
-      try { firstResolve(e); } catch {}
+      try { firstResolve(e); } catch { }
     }
 
     // allow next cycle
@@ -437,7 +438,7 @@ async function startEndlessVerificationWithEnrollment(
       inFlight = false;
       if (!firstDone) {
         firstDone = true;
-        try { firstReject(e); } catch {}
+        try { firstReject(e); } catch { }
       }
       throw e;
     }
@@ -523,8 +524,8 @@ async function verifyFromMicWithEnrollment(
 
     return res;
   } finally {
-    try { await ctrl.stop?.(); } catch {}
-    try { await ctrl.destroy?.(); } catch {}
+    try { await ctrl.stop?.(); } catch { }
+    try { await ctrl.destroy?.(); } catch { }
   }
 }
 
@@ -751,7 +752,7 @@ async function runSpeakerVerifyEnrollment(
   if (!enrollmentJson || typeof enrollmentJson !== 'string' || enrollmentJson.length < 10) {
     offProg?.();
     offErr?.();
-    try { await ctrl.destroy?.(); } catch {}
+    try { await ctrl.destroy?.(); } catch { }
     throw new Error('[SVJS] onboarding done but enrollmentJson is empty/invalid');
   }
 
@@ -763,7 +764,7 @@ async function runSpeakerVerifyEnrollment(
   offErr?.();
 
   // recommended: close mic-controller to avoid fighting resources during verification
-  try { await ctrl.destroy?.(); } catch {}
+  try { await ctrl.destroy?.(); } catch { }
 
   return enrollmentJson;
 }
@@ -794,7 +795,7 @@ async function runSpeakerVerifyEnrollment() {
 }
 */
 // Ducking / Unducking
-import {disableDucking, enableDucking} from 'react-native-wakeword';
+import { disableDucking, enableDucking } from 'react-native-wakeword';
 
 // 
 // 
@@ -906,7 +907,7 @@ Ducking/Unducking TEMPORARY code until background timers are
 enabled!!
  */
 
-let unDuckingTimerId:any = null;
+let unDuckingTimerId: any = null;
 let unDuckingExpiration = 0;
 
 export const scheduleUnDucking = async seconds => {
@@ -1248,11 +1249,40 @@ function App(): React.JSX.Element {
   const silenceThresholdMsRef = useRef(2000);
   const lastTranscriptRef = useRef('');
   const lastProcessedRef = useRef('');
+  const speechUiEpochRef = useRef(0);
 
   const SILENCE_TIMEOUT = 2000;
-  function resetTranscript() {
+  function beginSpeechUiEpoch(): number {
+    speechUiEpochRef.current += 1;
+    return speechUiEpochRef.current;
+  }
+
+  function isSpeechUiEpochCurrent(epoch: number): boolean {
+    return speechUiEpochRef.current === epoch;
+  }
+
+  function setCurrentSpeechSentenceGuarded(epoch: number, value: string) {
+    if (!isSpeechUiEpochCurrent(epoch)) return;
+    setCurrentSpeechSentence(value);
+  }
+
+  function setMessageGuarded(epoch: number, value: string) {
+    if (!isSpeechUiEpochCurrent(epoch)) return;
+    setMessage(value);
+  }
+
+  function setIntroSpeakingGuarded(epoch: number, value: boolean) {
+    if (!isSpeechUiEpochCurrent(epoch)) return;
+    setIsIntroSpeaking(value);
+  }
+
+  function resetSpeechTranscriptState() {
     lastTranscriptRef.current = '';
     lastProcessedRef.current = '';
+  }
+
+  function clearSpeechSentenceUI(epoch?: number) {
+    if (epoch != null && !isSpeechUiEpochCurrent(epoch)) return;
     setCurrentSpeechSentence('');
   }
 
@@ -1266,7 +1296,7 @@ function App(): React.JSX.Element {
       //await Speech.start('en-US');
     }
   };
-// === minimal coalescer that PRESERVES punctuation ===
+  // === minimal coalescer that PRESERVES punctuation ===
 
   // ASCII word spans (safe for your English prompts). If you need full Unicode,
   // swap the regex to /\p{L}+\p{M}*|\p{N}+/gu (ensure your JS engine supports it).
@@ -1394,7 +1424,7 @@ function App(): React.JSX.Element {
       console.log('Partial is undefined!!!!!!');
       return;
     }
-        // Android path
+    // Android path
     const merged = mergeSmartKeepPunct(lastTranscriptRef.current, curr, 2);
     if (merged === lastTranscriptRef.current) return; // no new info
 
@@ -1404,18 +1434,20 @@ function App(): React.JSX.Element {
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(async () => {
+      const speechUiEpoch = beginSpeechUiEpoch();
       console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
       const newText = lastTranscriptRef.current.trim();
       if (newText.length > 0) {
         console.log('🗣️ Speaking:', newText);
-        setCurrentSpeechSentence("Speaking now:" + newText);
+        setCurrentSpeechSentenceGuarded(speechUiEpoch, "Speaking now:" + newText);
         await Speech.pauseSpeechRecognition();
         const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
         //await Speech.speak("Hi, Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!");
         await Speech.speak(newText, SPEAKER, adjustedSpeed);
+        resetSpeechTranscriptState();
         await Speech.unPauseSpeechRecognition(1);
         await sleep(300);
-        resetTranscript();
+        clearSpeechSentenceUI(speechUiEpoch);
       }
       //await Speech.start('en-US');
     }, silenceThresholdMsRef.current);
@@ -1442,19 +1474,21 @@ function App(): React.JSX.Element {
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(async () => {
+      const speechUiEpoch = beginSpeechUiEpoch();
       console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
       const newText = lastTranscriptRef.current.trim();
       if (newText.length > 0) {
         console.log('🗣️ Speaking:', newText);
-        setCurrentSpeechSentence("Speaking now:" + newText);
+        setCurrentSpeechSentenceGuarded(speechUiEpoch, "Speaking now:" + newText);
         await Speech.pauseSpeechRecognition();
         const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
         await Speech.speak(newText, SPEAKER, adjustedSpeed);
+        resetSpeechTranscriptState();
         await Speech.unPauseSpeechRecognition(1);
         await sleep(300);
         // Reset phrase state per timeout cycle so OS transcript rewrites
         // (e.g. "one" -> "1 2") don't break delta logic.
-        resetTranscript();
+        clearSpeechSentenceUI(speechUiEpoch);
       }
     }, silenceThresholdMsRef.current);
 
@@ -1482,11 +1516,11 @@ function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    
-    
+
+
     const keywordCallbackDuringSpeech = async (keywordIndex: any) => {
       console.log("keywordCallbackDuringSpeech: #callbacks == ", callbackTimes);
-      callbackTimes +=1;
+      callbackTimes += 1;
     }
 
     // --> WAKE WORD CALLBACK ENTRY !!!!
@@ -1511,26 +1545,26 @@ function App(): React.JSX.Element {
       const stopWakeWord = false;
       callbackTimes = 1;
       // 1) Remove listener first (prevents late events)
-      /** *** NEW *** do not detachListener when not stopping wake word **/ 
+      /** *** NEW *** do not detachListener when not stopping wake word **/
       if (stopWakeWord)
         await detachListener();
 
       let wavFilePath = '';
       let recordedWavPaths: string[] = [];
-      
+
       // 2) Stop Detection (native)
       try {
         if (stopWakeWord)
-            await instance.stopKeywordDetection(/* FR add if stop microphone or */);
-          else
-            await instance.pauseDetection(Platform.OS === 'ios' ? false : true);///* FR add if stop microphone or */);
-        
+          await instance.stopKeywordDetection(/* FR add if stop microphone or */);
+        else
+          await instance.pauseDetection(Platform.OS === 'ios' ? false : true);///* FR add if stop microphone or */);
+
         wavFilePath = await instance.getRecordingWav();
         if (Platform.OS === 'android') {
           recordedWavPaths = await instance.getRecordingWavArray();
         }
         console.log('paths == ', recordedWavPaths);
-      } catch {}
+      } catch { }
 
       const pathsForSharing =
         Platform.OS === 'android'
@@ -1554,7 +1588,7 @@ function App(): React.JSX.Element {
 
       /***** SPEAKER VERIFICATION CODE ONLY *****/
       try {
-//        await Speech.initAll({ locale: 'en-US', model: ttsModel });
+        //        await Speech.initAll({ locale: 'en-US', model: ttsModel });
         // await sleep(1000);
         // await Speech.pauseSpeechRecognition();
         // await sleep(1000);
@@ -1634,7 +1668,7 @@ function App(): React.JSX.Element {
         // await sleep(300);
 
         /***** END OF SPEAKER VERIFICATION CODE ONLY END *****/
- 
+
         console.log('Calling Speech.initAll');
 
         setIsSpeechSessionActive(true);
@@ -1670,7 +1704,7 @@ function App(): React.JSX.Element {
           };
         } else {
           await Speech.unPauseSpeechRecognition(-1);
-        } 
+        }
 
         //await Speech.initAll({ locale:'en-US', model: ttsModel });
         // Spanish:
@@ -1710,19 +1744,20 @@ function App(): React.JSX.Element {
       /**** END: You can play what activated the wake word ****/
 
       // await Speech.playWav(moonRocksSound, false);
+      const speechUiEpoch = beginSpeechUiEpoch();
       await Speech.pauseSpeechRecognition();
       const selectedSpeakerName: 'Rich' | 'Ariana' = selectedTTSVoiceRef.current;
       const introLine = "My name is " + selectedSpeakerName + ", I am one of the coaches in the Lunafit app! I love helping people reach their fitness goals!";
-      setMessage(`${selectedSpeakerName} is speaking...`);
+      setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
       setIntroSpeakerName(selectedSpeakerName);
       setIntroScript(introLine);
-      setCurrentSpeechSentence("Into Message: " + introLine);
-      setIsIntroSpeaking(true);
+      setCurrentSpeechSentenceGuarded(speechUiEpoch, "Into Message: " + introLine);
+      setIntroSpeakingGuarded(speechUiEpoch, true);
 
       try {
-         await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
+        await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
       } finally {
-        setIsIntroSpeaking(false);
+        setIntroSpeakingGuarded(speechUiEpoch, false);
       }
       // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
       // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
@@ -1764,9 +1799,10 @@ function App(): React.JSX.Element {
       await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
       */
       await waitForNextInteraction();
+      resetSpeechTranscriptState();
       await Speech.unPauseSpeechRecognition(-1);
-      await sleep(300);
-      resetTranscript();
+      await sleep(500);
+      clearSpeechSentenceUI(speechUiEpoch);
 
       /*
       setTimeout(async () => {
@@ -1817,7 +1853,7 @@ function App(): React.JSX.Element {
 
         if (stopWakeWord) {
           await Speech.destroyAll();
-//           await instance.stopKeywordDetection(/* FR add if stop microphone or */);
+          //           await instance.stopKeywordDetection(/* FR add if stop microphone or */);
           if (Platform.OS === 'android') {
             await sleep(300);
           }
@@ -1827,15 +1863,15 @@ function App(): React.JSX.Element {
           await instance.startKeywordDetection(instanceConfigs[0].threshold, true);
 
         } else {
-           await Speech.pauseSpeechRecognition();
-           await sleep(500);
-           console.log("calling unPauseDetection!!!")
-           await instance.unPauseDetection(/* FR add if stop microphone or */);
+          await Speech.pauseSpeechRecognition();
+          await sleep(500);
+          console.log("calling unPauseDetection!!!")
+          await instance.unPauseDetection(/* FR add if stop microphone or */);
         }
 
 
-//      }, 45000);
-      }, 300000);
+        //      }, 45000);
+      }, 10000);
     };
 
     const updateVoiceProps = async () => {
@@ -1856,102 +1892,104 @@ function App(): React.JSX.Element {
       console.log('initializeKeywordDetection() enrollmentJson == ', enrollmentJson);
       let svChoice = 'skip';
       try {
-          if (!enrollmentJson) {
-            enrollmentJson = await loadEnrollmentJsonFromFile('sv_enrollment.json');
-            console.log('initializeKeywordDetection() 2 enrollmentJson == ', enrollmentJson);
+        if (!enrollmentJson) {
+          enrollmentJson = await loadEnrollmentJsonFromFile('sv_enrollment.json');
+          console.log('initializeKeywordDetection() 2 enrollmentJson == ', enrollmentJson);
 
-            if (enrollmentJson) {
-              console.log('initializeKeywordDetection() 3 enrollmentJson == ', enrollmentJson);
-              enrollmentJsonRef.current = enrollmentJson;
-              enrollmentJsonPathRef.current = `${RNFS.DocumentDirectoryPath}/sv_enrollment.json`;
-              console.log('initializeKeywordDetection() 4 enrollmentJsonPathRef.current == ', enrollmentJsonPathRef.current);
-            }
+          if (enrollmentJson) {
+            console.log('initializeKeywordDetection() 3 enrollmentJson == ', enrollmentJson);
+            enrollmentJsonRef.current = enrollmentJson;
+            enrollmentJsonPathRef.current = `${RNFS.DocumentDirectoryPath}/sv_enrollment.json`;
+            console.log('initializeKeywordDetection() 4 enrollmentJsonPathRef.current == ', enrollmentJsonPathRef.current);
           }
-          const hasSavedEnrollment = typeof enrollmentJson === 'string' && enrollmentJson.length > 0;
-          setSvPromptHasSavedEnrollment(hasSavedEnrollment);
-          setShowSVPrompt(true);
-          console.log('initializeKeywordDetection() 2');
-          svChoice = await new Promise<SVPromptChoice>((resolve) => {
-            console.log('initializeKeywordDetection() 3');
-            svChoiceResolverRef.current = resolve;
-            console.log('initializeKeywordDetection() 4');
-          });
-          console.log('initializeKeywordDetection() 5');
-          setShowSVPrompt(false);
-          setSvPromptHasSavedEnrollment(false);
-          if (svChoice !== 'skip') {
-            setShowSVStatusScreen(true);
-            setSvStatusCanContinue(false);
-            console.log('initializeKeywordDetection() 6');
-            console.log('initializeKeywordDetection() 7');
-            if (svChoice === 'redo_onboarding' || !enrollmentJson) {
-              /*** --> ENROLLMENT HERE ***/
-              enrollmentJson = await runSpeakerVerifyEnrollment(setMessage);
-              enrollmentJsonRef.current = enrollmentJson;
-              enrollmentJsonPathRef.current = await writeEnrollmentJsonToFile(
-                enrollmentJson,
-                'sv_enrollment.json',
-              );
-            }
-            console.log('initializeKeywordDetection() 8');
-            // Reset score tracking and start elapsed timer
-            setLastSVScore(null);
+        }
+        const hasSavedEnrollment = typeof enrollmentJson === 'string' && enrollmentJson.length > 0;
+        setSvPromptHasSavedEnrollment(hasSavedEnrollment);
+        setShowSVPrompt(true);
+        console.log('initializeKeywordDetection() 2');
+        svChoice = await new Promise<SVPromptChoice>((resolve) => {
+          console.log('initializeKeywordDetection() 3');
+          svChoiceResolverRef.current = resolve;
+          console.log('initializeKeywordDetection() 4');
+        });
+        console.log('initializeKeywordDetection() 5');
+        setShowSVPrompt(false);
+        setSvPromptHasSavedEnrollment(false);
+        if (svChoice !== 'skip') {
+          setShowSVStatusScreen(true);
+          setSvStatusCanContinue(false);
+          console.log('initializeKeywordDetection() 6');
+          console.log('initializeKeywordDetection() 7');
+          if (svChoice === 'redo_onboarding' || !enrollmentJson) {
+            /*** --> ENROLLMENT HERE ***/
+            enrollmentJson = await runSpeakerVerifyEnrollment(setMessage);
+            enrollmentJsonRef.current = enrollmentJson;
+            enrollmentJsonPathRef.current = await writeEnrollmentJsonToFile(
+              enrollmentJson,
+              'sv_enrollment.json',
+            );
+          }
+          console.log('initializeKeywordDetection() 8');
+          // Reset score tracking and start elapsed timer
+          setLastSVScore(null);
           console.log('initializeKeywordDetection() 9');
-            lastSVScoreTimeRef.current = null;
+          lastSVScoreTimeRef.current = null;
           console.log('initializeKeywordDetection() 10');
-            setSvElapsed('N/A');
+          setSvElapsed('N/A');
           console.log('initializeKeywordDetection() 11');
-            svElapsedIntervalRef.current = setInterval(() => {
-          console.log('initializeKeywordDetection() 12');
-              const t = lastSVScoreTimeRef.current;
-              if (t === null) {
-                setSvElapsed('N/A');
-              } else {
-                const sec = (Date.now() - t) / 1000;
-                setSvElapsed(sec < 60 ? `${sec.toFixed(1)}s` : `${Math.floor(sec / 60)}m ${Math.floor(sec % 60)}s`);
-              }
-            }, 100);
+          svElapsedIntervalRef.current = setInterval(() => {
+            console.log('initializeKeywordDetection() 12');
+            const t = lastSVScoreTimeRef.current;
+            if (t === null) {
+              setSvElapsed('N/A');
+            } else {
+              const sec = (Date.now() - t) / 1000;
+              setSvElapsed(sec < 60 ? `${sec.toFixed(1)}s` : `${Math.floor(sec / 60)}m ${Math.floor(sec % 60)}s`);
+            }
+          }, 100);
           console.log('initializeKeywordDetection() 13');
 
-            setSvRunning(true);
+          setSvRunning(true);
           console.log('initializeKeywordDetection() 14');
-            // await runVerificationWithEnrollment(enrollmentJson, setMessage);
-    //        svStopRef.current = await startEndlessVerificationWithEnrollment(enrollmentJson, setMessage, { hopSeconds: 0.5, stopOnMatch: false });
-            svStopRef.current = await startEndlessVerificationWithEnrollmentFix(
-              enrollmentJson,
-              setMessage,
-              { hopSeconds: 0.25, stopOnMatch: false, waitFirstResult: true, firstResultTimeoutMs: 3000,
-                onStopReady: (stopFn: () => Promise<void>) => { svStopRef.current = stopFn; },
-                onScore: (score: number, isMatch: boolean) => {
-                  setLastSVScore({ score, isMatch });
-                  lastSVScoreTimeRef.current = Date.now();
-                  setSvStatusCanContinue(true);
-                } }
-            );
+          // await runVerificationWithEnrollment(enrollmentJson, setMessage);
+          //        svStopRef.current = await startEndlessVerificationWithEnrollment(enrollmentJson, setMessage, { hopSeconds: 0.5, stopOnMatch: false });
+          svStopRef.current = await startEndlessVerificationWithEnrollmentFix(
+            enrollmentJson,
+            setMessage,
+            {
+              hopSeconds: 0.25, stopOnMatch: false, waitFirstResult: true, firstResultTimeoutMs: 3000,
+              onStopReady: (stopFn: () => Promise<void>) => { svStopRef.current = stopFn; },
+              onScore: (score: number, isMatch: boolean) => {
+                setLastSVScore({ score, isMatch });
+                lastSVScoreTimeRef.current = Date.now();
+                setSvStatusCanContinue(true);
+              }
+            }
+          );
           await new Promise<void>((resolve) => {
             svContinueResolverRef.current = resolve;
           });
           console.log('initializeKeywordDetection()');
-            // Cleanup timer when verification ends
-            if (svElapsedIntervalRef.current) {
-              clearInterval(svElapsedIntervalRef.current);
-              svElapsedIntervalRef.current = null;
-            }
-            setSvRunning(false);
+          // Cleanup timer when verification ends
+          if (svElapsedIntervalRef.current) {
+            clearInterval(svElapsedIntervalRef.current);
+            svElapsedIntervalRef.current = null;
           }
-          setShowSVStatusScreen(false);
-          setSvStatusCanContinue(false);
-          svContinueResolverRef.current = null;
-        } catch (error) {
-          console.error('Error loading model:', error);
-          setShowSVPrompt(false);
-          setSvPromptHasSavedEnrollment(false);
-          setShowSVStatusScreen(false);
-          setSvStatusCanContinue(false);
-          svContinueResolverRef.current = null;
-          setMessage(`Speaker verification debug mode failed: ${String((error as any)?.message ?? error)}`);
-          return;
+          setSvRunning(false);
         }
+        setShowSVStatusScreen(false);
+        setSvStatusCanContinue(false);
+        svContinueResolverRef.current = null;
+      } catch (error) {
+        console.error('Error loading model:', error);
+        setShowSVPrompt(false);
+        setSvPromptHasSavedEnrollment(false);
+        setShowSVStatusScreen(false);
+        setSvStatusCanContinue(false);
+        svContinueResolverRef.current = null;
+        setMessage(`Speaker verification debug mode failed: ${String((error as any)?.message ?? error)}`);
+        return;
+      }
 
       try {
         // 🔹 *** NEW ***: configure routing once (iOS only) BEFORE creating instances
@@ -2003,15 +2041,15 @@ function App(): React.JSX.Element {
         // await inst.startKeywordDetection(instanceConfigs[0].threshold, false);
         */
 
-       if (svChoice !== 'skip' && typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0) {
-        console.log ("startKeywordDetection with SV:", enrollmentJsonPathRef.current);
-        await inst.startKeywordDetection(instanceConfigs[0].threshold, 
-          enrollmentJsonPathRef.current || '' , true);
-       }
-       else {
-        console.log ("startKeywordDetection without SV:");
-        await inst.startKeywordDetection(instanceConfigs[0].threshold, true);
-       }
+        if (svChoice !== 'skip' && typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0) {
+          console.log("startKeywordDetection with SV:", enrollmentJsonPathRef.current);
+          await inst.startKeywordDetection(instanceConfigs[0].threshold,
+            enrollmentJsonPathRef.current || '', true);
+        }
+        else {
+          console.log("startKeywordDetection without SV:");
+          await inst.startKeywordDetection(instanceConfigs[0].threshold, true);
+        }
         setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
         //await disableDucking();
 
@@ -2046,7 +2084,9 @@ function App(): React.JSX.Element {
   }, [isPermissionGranted, didInitSID]);
 
   const enterTTSTestMode = async () => {
-    resetTranscript();
+    beginSpeechUiEpoch();
+    resetSpeechTranscriptState();
+    clearSpeechSentenceUI();
     setMessage('TTS Test Mode');
     setIsTTSTestMode(true);
   };
@@ -2054,11 +2094,12 @@ function App(): React.JSX.Element {
   const speakManualTTS = async () => {
     const text = ttsInputText.trim();
     if (!text || isManualTTSSpeaking) return;
+    const speechUiEpoch = beginSpeechUiEpoch();
     setIsManualTTSSpeaking(true);
-    setCurrentSpeechSentence(`Speaking now: ${text}`);
+    setCurrentSpeechSentenceGuarded(speechUiEpoch, `Speaking now: ${text}`);
     try {
       await Speech.speak(text, SPEAKER, getSelectedSpeakerSpeed());
-      setCurrentSpeechSentence('');
+      clearSpeechSentenceUI(speechUiEpoch);
     } finally {
       setIsManualTTSSpeaking(false);
     }
@@ -2087,7 +2128,7 @@ function App(): React.JSX.Element {
     for (const path of latestWakewordRecordingPaths) {
       try {
         if (await RNFS.exists(path)) existingPaths.push(path);
-      } catch {}
+      } catch { }
     }
 
     if (existingPaths.length === 0) {
@@ -2119,8 +2160,7 @@ function App(): React.JSX.Element {
 
   if (showSVPrompt) {
     return (
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#667eea', '#764ba2']}
+      <View
         style={styles.linearGradient}>
         <StatusBar
           barStyle="light-content"
@@ -2174,14 +2214,13 @@ function App(): React.JSX.Element {
             </View>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   if (showSVStatusScreen) {
     return (
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#667eea', '#764ba2']}
+      <View
         style={styles.linearGradient}>
         <StatusBar
           barStyle="light-content"
@@ -2244,14 +2283,13 @@ function App(): React.JSX.Element {
             </TouchableOpacity>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   if (showTTSModelPrompt) {
     return (
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#667eea', '#764ba2']}
+      <View
         style={styles.linearGradient}>
         <StatusBar
           barStyle="light-content"
@@ -2323,7 +2361,7 @@ function App(): React.JSX.Element {
             </View>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -2335,8 +2373,7 @@ function App(): React.JSX.Element {
           setIsMenuOpen(false);
         }}
         accessible={false}>
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#667eea', '#764ba2']}
+        <View
           style={styles.linearGradient}>
           <StatusBar
             barStyle="light-content"
@@ -2378,7 +2415,7 @@ function App(): React.JSX.Element {
                         styles.keyboardAccessoryButton,
                         styles.keyboardSpeakButton,
                         (isManualTTSSpeaking || !ttsInputText.trim()) &&
-                          styles.keyboardAccessoryButtonDisabled,
+                        styles.keyboardAccessoryButtonDisabled,
                       ]}
                       activeOpacity={0.7}
                       disabled={isManualTTSSpeaking || !ttsInputText.trim()}
@@ -2416,10 +2453,12 @@ function App(): React.JSX.Element {
                   style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
                   activeOpacity={0.7}
                   onPress={() => {
+                    beginSpeechUiEpoch();
                     Keyboard.dismiss();
                     setIsTTSTestMode(false);
                     setTtsInputText('');
-                    resetTranscript();
+                    resetSpeechTranscriptState();
+                    clearSpeechSentenceUI();
                   }}>
                   <Text style={styles.svButtonText}>Back</Text>
                 </TouchableOpacity>
@@ -2448,7 +2487,7 @@ function App(): React.JSX.Element {
                     styles.keyboardAccessoryButton,
                     styles.keyboardSpeakButton,
                     (isManualTTSSpeaking || !ttsInputText.trim()) &&
-                      styles.keyboardAccessoryButtonDisabled,
+                    styles.keyboardAccessoryButtonDisabled,
                   ]}
                   activeOpacity={0.7}
                   disabled={isManualTTSSpeaking || !ttsInputText.trim()}
@@ -2469,7 +2508,7 @@ function App(): React.JSX.Element {
               </View>
             </View>
           )}
-        </LinearGradient>
+        </View>
       </TouchableWithoutFeedback>
     );
   }
@@ -2485,8 +2524,7 @@ function App(): React.JSX.Element {
         setIsMenuOpen(false);
       }}
       accessible={false}>
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#667eea', '#764ba2']}
+      <View
         style={styles.linearGradient}>
         <StatusBar
           barStyle="light-content"
@@ -2494,74 +2532,74 @@ function App(): React.JSX.Element {
           translucent
         />
         <View style={styles.container}>
-        <View style={styles.topMenuContainer}>
-          <TouchableOpacity
-            style={styles.menuButton}
-            activeOpacity={0.7}
-            onPress={() => setIsMenuOpen((prev) => !prev)}>
-            <Text style={styles.menuButtonText}>☰</Text>
-          </TouchableOpacity>
-          {isMenuOpen && (
-            <View style={styles.menuDropdown}>
-              <TouchableOpacity
-                style={styles.menuItemButton}
-                activeOpacity={0.7}
-                onPress={shareLatestRecordings}>
-                <Text style={styles.menuItemText}>Share recordings</Text>
-              </TouchableOpacity>
+          <View style={styles.topMenuContainer}>
+            <TouchableOpacity
+              style={styles.menuButton}
+              activeOpacity={0.7}
+              onPress={() => setIsMenuOpen((prev) => !prev)}>
+              <Text style={styles.menuButtonText}>☰</Text>
+            </TouchableOpacity>
+            {isMenuOpen && (
+              <View style={styles.menuDropdown}>
+                <TouchableOpacity
+                  style={styles.menuItemButton}
+                  activeOpacity={0.7}
+                  onPress={shareLatestRecordings}>
+                  <Text style={styles.menuItemText}>Share recordings</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          {/* Main message card */}
+          {!shouldShowSpeechSessionCard && (
+            <View
+              style={[
+                styles.messageCard,
+                isFlashing && styles.messageCardFlashing,
+              ]}>
+              <Text style={styles.appLabel}>VOICE DEMO</Text>
+              <Text style={styles.title}>{message}</Text>
             </View>
           )}
-        </View>
-        {/* Main message card */}
-        {!shouldShowSpeechSessionCard && (
-          <View
-            style={[
-              styles.messageCard,
-              isFlashing && styles.messageCardFlashing,
-            ]}>
-            <Text style={styles.appLabel}>VOICE DEMO</Text>
-            <Text style={styles.title}>{message}</Text>
-          </View>
-        )}
 
-        {shouldShowSpeechSessionCard && (
-          <View style={styles.ttsPromptWrapper}>
-            <View style={styles.svPromptCard}>
-              <Text style={styles.svPromptTitle}>
-                {isIntroSpeaking ? `${displayedSpeakerName} is speaking...` : 'Manual TTS Test'}
-              </Text>
-              <View style={styles.speechSummaryBlock}>
-                <Text style={styles.speechSentenceLabel}>Speaker</Text>
-                <Text style={styles.speechSentenceText}>{displayedSpeakerName}</Text>
-              </View>
-              <View style={styles.speechSummaryBlock}>
-                <Text style={styles.speechSentenceLabel}>Current Sentence</Text>
-                <Text style={styles.speechSentenceText}>
-                  {isIntroSpeaking ? introScript : currentSpeechSentence || 'Listening...'}
+          {shouldShowSpeechSessionCard && (
+            <View style={styles.ttsPromptWrapper}>
+              <View style={styles.svPromptCard}>
+                <Text style={styles.svPromptTitle}>
+                  {isIntroSpeaking ? `${displayedSpeakerName} is speaking...` : 'Manual TTS Test'}
                 </Text>
-              </View>
-              <View style={styles.speechSummaryBlock}>
-                <Text style={styles.speechSentenceLabel}>Speaker Identification</Text>
-                <Text style={styles.speechSentenceText}>
-                  {isSpeakerIdentificationActive ? 'ON' : 'OFF'}
-                </Text>
-              </View>
-              {!isIntroSpeaking && (
-                <View style={styles.svButtonRow}>
-                  <TouchableOpacity
-                    style={[styles.svButton, styles.ttsContinueButton]}
-                    activeOpacity={0.7}
-                    onPress={enterTTSTestMode}>
-                    <Text style={styles.svButtonText}>Continue</Text>
-                  </TouchableOpacity>
+                <View style={styles.speechSummaryBlock}>
+                  <Text style={styles.speechSentenceLabel}>Speaker</Text>
+                  <Text style={styles.speechSentenceText}>{displayedSpeakerName}</Text>
                 </View>
-              )}
+                <View style={styles.speechSummaryBlock}>
+                  <Text style={styles.speechSentenceLabel}>Current Sentence</Text>
+                  <Text style={styles.speechSentenceText}>
+                    {isIntroSpeaking ? introScript : currentSpeechSentence || 'Listening...'}
+                  </Text>
+                </View>
+                <View style={styles.speechSummaryBlock}>
+                  <Text style={styles.speechSentenceLabel}>Speaker Identification</Text>
+                  <Text style={styles.speechSentenceText}>
+                    {isSpeakerIdentificationActive ? 'ON' : 'OFF'}
+                  </Text>
+                </View>
+                {!isIntroSpeaking && (
+                  <View style={styles.svButtonRow}>
+                    <TouchableOpacity
+                      style={[styles.svButton, styles.ttsContinueButton]}
+                      activeOpacity={0.7}
+                      onPress={enterTTSTestMode}>
+                      <Text style={styles.svButtonText}>Continue</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
         </View>
-      </LinearGradient>
+      </View>
     </TouchableWithoutFeedback>
   );
 }
@@ -2569,6 +2607,7 @@ function App(): React.JSX.Element {
 const styles = StyleSheet.create({
   linearGradient: {
     flex: 1,
+    backgroundColor: '#667eea',
   },
   container: {
     flex: 1,
