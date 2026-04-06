@@ -37,6 +37,7 @@ node_modules/
 npm-debug.log
 yarn-error.log
 .env
+example/local.config.ts
 
 # BUCK
 buck-out/

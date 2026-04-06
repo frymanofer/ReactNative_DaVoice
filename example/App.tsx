@@ -6,6 +6,7 @@
  */
 
 import RNFS from 'react-native-fs';
+import { GEMINI_API_KEY } from './local.config';
 
 import React, { useEffect, useState, useRef } from 'react';
 
@@ -20,12 +21,13 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  useColorScheme,
+  useWindowDimensions,
   View,
   AppState,
   InputAccessoryView,
   Keyboard,
   InteractionManager,
+  Image,
 } from 'react-native';
 
 const ARIANA = 0;
@@ -33,7 +35,7 @@ const RICH = 1;
 
 const SPEAKER = 0;
 
-const RICH_SPEAKER_SPEED = 0.9;
+const RICH_SPEAKER_SPEED = 1.1;
 const ARIANA_SPEAKER_SPEED = 0.9; //0.75;
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
 //const SPEAKER_SPEED = 0.75;
@@ -44,12 +46,232 @@ const SV_ONBOARDING_SAMPLE_COUNT = 5;
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 type TTSVoiceChoice = 'Ariana' | 'Rich';
 type TTSQualityChoice = 'lite' | 'heavy';
+type AppModeChoice = 'tts_test' | 'full_ai_chat';
 type SVPromptChoice = 'use_existing' | 'redo_onboarding' | 'skip';
+
+type GeminiChatMessage = {
+  role: 'user' | 'model';
+  parts: Array<{ text: string }>;
+};
+
+type AIChatHistoryMessage = {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+};
+
+type SVEnrollmentUIHooks = {
+  onStart?: (targetSamples: number) => void;
+  onProgress?: (collected: number, target: number) => void;
+  onComplete?: (targetSamples: number) => void;
+  onFinalizing?: () => void;
+};
+
+type GeminiRequestLogMeta = {
+  requestId: number;
+  userText: string;
+};
+
+type GeminiTextPartDebug = {
+  index: number;
+  text: string;
+  length: number;
+};
+
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_SYSTEM_PROMPT =
+  'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. For time-sensitive facts like current leaders, dates, news, prices, or recent events, answer cautiously and say when you may be unsure rather than asserting a stale fact.';
+const GEMINI_MAX_OUTPUT_TOKENS = 512;
+const GEMINI_THINKING_BUDGET = 256;
+const AI_CHAT_MIN_REQUEST_GAP_MS = 4000;
+const AI_CHAT_RATE_LIMIT_BACKOFF_MS = 30000;
+
+function extractGeminiText(payload: any): string {
+  const parts = payload?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return '';
+  return parts
+    .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+    .join(' ')
+    .trim();
+}
+
+function normalizeTextForSpeech(text: string): string {
+  return text
+    .replace(/\s*\n+\s*/g, (match, offset, source) => {
+      const before = source.slice(0, offset).trimEnd();
+      const after = source.slice(offset + match.length).trimStart();
+      const beforeChar = before.slice(-1);
+      const afterChar = after.slice(0, 1);
+      const hasBoundaryPunctuation = /[.!?,:;]$/.test(before) || /^[.!?,:;]/.test(after);
+      return hasBoundaryPunctuation ? ' ' : '. ';
+    })
+    .replace(/\s+([.!?,:;])/g, '$1')
+    .replace(/([.!?,:;]){2,}/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+async function generateGeminiReply(
+  history: GeminiChatMessage[],
+  meta: GeminiRequestLogMeta,
+): Promise<string> {
+  const transcriptPreview =
+    meta.userText.length > 120 ? `${meta.userText.slice(0, 120)}...` : meta.userText;
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} start`,
+    {
+      model: GEMINI_MODEL,
+      historyMessages: history.length,
+      transcriptPreview,
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      thinkingBudget: GEMINI_THINKING_BUDGET,
+    },
+  );
+
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} full history`,
+    JSON.stringify(history, null, 2),
+  );
+
+  const requestBody = {
+    system_instruction: {
+      parts: [{ text: GEMINI_SYSTEM_PROMPT }],
+    },
+    contents: history,
+    tools: [
+      {
+        google_search: {},
+      },
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      thinkingConfig: {
+        thinkingBudget: GEMINI_THINKING_BUDGET,
+      },
+    },
+  };
+
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} request body`,
+    JSON.stringify(requestBody, null, 2),
+  );
+
+  const response = await fetch(GEMINI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const payload = await response.json();
+  const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+  const firstCandidate = candidates[0];
+  const firstParts = Array.isArray(firstCandidate?.content?.parts)
+    ? firstCandidate.content.parts
+    : [];
+  const groundingMetadata = firstCandidate?.groundingMetadata ?? null;
+  const firstPartTexts: GeminiTextPartDebug[] = firstParts.map((part: any, index: number) => {
+    const text = typeof part?.text === 'string' ? part.text : '';
+    return {
+      index,
+      text,
+      length: text.length,
+    };
+  });
+
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} raw payload`,
+    JSON.stringify(payload, null, 2),
+  );
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} payload summary`,
+    {
+      status: response.status,
+      candidateCount: candidates.length,
+      firstCandidateFinishReason: firstCandidate?.finishReason ?? null,
+      firstCandidateTokenCount:
+        firstCandidate?.tokenCount ??
+        payload?.usageMetadata?.candidatesTokenCount ??
+        null,
+      firstCandidatePartCount: firstParts.length,
+      groundingMetadata,
+      usageMetadata: payload?.usageMetadata ?? null,
+      promptFeedback: payload?.promptFeedback ?? null,
+    },
+  );
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} first candidate parts`,
+    JSON.stringify(firstPartTexts, null, 2),
+  );
+
+  if (!response.ok) {
+    console.log(
+      `[AIChat] Gemini request #${meta.requestId} error`,
+      {
+        status: response.status,
+        transcriptPreview,
+      },
+    );
+    const message =
+      payload?.error?.message ||
+      `Gemini request failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  const text = extractGeminiText(payload);
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} extracted text`,
+    {
+      extractedText: text,
+      extractedLength: text.length,
+    },
+  );
+  if (!text) {
+    console.log(
+      `[AIChat] Gemini request #${meta.requestId} empty response`,
+      {
+        status: response.status,
+        transcriptPreview,
+      },
+    );
+    throw new Error('Gemini returned an empty response.');
+  }
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} success`,
+    {
+      status: response.status,
+      responseLength: text.length,
+    },
+  );
+  return text;
+}
 
 const waitForNextInteraction = () =>
   new Promise<void>((resolve) => {
     InteractionManager.runAfterInteractions(() => resolve());
   });
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
 
 export async function ensureMicPermission(): Promise<boolean> {
   if (Platform.OS === 'android') {
@@ -120,20 +342,6 @@ let tts = new DaVoiceTTSInstance();
 //import STT from 'react-native-davoice/stt';
 import Speech from 'react-native-davoice/speech';
 // import Speech from '@react-native-voice/voice';
-
-import type { PropsWithChildren } from 'react';
-
-// put near the top of App.tsx
-const Colors = {
-  white: '#FFFFFF',
-  black: '#000000',
-  light: '#D1D5DB',   // light gray
-  dark: '#374151',    // dark gray
-  lighter: '#F3F4F6', // very light background
-  darker: '#111827',  // very dark background
-} as const;
-
-import LinearGradient from 'react-native-linear-gradient';
 
 // import KeyWordRNBridge from 'react-native-wakeword';
 import { KeyWordRNBridgeInstance } from 'react-native-wakeword';
@@ -629,7 +837,8 @@ async function runVerificationWithEnrollment(
 
 async function runSpeakerVerifyEnrollment(
   setUiMessage?: (s: string) => void,
-  sampleCount: number = SV_ONBOARDING_SAMPLE_COUNT
+  sampleCount: number = SV_ONBOARDING_SAMPLE_COUNT,
+  uiHooks?: SVEnrollmentUIHooks,
 ): Promise<string> {
   const targetSamples = Math.max(1, Math.floor(sampleCount));
   const micConfig = {
@@ -647,6 +856,7 @@ async function runSpeakerVerifyEnrollment(
 
   const ctrl = await createSpeakerVerificationMicController('svMic1');
   setUiMessage?.('Speaker verification: preparing mic controller...');
+  uiHooks?.onStart?.(targetSamples);
 
   console.log('[SVJS] create mic controller...');
   await ctrl.create(JSON.stringify(micConfig));
@@ -703,6 +913,7 @@ async function runSpeakerVerifyEnrollment(
     console.log('[SVJS] PROGRESS event:', e);
     collected = Number(e?.collected ?? collected);
     target = Number(e?.target ?? target);
+    uiHooks?.onProgress?.(collected, target);
   });
 
   const donePromise = new Promise<void>((resolve, reject) => {
@@ -740,6 +951,7 @@ async function runSpeakerVerifyEnrollment(
       const e = step.ev;
       enrollmentJson = e?.enrollmentJson ?? e?.enrollment ?? e?.json ?? enrollmentJson;
       setUiMessage?.('Speaker verification: onboarding completed.');
+      uiHooks?.onComplete?.(targetSamples);
       break;
     }
 
@@ -747,6 +959,7 @@ async function runSpeakerVerifyEnrollment(
   }
 
   setUiMessage?.('Speaker verification: finalizing speaker profile...');
+  uiHooks?.onFinalizing?.();
   await donePromise;
 
   if (!enrollmentJson || typeof enrollmentJson !== 'string' || enrollmentJson.length < 10) {
@@ -997,37 +1210,6 @@ const AudioPermissionComponent = async () => {
   return ensureMicPermission();
 };
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({ children, title }: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
 type DetectionCallback = (event: any) => void;
 
 // --- instance creation (kept exactly as in your code) ---
@@ -1062,7 +1244,6 @@ async function addInstanceMulti(conf: instanceConfig): Promise<KeyWordRNBridgeIn
 }
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
   const [isFlashing, setIsFlashing] = useState(false);
   const wakeWords = instanceConfigs.map((config) => formatWakeWord(config.modelName)).join(', ');
 
@@ -1074,17 +1255,24 @@ function App(): React.JSX.Element {
   const [svPromptHasSavedEnrollment, setSvPromptHasSavedEnrollment] = useState(false);
   const [showSVStatusScreen, setShowSVStatusScreen] = useState(false);
   const [svStatusCanContinue, setSvStatusCanContinue] = useState(false);
+  const [svStatusPhase, setSvStatusPhase] = useState<'idle' | 'onboarding' | 'verifying'>('idle');
+  const [svOnboardingCollected, setSvOnboardingCollected] = useState(0);
+  const [svOnboardingTarget, setSvOnboardingTarget] = useState(SV_ONBOARDING_SAMPLE_COUNT);
   const [showTTSModelPrompt, setShowTTSModelPrompt] = useState(false);
+  const [showAppModePrompt, setShowAppModePrompt] = useState(false);
   const [svRunning, setSvRunning] = useState(false);
   const svChoiceResolverRef = useRef<null | ((choice: SVPromptChoice) => void)>(null);
   const svContinueResolverRef = useRef<null | (() => void)>(null);
   const ttsModelChoiceResolverRef = useRef<
     null | ((choice: { quality: TTSQualityChoice; voice: TTSVoiceChoice }) => void)
   >(null);
+  const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
   const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('lite');
   const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Ariana');
+  const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('tts_test');
   const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Ariana');
   const selectedTTSModelRef = useRef(ttsModelFast);
+  const selectedAppModeRef = useRef<AppModeChoice>('tts_test');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
   const [lastSVScore, setLastSVScore] = useState<{ score: number; isMatch: boolean } | null>(null);
@@ -1092,15 +1280,16 @@ function App(): React.JSX.Element {
   const [svElapsed, setSvElapsed] = useState<string>('N/A');
   const svElapsedIntervalRef = useRef<any>(null);
   const initStartedRef = useRef(false);
+  const speechLibraryInitializedRef = useRef(false);
 
   const sidRef = useRef<any>(null);
   const [didInitSID, setDidInitSID] = useState(false);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const svOnboardingProgress = Math.max(
+    0,
+    Math.min(1, svOnboardingTarget > 0 ? svOnboardingCollected / svOnboardingTarget : 0),
+  );
 
   // --- listener helpers (single-owner) ---
   const detachListener = async () => {
@@ -1237,8 +1426,19 @@ function App(): React.JSX.Element {
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
+  const [isFullAIChatMode, setIsFullAIChatMode] = useState(false);
   const [ttsInputText, setTtsInputText] = useState('');
   const [isManualTTSSpeaking, setIsManualTTSSpeaking] = useState(false);
+  const [aiChatLiveTranscript, setAiChatLiveTranscript] = useState('');
+  const [aiChatTranscript, setAiChatTranscript] = useState('');
+  const [aiChatResponse, setAiChatResponse] = useState('');
+  const [aiChatStatus, setAiChatStatus] = useState('Waiting for your voice...');
+  const [aiChatMessages, setAiChatMessages] = useState<AIChatHistoryMessage[]>([]);
+  const [isAIChatHistoryVisible, setIsAIChatHistoryVisible] = useState(false);
+  const [isAIChatLoading, setIsAIChatLoading] = useState(false);
+  const [isAIChatHelpVisible, setIsAIChatHelpVisible] = useState(false);
+  const [isTTSTestHelpVisible, setIsTTSTestHelpVisible] = useState(false);
+  const [isAppModeHelpVisible, setIsAppModeHelpVisible] = useState(false);
   const [isAndroidKeyboardVisible, setIsAndroidKeyboardVisible] = useState(false);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -1250,6 +1450,14 @@ function App(): React.JSX.Element {
   const lastTranscriptRef = useRef('');
   const lastProcessedRef = useRef('');
   const speechUiEpochRef = useRef(0);
+  const aiChatInFlightRef = useRef(false);
+  const aiChatAwaitingSpeechFinishRef = useRef(false);
+  const aiChatRequestIdRef = useRef(0);
+  const geminiConversationRef = useRef<GeminiChatMessage[]>([]);
+  const lastAIChatSubmitAtRef = useRef(0);
+  const aiChatBlockedUntilRef = useRef(0);
+  const lastAIChatSubmittedTextRef = useRef('');
+  const geminiNetworkRequestCountRef = useRef(0);
 
   const SILENCE_TIMEOUT = 2000;
   function beginSpeechUiEpoch(): number {
@@ -1286,10 +1494,190 @@ function App(): React.JSX.Element {
     setCurrentSpeechSentence('');
   }
 
+  const resetAIChatSession = () => {
+    //resetSpeechTranscriptState();
+    geminiConversationRef.current = [];
+    aiChatInFlightRef.current = false;
+    aiChatAwaitingSpeechFinishRef.current = false;
+    aiChatRequestIdRef.current = 0;
+    geminiNetworkRequestCountRef.current = 0;
+    lastAIChatSubmitAtRef.current = 0;
+    aiChatBlockedUntilRef.current = 0;
+    lastAIChatSubmittedTextRef.current = '';
+    setAiChatLiveTranscript('');
+    setAiChatTranscript('');
+    setAiChatResponse('');
+    setAiChatStatus('Waiting for your voice...');
+    setAiChatMessages([]);
+    setIsAIChatHistoryVisible(false);
+    setIsAIChatLoading(false);
+  };
+
+  async function initializeSpeechLibrary(enrollmentJsonPath?: string | null) {
+    console.log('Calling Speech.initAll');
+    if (typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
+      console.log('Calling Speech.initAll with enrollmentJson:', enrollmentJsonPath);
+      await Speech.initAll({
+        locale: 'en-US',
+        model: selectedTTSModelRef.current,
+        onboardingJsonPath: enrollmentJsonPath,
+      });
+    } else {
+      console.log('Calling Speech.initAll WITHOUT');
+      await Speech.initAll({ locale: 'en-US', model: selectedTTSModelRef.current });
+    }
+
+    Speech.onFinishedSpeaking = async () => {
+      console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
+      if (aiChatAwaitingSpeechFinishRef.current) {
+        aiChatAwaitingSpeechFinishRef.current = false;
+        lastProcessedRef.current = '';
+        aiChatInFlightRef.current = false;
+        setIsAIChatLoading(false);
+        resetSpeechTranscriptState();
+        setAiChatStatus('Listening for your next question...');
+        await Speech.unPauseSpeechRecognition(-1);
+      }
+    };
+  }
+
+  async function promptForTTSModelChoice() {
+    setShowTTSModelPrompt(true);
+    const selectedModelChoice = await new Promise<{ quality: TTSQualityChoice; voice: TTSVoiceChoice }>((resolve) => {
+      ttsModelChoiceResolverRef.current = resolve;
+    });
+    setShowTTSModelPrompt(false);
+
+    setTtsQualityChoice(selectedModelChoice.quality);
+    setTtsVoiceChoice(selectedModelChoice.voice);
+    selectedTTSVoiceRef.current = selectedModelChoice.voice;
+    if (selectedModelChoice.voice === 'Rich') {
+      selectedTTSModelRef.current =
+        selectedModelChoice.quality === 'lite' ? ttsModelRichFast : ttsModelRichSlow;
+    } else {
+      selectedTTSModelRef.current =
+        selectedModelChoice.quality === 'lite' ? ttsModelFast : ttsModelSlow;
+    }
+
+    await waitForNextInteraction();
+    return selectedModelChoice;
+  }
+
+  const processAIChatTurn = async (rawText: string) => {
+    const userText = rawText.trim();
+    if (!userText || aiChatInFlightRef.current) return;
+
+    const now = Date.now();
+    if (now < aiChatBlockedUntilRef.current) {
+      const waitSeconds = Math.ceil((aiChatBlockedUntilRef.current - now) / 1000);
+      setAiChatStatus(`Gemini cooling down after rate limit. Try again in ${waitSeconds}s.`);
+      return;
+    }
+
+    if (now - lastAIChatSubmitAtRef.current < AI_CHAT_MIN_REQUEST_GAP_MS) {
+      const waitSeconds = Math.ceil(
+        (AI_CHAT_MIN_REQUEST_GAP_MS - (now - lastAIChatSubmitAtRef.current)) / 1000,
+      );
+      setAiChatStatus(`Waiting ${waitSeconds}s before the next Gemini request.`);
+      return;
+    }
+
+    if (
+      userText === lastAIChatSubmittedTextRef.current &&
+      now - lastAIChatSubmitAtRef.current < 15000
+    ) {
+      setAiChatStatus('Same transcript received again. Waiting for a new phrase.');
+      return;
+    }
+
+    console.log('[AIChat] user transcript:', userText);
+    aiChatInFlightRef.current = true;
+    lastAIChatSubmitAtRef.current = now;
+    lastAIChatSubmittedTextRef.current = userText;
+    lastProcessedRef.current = userText;
+    const requestId = aiChatRequestIdRef.current + 1;
+    aiChatRequestIdRef.current = requestId;
+    setAiChatTranscript(userText);
+    setAiChatLiveTranscript(userText);
+    setAiChatStatus('Sending transcript to Gemini...');
+    setAiChatMessages((prev) => [
+      ...prev,
+      {
+        id: `user-${requestId}`,
+        role: 'user',
+        text: userText,
+      },
+    ]);
+    setIsAIChatLoading(true);
+
+    try {
+      await Speech.pauseSpeechRecognition();
+
+      const nextHistory = [
+        ...geminiConversationRef.current,
+        { role: 'user' as const, parts: [{ text: userText }] },
+      ];
+      const networkRequestId = geminiNetworkRequestCountRef.current + 1;
+      geminiNetworkRequestCountRef.current = networkRequestId;
+      console.log(
+        `[AIChat] preparing Gemini request #${networkRequestId} for turn #${requestId}`,
+        { userText }
+      );
+      const aiReply = await generateGeminiReply(nextHistory, {
+        requestId: networkRequestId,
+        userText,
+      });
+      console.log(`[AIChat] Gemini reply #${networkRequestId}:`, aiReply);
+      console.log('[AIChat][FULL_REPLY_BEGIN]');
+      console.log(aiReply);
+      console.log('[AIChat][FULL_REPLY_END]');
+
+      if (aiChatRequestIdRef.current !== requestId) return;
+
+      geminiConversationRef.current = [
+        ...nextHistory,
+        { role: 'model' as const, parts: [{ text: aiReply }] },
+      ];
+
+      setAiChatResponse(aiReply);
+      setAiChatMessages((prev) => [
+        ...prev,
+        {
+          id: `model-${requestId}`,
+          role: 'model',
+          text: aiReply,
+        },
+      ]);
+      setCurrentSpeechSentence(`Gemini: ${aiReply}`);
+      setAiChatStatus('Speaking Gemini reply...');
+      aiChatAwaitingSpeechFinishRef.current = true;
+      await Speech.speak(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
+    } catch (error) {
+      const message = String((error as any)?.message ?? error);
+      console.log('[AIChat] Gemini error:', message);
+      aiChatAwaitingSpeechFinishRef.current = false;
+      if (/quota|rate limit|429|too many requests/i.test(message)) {
+        aiChatBlockedUntilRef.current = Date.now() + AI_CHAT_RATE_LIMIT_BACKOFF_MS;
+        setAiChatStatus('Gemini rate limit hit. Cooling down for 30 seconds.');
+      } else {
+        setAiChatStatus(`Gemini error: ${message}`);
+      }
+    } finally {
+      if (aiChatRequestIdRef.current === requestId) {
+        if (!aiChatAwaitingSpeechFinishRef.current) {
+          lastProcessedRef.current = '';
+          aiChatInFlightRef.current = false;
+          setIsAIChatLoading(false);
+          await Speech.unPauseSpeechRecognition(-1);
+        }
+      }
+    }
+  };
+
   // Speech handlers (kept)
   Speech.onSpeechError = async (e) => {
     console.log('onSpeechError error ignored: ', e);
-    if (e?.error?.code == 11 || e?.error?.message === 'Unknown error') {
+    if (String(e?.error?.code) === '11' || e?.error?.message === 'Unknown error') {
       console.log('onSpeechError error 11', e);
     } else if (e?.error?.code === '7' || e?.error?.message === 'No match') {
       console.log('onSpeechError error 7', e);
@@ -1395,7 +1783,7 @@ function App(): React.JSX.Element {
     selectedTTSVoiceRef.current === 'Rich' ? RICH_SPEAKER_SPEED : ARIANA_SPEAKER_SPEED;
 
   Speech.onSpeechStart = async () => {
-    console.log('Speech started');
+    console.log('onSpeechStart: Speech started');
     setIsSpeechSessionActive(true);
   };
 
@@ -1407,13 +1795,16 @@ function App(): React.JSX.Element {
   };
 
   Speech.onSpeechPartialResults = (e) => {
-    if (isTTSTestMode) return;
+        console.log('onSpeechPartialResults: 1');
+
+    if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) return;
     const curr = e.value?.[0];
     if (Platform.OS === 'ios') {
       if (curr && curr !== lastTranscriptRef.current) {
         lastTranscriptRef.current = curr;
         lastPartialTimeRef.current = Date.now();
         setCurrentSpeechSentence(curr);
+        setAiChatLiveTranscript(curr);
         console.log('Partial:', curr);
       }
       return;
@@ -1424,76 +1815,104 @@ function App(): React.JSX.Element {
       console.log('Partial is undefined!!!!!!');
       return;
     }
-    // Android path
     const merged = mergeSmartKeepPunct(lastTranscriptRef.current, curr, 2);
-    if (merged === lastTranscriptRef.current) return; // no new info
+    if (merged === lastTranscriptRef.current) return;
 
     lastTranscriptRef.current = merged;
     setCurrentSpeechSentence(merged);
+    setAiChatLiveTranscript(merged);
     console.log('Partial:', merged);
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(async () => {
+      const newText = lastTranscriptRef.current.trim();
+      if (!newText || aiChatInFlightRef.current) return;
+      if (isFullAIChatMode) {
+        if (newText === lastProcessedRef.current) return;
+        console.log('[AIChat] silence timeout reached, sending:', newText);
+        await processAIChatTurn(newText);
+        return;
+      }
+
       const speechUiEpoch = beginSpeechUiEpoch();
       console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
-      const newText = lastTranscriptRef.current.trim();
-      if (newText.length > 0) {
-        console.log('🗣️ Speaking:', newText);
-        setCurrentSpeechSentenceGuarded(speechUiEpoch, "Speaking now:" + newText);
-        await Speech.pauseSpeechRecognition();
-        const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
-        //await Speech.speak("Hi, Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!");
-        await Speech.speak(newText, SPEAKER, adjustedSpeed);
-        resetSpeechTranscriptState();
-        await Speech.unPauseSpeechRecognition(1);
-        await sleep(300);
-        clearSpeechSentenceUI(speechUiEpoch);
-      }
-      //await Speech.start('en-US');
+      console.log('🗣️ Speaking:', newText);
+      setCurrentSpeechSentenceGuarded(speechUiEpoch, "Speaking now:" + newText);
+      await Speech.pauseSpeechRecognition();
+      const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
+      await Speech.speak(newText, SPEAKER, adjustedSpeed);
+      resetSpeechTranscriptState();
+      await Speech.unPauseSpeechRecognition(-1);
+      await sleep(300);
+      clearSpeechSentenceUI(speechUiEpoch);
     }, silenceThresholdMsRef.current);
   };
 
-  Speech.onSpeechResults = async (e) => {
-    if (isTTSTestMode) return;
-    if (Platform.OS === 'android') {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-      console.log('Results: ', e.value?.[0]);
-      const current = e.value?.[0];
-      if (current) setCurrentSpeechSentence(current);
-      await Speech.speak(current, SPEAKER, getSelectedSpeakerSpeed());
+Speech.onSpeechResults = async (e) => {
+  console.log('onSpeechResults: 1 ');
+
+  if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) {
+    console.log('onSpeechResults: leaving?????? ');
+    return;
+  }
+
+  const current = e.value?.[0]?.trim();
+
+  if (Platform.OS === 'android') {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+    console.log('Results: ', e.value?.[0]);
+    if (current) {
+      lastTranscriptRef.current = mergeSmartKeepPunct(lastTranscriptRef.current, current, 2);
+      setCurrentSpeechSentence(lastTranscriptRef.current);
+      setAiChatLiveTranscript(lastTranscriptRef.current);
+      setAiChatTranscript(lastTranscriptRef.current);
+    }
+    timeoutRef.current = setTimeout(async () => {
+      const newText = lastTranscriptRef.current.trim();
+      if (!newText || aiChatInFlightRef.current) return;
+      if (isFullAIChatMode) {
+        if (newText === lastProcessedRef.current) return;
+        console.log('[AIChat] silence timeout reached, sending:', newText);
+        await processAIChatTurn(newText);
+        return;
+      }
+      await Speech.speak(newText, SPEAKER, getSelectedSpeakerSpeed());
+    }, silenceThresholdMsRef.current);
+    return;
+  }
+
+  console.log('Results: ', e.value?.[0]);
+  if (!current || current === lastTranscriptRef.current) return;
+  setCurrentSpeechSentence(current);
+  setAiChatLiveTranscript(current);
+  setAiChatTranscript(current);
+  lastTranscriptRef.current = current;
+
+  if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  timeoutRef.current = setTimeout(async () => {
+    const newText = lastTranscriptRef.current.trim();
+    if (!newText || aiChatInFlightRef.current) return;
+    if (isFullAIChatMode) {
+      if (newText === lastProcessedRef.current) return;
+      console.log('[AIChat] silence timeout reached, sending:', newText);
+      await processAIChatTurn(newText);
       return;
     }
 
-    console.log('Results: ', e.value?.[0]);
-    const current = e.value?.[0];
-    if (!current || current === lastTranscriptRef.current) return;
-    setCurrentSpeechSentence(current);
-
-    lastTranscriptRef.current = current;
-
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(async () => {
-      const speechUiEpoch = beginSpeechUiEpoch();
-      console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
-      const newText = lastTranscriptRef.current.trim();
-      if (newText.length > 0) {
-        console.log('🗣️ Speaking:', newText);
-        setCurrentSpeechSentenceGuarded(speechUiEpoch, "Speaking now:" + newText);
-        await Speech.pauseSpeechRecognition();
-        const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
-        await Speech.speak(newText, SPEAKER, adjustedSpeed);
-        resetSpeechTranscriptState();
-        await Speech.unPauseSpeechRecognition(1);
-        await sleep(300);
-        // Reset phrase state per timeout cycle so OS transcript rewrites
-        // (e.g. "one" -> "1 2") don't break delta logic.
-        clearSpeechSentenceUI(speechUiEpoch);
-      }
-    }, silenceThresholdMsRef.current);
-
-  };
-
+    const speechUiEpoch = beginSpeechUiEpoch();
+    console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
+    console.log('🗣️ Speaking:', newText);
+    setCurrentSpeechSentenceGuarded(speechUiEpoch, 'Speaking now:' + newText);
+    await Speech.pauseSpeechRecognition();
+    const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
+    await Speech.speak(newText, SPEAKER, adjustedSpeed);
+    resetSpeechTranscriptState();
+    await Speech.unPauseSpeechRecognition(-1);
+    await sleep(300);
+    clearSpeechSentenceUI(speechUiEpoch);
+  }, silenceThresholdMsRef.current);
+};
   let callbackTimes = 0;
   const isFirstKeywordCallbackRef = useRef(true);
   useEffect(() => {
@@ -1557,7 +1976,7 @@ function App(): React.JSX.Element {
         if (stopWakeWord)
           await instance.stopKeywordDetection(/* FR add if stop microphone or */);
         else
-          await instance.pauseDetection(Platform.OS === 'ios' ? false : true);///* FR add if stop microphone or */);
+          await instance.pauseDetection(false);///* FR add if stop microphone or */);
 
         wavFilePath = await instance.getRecordingWav();
         if (Platform.OS === 'android') {
@@ -1588,54 +2007,8 @@ function App(): React.JSX.Element {
 
       /***** SPEAKER VERIFICATION CODE ONLY *****/
       try {
-        //        await Speech.initAll({ locale: 'en-US', model: ttsModel });
-        // await sleep(1000);
-        // await Speech.pauseSpeechRecognition();
-        // await sleep(1000);
 
         let enrollmentJson = enrollmentJsonRef.current;
-        /*
-        if (isFirstCall) {
-          const testSV = true;
-
-          if (testSV) {
-            // *** --> ENROLLMENT HERE *** /
-            enrollmentJson = await runSpeakerVerifyEnrollment(setMessage);
-            // Reset score tracking and start elapsed timer
-            setLastSVScore(null);
-            lastSVScoreTimeRef.current = null;
-            setSvElapsed('N/A');
-            svElapsedIntervalRef.current = setInterval(() => {
-              const t = lastSVScoreTimeRef.current;
-              if (t === null) {
-                setSvElapsed('N/A');
-              } else {
-                const sec = (Date.now() - t) / 1000;
-                setSvElapsed(sec < 60 ? `${sec.toFixed(1)}s` : `${Math.floor(sec / 60)}m ${Math.floor(sec % 60)}s`);
-              }
-            }, 100);
-
-            setSvRunning(true);
-            // await runVerificationWithEnrollment(enrollmentJson, setMessage);
-    //        svStopRef.current = await startEndlessVerificationWithEnrollment(enrollmentJson, setMessage, { hopSeconds: 0.5, stopOnMatch: false });
-            svStopRef.current = await startEndlessVerificationWithEnrollmentFix(
-              enrollmentJson,
-              setMessage,
-              { hopSeconds: 0.25, stopOnMatch: false, waitFirstResult: true, firstResultTimeoutMs: 3000,
-                onStopReady: (stopFn: () => Promise<void>) => { svStopRef.current = stopFn; },
-                onScore: (score: number, isMatch: boolean) => {
-                  setLastSVScore({ score, isMatch });
-                  lastSVScoreTimeRef.current = Date.now();
-                } }
-            );
-            // Cleanup timer when verification ends
-            if (svElapsedIntervalRef.current) {
-              clearInterval(svElapsedIntervalRef.current);
-              svElapsedIntervalRef.current = null;
-            }
-            setSvRunning(false);
-          }
-        } else */
         {
           console.log('[keywordCallback] Moving past SV onboarding');
           setShowSVPrompt(false);
@@ -1646,64 +2019,37 @@ function App(): React.JSX.Element {
           }
         }
         if (isFirstCall) {
-          setTtsQualityChoice('lite');
-          setTtsVoiceChoice('Ariana');
-          setShowTTSModelPrompt(true);
-          const selectedModelChoice = await new Promise<{ quality: TTSQualityChoice; voice: TTSVoiceChoice }>((resolve) => {
-            ttsModelChoiceResolverRef.current = resolve;
-          });
-          setShowTTSModelPrompt(false);
-          selectedTTSVoiceRef.current = selectedModelChoice.voice;
-          if (selectedModelChoice.voice === 'Rich') {
-            selectedTTSModelRef.current =
-              selectedModelChoice.quality === 'lite' ? ttsModelRichFast : ttsModelRichSlow;
-          } else {
-            selectedTTSModelRef.current =
-              selectedModelChoice.quality === 'lite' ? ttsModelFast : ttsModelSlow;
+          setAppModeChoice('tts_test');
+          setIsSpeechSessionActive(false);
+          clearSpeechSentenceUI();
+          try {
+            await Speech.pauseSpeechRecognition();
+          } catch (error) {
+            console.log('[AppMode] failed to pause speech recognition before mode prompt:', error);
           }
+          setShowAppModePrompt(true);
+          const selectedModeChoice = await new Promise<AppModeChoice>((resolve) => {
+            appModeChoiceResolverRef.current = resolve;
+          });
+          setShowAppModePrompt(false);
+          selectedAppModeRef.current = selectedModeChoice;
           await waitForNextInteraction();
         }
+
+        setMessage('Preparing wake word and speech engine...');
 
         // await Speech.destroyAll();
         // await sleep(300);
 
         /***** END OF SPEAKER VERIFICATION CODE ONLY END *****/
 
-        console.log('Calling Speech.initAll');
-
         setIsSpeechSessionActive(true);
         setCurrentSpeechSentence('');
         enrollmentJson = enrollmentJsonRef.current ?? enrollmentJson;
         setIsSpeakerIdentificationActive(typeof enrollmentJson === 'string' && enrollmentJson.length > 0);
-        if (isFirstCall) {
-          if (typeof enrollmentJson === 'string' && enrollmentJson.length > 0) {
-            // const enrollmentPath = await writeEnrollmentJsonToFile(
-            //   enrollmentJson,
-            //   `sv_enrollment_runtime_${Date.now()}.json`,
-            // );
-            console.log('Calling Speech.initAll with enrollmentJson:', enrollmentJsonPathRef.current);
-
-            // Using:
-            //'Calling Speech.initAll with enrollmentJson:', '/var/mobile/Containers/Data/Application/1F53F93F-0471-497F-BC30-C55BA1812668/Documents/sv_enrollment.json'
-            // 'Calling Speech.initAll with enrollmentJson:', '/var/mobile/Containers/Data/Application/813E7D11-B21F-4683-B78B-C7FC47AF9E31/Documents/sv_enrollment.json'
-            // Fresh:
-            // 'Calling Speech.initAll with enrollmentJson:', '/var/mobile/Containers/Data/Application/DED7A104-E77F-4FEF-84AC-83E33F010473/Documents/sv_enrollment.json'
-            // 'Calling Speech.initAll with enrollmentJson:', '/var/mobile/Containers/Data/Application/6EA869CC-D7F0-45F0-9BFC-1D8E55BFDAAA/Documents/sv_enrollment.json'
-
-            await Speech.initAll({
-              locale: 'en-US',
-              model: selectedTTSModelRef.current,
-              onboardingJsonPath: enrollmentJsonPathRef.current ? enrollmentJsonPathRef.current : '',//enrollmentPath,
-            });
-          } else {
-            console.log('Calling Speech.initAll WITHOUT');
-            await Speech.initAll({ locale: 'en-US', model: selectedTTSModelRef.current });
-          }
-          const off = Speech.onFinishedSpeaking = async () => {
-            console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
-          };
-        } else {
-          await Speech.unPauseSpeechRecognition(-1);
+        console.log('[keywordCallback] Speech already initialized');
+        if (!speechLibraryInitializedRef.current) {
+          console.warn('[keywordCallback] Speech library was not initialized during startup.');
         }
 
         //await Speech.initAll({ locale:'en-US', model: ttsModel });
@@ -1744,6 +2090,14 @@ function App(): React.JSX.Element {
       /**** END: You can play what activated the wake word ****/
 
       // await Speech.playWav(moonRocksSound, false);
+      if (selectedAppModeRef.current === 'full_ai_chat') {
+        setAiChatStatus('Preparing chat mode...');
+        setAiChatTranscript('');
+        setAiChatResponse('');
+        await enterFullAIChatMode();
+        return;
+      }
+
       const speechUiEpoch = beginSpeechUiEpoch();
       await Speech.pauseSpeechRecognition();
       const selectedSpeakerName: 'Rich' | 'Ariana' = selectedTTSVoiceRef.current;
@@ -1759,6 +2113,8 @@ function App(): React.JSX.Element {
       } finally {
         setIntroSpeakingGuarded(speechUiEpoch, false);
       }
+      await Speech.unPauseSpeechRecognition(-1);
+
       // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
       // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
       /*
@@ -1837,41 +2193,6 @@ function App(): React.JSX.Element {
       // }, 100000);
       //  Restart detection after timeout
 
-      /*** RESTARTING THE WAKEWORD ***/
-      setTimeout(async () => {
-        console.log('Restarting wake word');
-        setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
-        setIsFlashing(false);
-        setIsSpeechSessionActive(false);
-        setCurrentSpeechSentence('');
-        setIsIntroSpeaking(false);
-        setIntroScript('');
-        setIsTTSTestMode(false);
-        setTtsInputText('');
-        setIsManualTTSSpeaking(false);
-        setIsSpeakerIdentificationActive(false);
-
-        if (stopWakeWord) {
-          await Speech.destroyAll();
-          //           await instance.stopKeywordDetection(/* FR add if stop microphone or */);
-          if (Platform.OS === 'android') {
-            await sleep(300);
-          }
-
-          // re-attach listener then start detection
-          await attachListenerOnce(instance, keywordCallback);
-          await instance.startKeywordDetection(instanceConfigs[0].threshold, true);
-
-        } else {
-          await Speech.pauseSpeechRecognition();
-          await sleep(500);
-          console.log("calling unPauseDetection!!!")
-          await instance.unPauseDetection(/* FR add if stop microphone or */);
-        }
-
-
-        //      }, 45000);
-      }, 10000);
     };
 
     const updateVoiceProps = async () => {
@@ -1892,6 +2213,8 @@ function App(): React.JSX.Element {
       console.log('initializeKeywordDetection() enrollmentJson == ', enrollmentJson);
       let svChoice = 'skip';
       try {
+        await promptForTTSModelChoice();
+
         if (!enrollmentJson) {
           enrollmentJson = await loadEnrollmentJsonFromFile('sv_enrollment.json');
           console.log('initializeKeywordDetection() 2 enrollmentJson == ', enrollmentJson);
@@ -1918,17 +2241,34 @@ function App(): React.JSX.Element {
         if (svChoice !== 'skip') {
           setShowSVStatusScreen(true);
           setSvStatusCanContinue(false);
+          setSvOnboardingCollected(0);
+          setSvOnboardingTarget(SV_ONBOARDING_SAMPLE_COUNT);
           console.log('initializeKeywordDetection() 6');
           console.log('initializeKeywordDetection() 7');
           if (svChoice === 'redo_onboarding' || !enrollmentJson) {
             /*** --> ENROLLMENT HERE ***/
-            enrollmentJson = await runSpeakerVerifyEnrollment(setMessage);
+            setSvStatusPhase('onboarding');
+            enrollmentJson = await runSpeakerVerifyEnrollment(setMessage, SV_ONBOARDING_SAMPLE_COUNT, {
+              onStart: (targetSamples) => {
+                setSvOnboardingTarget(targetSamples);
+                setSvOnboardingCollected(0);
+              },
+              onProgress: (collected, targetSamples) => {
+                setSvOnboardingCollected(collected);
+                setSvOnboardingTarget(targetSamples);
+              },
+              onComplete: (targetSamples) => {
+                setSvOnboardingCollected(targetSamples);
+                setSvOnboardingTarget(targetSamples);
+              },
+            });
             enrollmentJsonRef.current = enrollmentJson;
             enrollmentJsonPathRef.current = await writeEnrollmentJsonToFile(
               enrollmentJson,
               'sv_enrollment.json',
             );
           }
+          setSvStatusPhase('verifying');
           console.log('initializeKeywordDetection() 8');
           // Reset score tracking and start elapsed timer
           setLastSVScore(null);
@@ -1979,6 +2319,8 @@ function App(): React.JSX.Element {
         }
         setShowSVStatusScreen(false);
         setSvStatusCanContinue(false);
+        setSvStatusPhase('idle');
+        setSvOnboardingCollected(0);
         svContinueResolverRef.current = null;
       } catch (error) {
         console.error('Error loading model:', error);
@@ -1986,6 +2328,8 @@ function App(): React.JSX.Element {
         setSvPromptHasSavedEnrollment(false);
         setShowSVStatusScreen(false);
         setSvStatusCanContinue(false);
+        setSvStatusPhase('idle');
+        setSvOnboardingCollected(0);
         svContinueResolverRef.current = null;
         setMessage(`Speaker verification debug mode failed: ${String((error as any)?.message ?? error)}`);
         return;
@@ -2016,7 +2360,7 @@ function App(): React.JSX.Element {
         await attachListenerOnce(inst, keywordCallback);
 
         const isLicensed = await inst.setKeywordDetectionLicense(
-          'MTc3NDkwNDQwMDAwMA==-z/W+fYYTMV1BNZqFL2eKFcETpOideVer8igwlAA4OWI='
+          'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8='
         );
         if (!isLicensed) {
           console.error('No License!!! - setKeywordDetectionLicense returned', isLicensed);
@@ -2025,10 +2369,10 @@ function App(): React.JSX.Element {
         }
 
         const isSpeechLicensed = await Speech.setLicense(
-          'MTc3NDkwNDQwMDAwMA==-z/W+fYYTMV1BNZqFL2eKFcETpOideVer8igwlAA4OWI='
+          'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8='
         );
         if (!isSpeechLicensed) {
-          console.error('No License!!! - Speech.setLicense returned', isLicensed);
+          console.error('No License!!! - Speech.setLicense returned', isSpeechLicensed);
           setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
           return;
         }
@@ -2050,7 +2394,52 @@ function App(): React.JSX.Element {
           console.log("startKeywordDetection without SV:");
           await inst.startKeywordDetection(instanceConfigs[0].threshold, true);
         }
+        await inst.pauseDetection(false);
+        await sleep(100);
+        console.log('Post pauseDetection');
+
+        let speechInitCompleted = false;
+        try {
+          setMessage('Initializing speech engine...');
+          console.log('Before initializeSpeechLibrary');
+          await withTimeout(
+            initializeSpeechLibrary(
+              typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0
+                ? enrollmentJsonPathRef.current
+                : null,
+            ),
+            15000,
+            'Speech.initAll',
+          );
+          speechLibraryInitializedRef.current = true;
+          speechInitCompleted = true;
+          console.log('After initializeSpeechLibrary');
+          await sleep(1000);
+
+          try {
+            await Speech.pauseSpeechRecognition();
+          } catch (e) {
+            console.warn('Initial pauseSpeechRecognition failed (ignored):', e);
+          }
+          console.log('Post pauseDetection 2');
+        } catch (e) {
+          speechLibraryInitializedRef.current = false;
+          console.error('Speech initialization failed or hung:', e);
+          setMessage('Speech init stalled. Wakeword detection was resumed, but speech may need a retry.');
+        } finally {
+          try {
+            console.log('calling unPauseDetection after speech init path');
+            await inst.unPauseDetection();
+            console.log('Post pauseDetection 3');
+          } catch (unpauseError) {
+            console.error('Failed to unpause keyword detection:', unpauseError);
+          }
+        }
+
         setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+        if (!speechInitCompleted) {
+          return;
+        }
         //await disableDucking();
 
         let ms = 5000;
@@ -2074,7 +2463,7 @@ function App(): React.JSX.Element {
     if (!calledOnce) {
       calledOnce = true;
       if (Platform.OS === 'android') {
-        setMessage('Loading speaker verification...');
+        setMessage('Preparing voice demo...');
       }
       console.log('Calling initializeKeywordDetection();');
       initializeKeywordDetection();
@@ -2086,9 +2475,83 @@ function App(): React.JSX.Element {
   const enterTTSTestMode = async () => {
     beginSpeechUiEpoch();
     resetSpeechTranscriptState();
+    resetAIChatSession();
     clearSpeechSentenceUI();
+    setIsFullAIChatMode(false);
+    setIsAIChatHistoryVisible(false);
     setMessage('TTS Test Mode');
     setIsTTSTestMode(true);
+  };
+
+  const goBackToModeSelection = async () => {
+    beginSpeechUiEpoch();
+    resetSpeechTranscriptState();
+    resetAIChatSession();
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    Keyboard.dismiss();
+    clearSpeechSentenceUI();
+    setIsSpeechSessionActive(false);
+    setIsSpeakerIdentificationActive(false);
+    setIsIntroSpeaking(false);
+    setIntroScript('');
+    setIsManualTTSSpeaking(false);
+    setIsFullAIChatMode(false);
+    setIsAIChatHistoryVisible(false);
+    setIsTTSTestMode(false);
+    setTtsInputText('');
+    setAppModeChoice(selectedAppModeRef.current);
+    setMessage('Choose what you want to test next.');
+    setShowAppModePrompt(true);
+    try {
+      await Speech.pauseSpeechRecognition();
+    } catch {
+    }
+  };
+
+  const enterFullAIChatMode = async () => {
+    beginSpeechUiEpoch();
+    //resetSpeechTranscriptState();
+    resetAIChatSession();
+    // if (timeoutRef.current) {
+    //   clearTimeout(timeoutRef.current);
+    //   timeoutRef.current = null;
+    // }
+    clearSpeechSentenceUI();
+    setShowAppModePrompt(false);
+    setShowTTSModelPrompt(false);
+    setShowSVPrompt(false);
+    setShowSVStatusScreen(false);
+    setIsIntroSpeaking(false);
+    setIntroScript('');
+    setIsTTSTestMode(false);
+    setIsAIChatHistoryVisible(false);
+    setIsFullAIChatMode(true);
+    setMessage('Full AI Chat is active. Start speaking.');
+    setAiChatStatus('Listening...');
+    setCurrentSpeechSentence('Listening...');
+    try {
+      await Speech.pauseSpeechRecognition();
+    } catch (error) {
+      console.log('[AIChat] failed to pause speech recognition before chat reset:', error);
+    }
+    // await Speech.speak("Hello, I am rich!", SPEAKER, getSelectedSpeakerSpeed());
+
+    try {
+      await waitForNextInteraction();
+      resetSpeechTranscriptState();
+      await Speech.unPauseSpeechRecognition(-1);
+      await sleep(300);
+    } catch (error) {
+      console.log('[AIChat] failed to unpause speech recognition:', error);
+      setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
+    }
+  };
+
+  const leaveFullAIChatMode = async () => {
+    await goBackToModeSelection();
   };
 
   const speakManualTTS = async () => {
@@ -2158,17 +2621,169 @@ function App(): React.JSX.Element {
     }
   };
 
-  if (showSVPrompt) {
+  const shouldShowFullAIChatScreen =
+    isFullAIChatMode ||
+    (
+      selectedAppModeRef.current === 'full_ai_chat' &&
+      !showAppModePrompt &&
+      !showTTSModelPrompt &&
+      !showSVPrompt &&
+      !showSVStatusScreen &&
+      !isTTSTestMode &&
+      (isSpeechSessionActive || aiChatStatus !== 'Waiting for your voice...')
+    );
+
+  const { height: windowHeight } = useWindowDimensions();
+  const topLayoutOffset = Math.round(windowHeight * 0.1);
+  const logoTopOffset = 14 + topLayoutOffset;
+  const contentTopPadding = 156 + topLayoutOffset;
+  const menuTopOffset = 128 + topLayoutOffset;
+
+  const renderScreenLogo = () => (
+    <View pointerEvents="none" style={[styles.screenLogoWrap, { paddingTop: logoTopOffset }]}>
+      <View style={styles.screenLogoBackdrop}>
+        <View style={styles.screenLogoGlow} />
+        <View style={styles.screenLogoPanel}>
+          <Image
+            source={require('./assets/images/logo.jpeg')}
+            style={styles.screenLogo}
+            resizeMode="contain"
+          />
+        </View>
+        <View style={styles.screenLogoFade} />
+      </View>
+    </View>
+  );
+
+  const renderPromptScreen = (
+    content: React.ReactNode,
+    options?: { keyboardShouldPersistTaps?: 'always' | 'never' | 'handled' },
+  ) => (
+    <View style={styles.linearGradient}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent
+      />
+      <ScrollView
+        style={styles.screenScroll}
+        contentContainerStyle={[styles.screenScrollContent, { paddingTop: contentTopPadding }]}
+        keyboardShouldPersistTaps={options?.keyboardShouldPersistTaps}>
+        {renderScreenLogo()}
+        {content}
+      </ScrollView>
+    </View>
+  );
+
+  const renderSVOnboardingMeter = () => {
+    const fillHeight = `${Math.max(8, Math.round(svOnboardingProgress * 100))}%`;
     return (
-      <View
-        style={styles.linearGradient}>
+      <View style={styles.svOnboardingHero}>
+        <View style={styles.svOnboardingTextBlock}>
+          <Text style={styles.svOnboardingEyebrow}>Voice Signature Setup</Text>
+          <Text style={styles.svPromptTitle}>Capture your voice</Text>
+          <Text style={styles.svPromptSubtitle}>
+            Speak naturally for a couple of seconds each time. We&apos;ll fill the signature as each sample is saved.
+          </Text>
+          <View style={styles.svOnboardingCountPill}>
+            <Text style={styles.svOnboardingCountText}>
+              {svOnboardingCollected} of {svOnboardingTarget} samples captured
+            </Text>
+          </View>
+        </View>
+        <View style={styles.svProgressCircleFrame}>
+          <View style={styles.svProgressCircleGlow} />
+          <View style={styles.svProgressCircleOuter}>
+            <View style={styles.svProgressCircleInner}>
+              <View style={[styles.svProgressCircleFill, { height: fillHeight }]} />
+              <View style={styles.svProgressCircleContent}>
+                <Text style={styles.svProgressCirclePercent}>
+                  {Math.round(svOnboardingProgress * 100)}%
+                </Text>
+                <Text style={styles.svProgressCircleLabel}>filled</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const aiChatTitle = 'Chat with Gemini 2.5 Flash';
+
+  if (shouldShowFullAIChatScreen) {
+    return (
+      <View style={styles.linearGradient}>
         <StatusBar
           barStyle="light-content"
           backgroundColor="transparent"
           translucent
         />
-        <View style={styles.svPromptScreen}>
-          <View style={styles.svPromptCard}>
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={[styles.aiChatScrollContent, { paddingTop: contentTopPadding }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
+          scrollEnabled>
+            {renderScreenLogo()}
+            <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
+              <View style={styles.helpHeaderRow}>
+                <Text style={styles.svPromptTitle}>{aiChatTitle}</Text>
+                <TouchableOpacity
+                  style={styles.helpIconButton}
+                  activeOpacity={0.7}
+                  onPress={() => setIsAIChatHelpVisible((prev) => !prev)}>
+                  <Text style={styles.helpIconText}>?</Text>
+                </TouchableOpacity>
+              </View>
+              {isAIChatHelpVisible && (
+                <Text style={styles.svPromptSubtitle}>
+                  Speak naturally and the app will send your STT text to Gemini 2.5 Flash, then speak the reply with the selected voice.
+                </Text>
+              )}
+              <View style={styles.speechSummaryBlock}>
+                <Text style={styles.speechSentenceLabel}>Status</Text>
+                <Text style={styles.speechSentenceText}>
+                  {isAIChatLoading ? 'Working...' : aiChatStatus}
+                </Text>
+              </View>
+              <View style={styles.speechSummaryBlock}>
+                <Text style={styles.speechSentenceLabel}>Transcript</Text>
+                <Text style={styles.aiChatLiveTranscriptText}>
+                  {aiChatLiveTranscript ||
+                    aiChatTranscript ||
+                    'Start talking and your transcription will appear here in real time.'}
+                </Text>
+              </View>
+              <View style={styles.speechSummaryBlock}>
+                <Text style={styles.speechSentenceLabel}>Gemini Reply</Text>
+                <Text style={styles.speechSentenceText}>
+                  {aiChatResponse || 'Gemini response will appear here.'}
+                </Text>
+              </View>
+              <View style={styles.ttsTestActionRow}>
+                <TouchableOpacity
+                  style={[styles.ttsSpeakButton, styles.aiChatResetButton]}
+                  activeOpacity={0.7}
+                  onPress={resetAIChatSession}>
+                  <Text style={styles.ttsSpeakButtonText}>Reset Chat</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
+                  activeOpacity={0.7}
+                  onPress={leaveFullAIChatMode}>
+                  <Text style={styles.svButtonText}>Back</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (showSVPrompt) {
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
             <Text style={styles.svPromptTitle}>
               {svPromptHasSavedEnrollment ? 'Use Saved Signature?' : 'Enable Speaker Verification?'}
             </Text>
@@ -2209,95 +2824,89 @@ function App(): React.JSX.Element {
                   svChoiceResolverRef.current?.('skip');
                   svChoiceResolverRef.current = null;
                 }}>
-                <Text style={styles.svButtonText}>Skip</Text>
+                  <Text style={styles.svButtonText}>Skip</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
       </View>
     );
   }
 
   if (showSVStatusScreen) {
-    return (
-      <View
-        style={styles.linearGradient}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor="transparent"
-          translucent
-        />
-        <View style={styles.svPromptScreen}>
-          <View style={styles.svPromptCard}>
-            <Text style={styles.svPromptTitle}>Speaker Verification Running</Text>
-            <Text style={styles.svPromptSubtitle}>{message}</Text>
-            <View style={styles.svStatusMetricsRow}>
-              <View style={styles.svStatusMetricCard}>
-                <Text style={styles.svScoreItemLabel}>Last Score</Text>
-                <Text style={styles.svScoreValue}>
-                  {lastSVScore ? lastSVScore.score.toFixed(3) : 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.svStatusMetricCard}>
-                <Text style={styles.svScoreItemLabel}>Match</Text>
-                <Text style={styles.svScoreValue}>
-                  {lastSVScore ? (lastSVScore.isMatch ? 'YES' : 'NO') : 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.svStatusMetricCard}>
-                <Text style={styles.svScoreItemLabel}>Since Last</Text>
-                <Text style={styles.svScoreValue}>{svElapsed}</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.svButton,
-                styles.ttsContinueButton,
-                !svStatusCanContinue && styles.keyboardAccessoryButtonDisabled,
-              ]}
-              activeOpacity={0.7}
-              disabled={!svStatusCanContinue}
-              onPress={async () => {
-                if (svElapsedIntervalRef.current) {
-                  clearInterval(svElapsedIntervalRef.current);
-                  svElapsedIntervalRef.current = null;
-                }
-                if (svStopRef.current) {
-                  try {
-                    await svStopRef.current();
-                  } finally {
-                    svStopRef.current = null;
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
+            {svStatusPhase === 'onboarding' ? (
+              <>
+                {renderSVOnboardingMeter()}
+                <View style={styles.svOnboardingMessageCard}>
+                  <Text style={styles.svOnboardingMessageLabel}>Current Step</Text>
+                  <Text style={styles.svOnboardingMessageText}>{message}</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.svPromptTitle}>Speaker Verification Running</Text>
+                <Text style={styles.svPromptSubtitle}>{message}</Text>
+                <View style={styles.svStatusMetricsRow}>
+                  <View style={styles.svStatusMetricCard}>
+                    <Text style={styles.svScoreItemLabel}>Last Score</Text>
+                    <Text style={styles.svScoreValue}>
+                      {lastSVScore ? lastSVScore.score.toFixed(3) : 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.svStatusMetricCard}>
+                    <Text style={styles.svScoreItemLabel}>Match</Text>
+                    <Text style={styles.svScoreValue}>
+                      {lastSVScore ? (lastSVScore.isMatch ? 'YES' : 'NO') : 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.svStatusMetricCard}>
+                    <Text style={styles.svScoreItemLabel}>Since Last</Text>
+                    <Text style={styles.svScoreValue}>{svElapsed}</Text>
+                  </View>
+                </View>
+              </>
+            )}
+            {svStatusPhase !== 'onboarding' && (
+              <TouchableOpacity
+                style={[
+                  styles.svButton,
+                  styles.ttsContinueButton,
+                  !svStatusCanContinue && styles.keyboardAccessoryButtonDisabled,
+                ]}
+                activeOpacity={0.7}
+                disabled={!svStatusCanContinue}
+                onPress={async () => {
+                  if (svElapsedIntervalRef.current) {
+                    clearInterval(svElapsedIntervalRef.current);
+                    svElapsedIntervalRef.current = null;
                   }
-                }
-                setIsSpeechSessionActive(false);
-                setCurrentSpeechSentence('');
-                setIsSpeakerIdentificationActive(false);
-                setShowSVStatusScreen(false);
-                setSvStatusCanContinue(false);
-                setSvRunning(false);
-                setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
-                svContinueResolverRef.current?.();
-                svContinueResolverRef.current = null;
-              }}>
-              <Text style={styles.svButtonText}>Continue</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                  if (svStopRef.current) {
+                    try {
+                      await svStopRef.current();
+                    } finally {
+                      svStopRef.current = null;
+                    }
+                  }
+                  setIsSpeechSessionActive(false);
+                  setCurrentSpeechSentence('');
+                  setIsSpeakerIdentificationActive(false);
+                  setShowSVStatusScreen(false);
+                  setSvStatusCanContinue(false);
+                  setSvRunning(false);
+                  setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+                  svContinueResolverRef.current?.();
+                  svContinueResolverRef.current = null;
+                }}>
+                <Text style={styles.svButtonText}>Continue</Text>
+              </TouchableOpacity>
+            )}
       </View>
     );
   }
 
   if (showTTSModelPrompt) {
-    return (
-      <View
-        style={styles.linearGradient}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor="transparent"
-          translucent
-        />
-        <View style={styles.svPromptScreen}>
-          <View style={styles.svPromptCard}>
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
             <Text style={styles.svPromptTitle}>Choose Voice Model</Text>
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Quality</Text>
@@ -2359,8 +2968,82 @@ function App(): React.JSX.Element {
                 <Text style={styles.svButtonText}>Continue</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+      </View>
+    );
+  }
+
+  if (showAppModePrompt) {
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
+            <View style={styles.helpHeaderRow}>
+              <View style={styles.helpHeaderTitleWrap}>
+                <Text style={styles.svPromptTitle}>Choose Next Area</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.helpIconButton}
+                activeOpacity={0.7}
+                onPress={() => setIsAppModeHelpVisible((prev) => !prev)}>
+                <Text style={styles.helpIconText}>?</Text>
+              </TouchableOpacity>
+            </View>
+            {isAppModeHelpVisible && (
+              <Text style={styles.svPromptSubtitle}>
+                After voice selection, choose what you want to test next. Gemini is optional, and manual TTS stays available as a separate path.
+              </Text>
+            )}
+            <View style={styles.ttsOptionSection}>
+              <Text style={styles.ttsOptionLabel}>Mode</Text>
+              <View style={styles.appModeStack}>
+                <TouchableOpacity
+                  style={[
+                    styles.appModeButton,
+                    appModeChoice === 'full_ai_chat' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => setAppModeChoice('full_ai_chat')}>
+                  <Text style={styles.svButtonText}>Full AI Chat</Text>
+                  <Text style={styles.appModeDescription}>
+                    Use STT text as the Gemini prompt, then speak Gemini&apos;s reply with the selected TTS voice.
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.appModeButton,
+                    appModeChoice === 'tts_test' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => setAppModeChoice('tts_test')}>
+                  <Text style={styles.svButtonText}>Manual TTS Test</Text>
+                  <Text style={styles.appModeDescription}>
+                    Skip Gemini and keep the current text-to-speech playground.
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.svButtonRow}>
+              <TouchableOpacity
+                style={[styles.svButton, styles.ttsContinueButton]}
+                activeOpacity={0.7}
+                onPress={async () => {
+                  if (appModeChoiceResolverRef.current) {
+                    appModeChoiceResolverRef.current?.(appModeChoice);
+                    appModeChoiceResolverRef.current = null;
+                    return;
+                  }
+
+                  selectedAppModeRef.current = appModeChoice;
+                  setShowAppModePrompt(false);
+
+                  if (appModeChoice === 'full_ai_chat') {
+                    await enterFullAIChatMode();
+                    return;
+                  }
+
+                  await enterTTSTestMode();
+                }}>
+                <Text style={styles.svButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
       </View>
     );
   }
@@ -2380,12 +3063,26 @@ function App(): React.JSX.Element {
             backgroundColor="transparent"
             translucent
           />
-          <View style={styles.svPromptScreen}>
+          <ScrollView
+            style={styles.screenScroll}
+            contentContainerStyle={[styles.screenScrollContent, { paddingTop: contentTopPadding }]}
+            keyboardShouldPersistTaps="handled">
+            {renderScreenLogo()}
             <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
-              <Text style={styles.svPromptTitle}>TTS Test Mode</Text>
-              <Text style={styles.svPromptSubtitle}>
-                Write text to speak with the selected voice model.
-              </Text>
+              <View style={styles.helpHeaderRow}>
+                <Text style={styles.svPromptTitle}>TTS Test Mode</Text>
+                <TouchableOpacity
+                  style={styles.helpIconButton}
+                  activeOpacity={0.7}
+                  onPress={() => setIsTTSTestHelpVisible((prev) => !prev)}>
+                  <Text style={styles.helpIconText}>?</Text>
+                </TouchableOpacity>
+              </View>
+              {isTTSTestHelpVisible && (
+                <Text style={styles.svPromptSubtitle}>
+                  Write text to speak with the selected voice model.
+                </Text>
+              )}
               <TextInput
                 style={styles.ttsInput}
                 placeholder="Write text to speak..."
@@ -2436,11 +3133,11 @@ function App(): React.JSX.Element {
                   </View>
                 </InputAccessoryView>
               )}
-              <View style={styles.ttsTestActionRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.ttsSpeakButton,
-                    (isManualTTSSpeaking || !ttsInputText.trim()) && styles.ttsSpeakButtonDisabled,
+                <View style={styles.ttsTestActionRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.ttsSpeakButton,
+                      (isManualTTSSpeaking || !ttsInputText.trim()) && styles.ttsSpeakButtonDisabled,
                   ]}
                   activeOpacity={0.7}
                   disabled={isManualTTSSpeaking || !ttsInputText.trim()}
@@ -2449,22 +3146,15 @@ function App(): React.JSX.Element {
                     {isManualTTSSpeaking ? 'Speaking...' : 'Speak'}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    beginSpeechUiEpoch();
-                    Keyboard.dismiss();
-                    setIsTTSTestMode(false);
-                    setTtsInputText('');
-                    resetSpeechTranscriptState();
-                    clearSpeechSentenceUI();
-                  }}>
+                  <TouchableOpacity
+                    style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
+                    activeOpacity={0.7}
+                    onPress={goBackToModeSelection}>
                   <Text style={styles.svButtonText}>Back</Text>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </View>
+          </ScrollView>
           {Platform.OS === 'android' && isAndroidKeyboardVisible && (
             <View pointerEvents="box-none" style={styles.androidKeyboardAccessoryWrapper}>
               <View
@@ -2531,8 +3221,9 @@ function App(): React.JSX.Element {
           backgroundColor="transparent"
           translucent
         />
-        <View style={styles.container}>
-          <View style={styles.topMenuContainer}>
+        <View style={[styles.container, { paddingTop: contentTopPadding }]}>
+          {renderScreenLogo()}
+          <View style={[styles.topMenuContainer, { top: menuTopOffset }]}>
             <TouchableOpacity
               style={styles.menuButton}
               activeOpacity={0.7}
@@ -2552,13 +3243,16 @@ function App(): React.JSX.Element {
           </View>
           {/* Main message card */}
           {!shouldShowSpeechSessionCard && (
-            <View
-              style={[
-                styles.messageCard,
-                isFlashing && styles.messageCardFlashing,
-              ]}>
-              <Text style={styles.appLabel}>VOICE DEMO</Text>
-              <Text style={styles.title}>{message}</Text>
+            <View style={styles.ttsPromptWrapper}>
+              <View
+                style={[
+                  styles.svPromptCard,
+                  styles.homeScreenCard,
+                  isFlashing && styles.messageCardFlashing,
+                ]}>
+                <Text style={styles.appLabel}>VOICE DEMO</Text>
+                <Text style={styles.title}>{message}</Text>
+              </View>
             </View>
           )}
 
@@ -2585,12 +3279,24 @@ function App(): React.JSX.Element {
                   </Text>
                 </View>
                 {!isIntroSpeaking && (
-                  <View style={styles.svButtonRow}>
+                  <View style={styles.ttsTestActionRow}>
                     <TouchableOpacity
                       style={[styles.svButton, styles.ttsContinueButton]}
                       activeOpacity={0.7}
-                      onPress={enterTTSTestMode}>
-                      <Text style={styles.svButtonText}>Continue</Text>
+                      onPress={
+                        selectedAppModeRef.current === 'full_ai_chat'
+                          ? enterFullAIChatMode
+                          : enterTTSTestMode
+                      }>
+                      <Text style={styles.svButtonText}>
+                        {selectedAppModeRef.current === 'full_ai_chat' ? 'Open Full AI Chat' : 'Continue'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
+                      activeOpacity={0.7}
+                      onPress={goBackToModeSelection}>
+                      <Text style={styles.svButtonText}>Back</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -2609,17 +3315,65 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#667eea',
   },
-  container: {
-    flex: 1,
+  screenLogoWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 120,
+    alignItems: 'center',
+    paddingTop: 14,
+  },
+  screenLogoBackdrop: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  screenLogoGlow: {
+    position: 'absolute',
+    top: 12,
+    width: 320,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.26)',
+    opacity: 0.55,
+  },
+  screenLogoPanel: {
+    width: 304,
+    height: 122,
+    borderRadius: 28,
+    backgroundColor: 'rgba(12, 18, 38, 0.52)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#08101f',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.28,
+    shadowRadius: 28,
+    elevation: 14,
+  },
+  screenLogo: {
+    width: 270,
+    height: 86,
+  },
+  screenLogoFade: {
+    marginTop: -10,
+    width: 332,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(102, 126, 234, 0.32)',
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 156,
     paddingBottom: 40,
   },
   topMenuContainer: {
     position: 'absolute',
-    top: 44,
+    top: 128,
     right: 16,
     zIndex: 200,
     alignItems: 'flex-end',
@@ -2674,7 +3428,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   messageCardFlashing: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(11, 18, 36, 0.96)',
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   messageCardSVPromptFocus: {
@@ -2707,9 +3461,62 @@ const styles = StyleSheet.create({
   },
   svPromptScreen: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  screenScroll: {
+    flex: 1,
+    width: '100%',
+  },
+  screenScrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 156,
+    paddingBottom: 32,
+  },
+  fullWidth: {
+    width: '100%',
+  },
+  aiChatScrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 156,
+    paddingBottom: 72,
+  },
+  aiChatHeaderRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  aiChatHeaderTextWrap: {
+    flex: 1,
+  },
+  aiChatIconButton: {
+    minWidth: 68,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  aiChatIconButtonGlyph: {
+    fontSize: 18,
+  },
+  aiChatIconButtonLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   svPromptCard: {
     width: '100%',
@@ -2728,11 +3535,157 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textAlign: 'center',
   },
+  helpHeaderRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  helpHeaderTitleWrap: {
+    flex: 1,
+  },
+  helpIconButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  helpIconText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 16,
+  },
   svPromptSubtitle: {
     marginTop: 10,
     fontSize: 15,
     lineHeight: 22,
     color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+  },
+  svOnboardingHero: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  svOnboardingTextBlock: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  svOnboardingEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: 'rgba(143, 214, 255, 0.88)',
+  },
+  svOnboardingCountPill: {
+    marginTop: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  svOnboardingCountText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  svProgressCircleFrame: {
+    marginTop: 24,
+    width: 176,
+    height: 176,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  svProgressCircleGlow: {
+    position: 'absolute',
+    width: 176,
+    height: 176,
+    borderRadius: 88,
+    backgroundColor: 'rgba(64, 192, 255, 0.12)',
+    transform: [{ scale: 1.15 }],
+  },
+  svProgressCircleOuter: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  svProgressCircleInner: {
+    flex: 1,
+    borderRadius: 70,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(7, 14, 28, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  svProgressCircleFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(68, 214, 182, 0.92)',
+  },
+  svProgressCircleContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  svProgressCirclePercent: {
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  svProgressCircleLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: 'rgba(255, 255, 255, 0.72)',
+  },
+  svOnboardingMessageCard: {
+    width: '100%',
+    marginTop: 22,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  svOnboardingMessageLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: 'rgba(255, 255, 255, 0.62)',
+    marginBottom: 8,
+  },
+  svOnboardingMessageText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#ffffff',
+    fontWeight: '500',
     textAlign: 'center',
   },
   svStatusMetricsRow: {
@@ -2794,6 +3747,55 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '500',
   },
+  aiChatTurnCard: {
+    width: '100%',
+    marginTop: 20,
+    borderRadius: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  aiChatTurnLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textTransform: 'uppercase',
+  },
+  aiChatTurnTitle: {
+    marginTop: 10,
+    fontSize: 30,
+    lineHeight: 36,
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  aiChatTurnText: {
+    marginTop: 16,
+    fontSize: 22,
+    lineHeight: 30,
+    color: '#ffffff',
+    fontWeight: '600',
+    minHeight: 90,
+  },
+  aiChatTurnHint: {
+    marginTop: 14,
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.68)',
+  },
+  aiChatLiveTranscriptText: {
+    fontSize: 20,
+    lineHeight: 30,
+    color: '#ffffff',
+    fontWeight: '600',
+    minHeight: 84,
+  },
+  homeScreenCard: {
+    maxWidth: 460,
+    paddingVertical: 32,
+  },
   introScriptText: {
     marginTop: 10,
     fontSize: 15,
@@ -2835,6 +3837,51 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  aiChatHistoryCard: {
+    width: '100%',
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  aiChatHistoryStack: {
+    width: '100%',
+    gap: 10,
+  },
+  aiChatMessageBubble: {
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  aiChatMessageBubbleUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(52, 199, 89, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 199, 89, 0.35)',
+  },
+  aiChatMessageBubbleModel: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(46, 134, 222, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(46, 134, 222, 0.35)',
+  },
+  aiChatMessageRole: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: 'rgba(255, 255, 255, 0.72)',
+    marginBottom: 6,
+  },
+  aiChatMessageText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#ffffff',
+    fontWeight: '500',
   },
   svPromptText: {
     fontSize: 18,
@@ -2886,6 +3933,22 @@ const styles = StyleSheet.create({
   ttsOptionSection: {
     width: '100%',
     marginBottom: 14,
+  },
+  appModeStack: {
+    width: '100%',
+    gap: 12,
+  },
+  appModeButton: {
+    width: '100%',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  appModeDescription: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(255, 255, 255, 0.78)',
   },
   ttsOptionLabel: {
     fontSize: 14,
@@ -3008,6 +4071,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  aiChatResetButton: {
+    minWidth: 120,
   },
   keyboardAccessory: {
     backgroundColor: '#1f2937',

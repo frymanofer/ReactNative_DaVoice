@@ -137,6 +137,8 @@ This repository is specifically valuable because it tackles those integration ed
 
 See [example/README.md](./example/README.md) for setup and demo notes.
 
+If you enable Gemini-backed AI chat in the example app, do not commit a real `GEMINI_API_KEY` into this public repository. For the demo, prefer a local git-ignored config file over a hard-coded key. For production, prefer a backend proxy or short-lived token flow instead of shipping a permanent key in the mobile client.
+
 In short:
 
 ```bash

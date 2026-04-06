@@ -71,6 +71,31 @@ npx react-native run-ios
 
 ## Important setup notes
 
+### Gemini API key
+
+Do not commit a real `GEMINI_API_KEY` into this public repository.
+
+For this demo app, the simplest approach is:
+
+1. Keep the key in a local file that is ignored by git.
+2. Load it into `App.tsx` from that local file.
+3. Commit only a template/example file or a short setup note, not the real key.
+
+Why this is better than asking developers to run `export GEMINI_API_KEY=...`:
+
+- React Native apps do not automatically get shell environment variables at runtime on-device.
+- A local ignored config file is easier for other developers to understand and reproduce.
+- It avoids accidentally committing a shared API key into source control.
+
+Recommended setup for contributors:
+
+- Copy `example/local.config.example.ts` to `example/local.config.ts`
+- `example/local.config.ts` is git-ignored
+- Paste your real key into `export const GEMINI_API_KEY = 'your-key';`
+- `App.tsx` imports the key from that local file
+
+For production apps, a permanent Gemini key should usually not be shipped directly in the client at all. A backend proxy or short-lived token flow is safer.
+
 ### Metro assets
 
 Make sure your Metro configuration supports DaVoice model assets such as `.onnx` and `.dm` files. See [react-native.config.js](./react-native.config.js) and the project asset setup.
