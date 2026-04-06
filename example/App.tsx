@@ -35,14 +35,15 @@ const RICH = 1;
 
 const SPEAKER = 0;
 
-const RICH_SPEAKER_SPEED = 1.1;
-const ARIANA_SPEAKER_SPEED = 0.9; //0.75;
+const RICH_SPEAKER_SPEED = 1.06;
+const ARIANA_SPEAKER_SPEED = 0.88; //0.75;
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
 //const SPEAKER_SPEED = 0.75;
 // const SPEAKER_SPEED_ = 0.85;
 const SPEAKER_SPEED = 1.0;// 0.85;
 const SV_MATCH_HOLD_MS = 500;
 const SV_ONBOARDING_SAMPLE_COUNT = 5;
+const ANDROID_SV_UI_MATCH_THRESHOLD = 0.5;
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 type TTSVoiceChoice = 'Ariana' | 'Rich';
 type TTSQualityChoice = 'lite' | 'heavy';
@@ -86,6 +87,13 @@ const GEMINI_MAX_OUTPUT_TOKENS = 512;
 const GEMINI_THINKING_BUDGET = 256;
 const AI_CHAT_MIN_REQUEST_GAP_MS = 4000;
 const AI_CHAT_RATE_LIMIT_BACKOFF_MS = 30000;
+
+function getSVUIMatch(score: number, nativeIsMatch: boolean): boolean {
+  if (Platform.OS === 'android') {
+    return Number.isFinite(score) && score >= ANDROID_SV_UI_MATCH_THRESHOLD;
+  }
+  return nativeIsMatch;
+}
 
 function extractGeminiText(payload: any): string {
   const parts = payload?.candidates?.[0]?.content?.parts;
@@ -490,10 +498,11 @@ async function startEndlessVerificationWithEnrollmentFix(
 
     const showAsMatch = ok || inHoldWindow;
     const scoreToShow = showAsMatch && Number.isFinite(holdBestScore) ? holdBestScore : best;
+    const uiShowAsMatch = getSVUIMatch(scoreToShow, showAsMatch);
     console.log('[SVJS-FIX] SV VERIFY:', e);
-    setUiMessage?.(`🔐 Speaker Identificaiton Match=${showAsMatch ? '✅' : '❌'}`);
+    setUiMessage?.(`🔐 Speaker Identificaiton Match=${uiShowAsMatch ? '✅' : '❌'}`);
     //setUiMessage?.(`🔐 SV(best=${Number.isFinite(scoreToShow) ? scoreToShow.toFixed(3) : 'n/a'}) match=${showAsMatch ? '✅' : '❌'}`);
-    onScore?.(scoreToShow, showAsMatch);
+    onScore?.(scoreToShow, uiShowAsMatch);
 
     if (!firstDone) {
       firstDone = true;
@@ -2300,7 +2309,8 @@ Speech.onSpeechResults = async (e) => {
               hopSeconds: 0.25, stopOnMatch: false, waitFirstResult: true, firstResultTimeoutMs: 3000,
               onStopReady: (stopFn: () => Promise<void>) => { svStopRef.current = stopFn; },
               onScore: (score: number, isMatch: boolean) => {
-                setLastSVScore({ score, isMatch });
+                const uiIsMatch = getSVUIMatch(score, isMatch);
+                setLastSVScore({ score, isMatch: uiIsMatch });
                 lastSVScoreTimeRef.current = Date.now();
                 setSvStatusCanContinue(true);
               }
