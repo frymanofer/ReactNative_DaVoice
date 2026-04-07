@@ -1825,13 +1825,6 @@ function App(): React.JSX.Element {
       return;
     }
     const merged = mergeSmartKeepPunct(lastTranscriptRef.current, curr, 2);
-    if (merged === lastTranscriptRef.current) return;
-
-    lastTranscriptRef.current = merged;
-    setCurrentSpeechSentence(merged);
-    setAiChatLiveTranscript(merged);
-    console.log('Partial:', merged);
-
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(async () => {
       const newText = lastTranscriptRef.current.trim();
@@ -1855,6 +1848,13 @@ function App(): React.JSX.Element {
       await sleep(300);
       clearSpeechSentenceUI(speechUiEpoch);
     }, silenceThresholdMsRef.current);
+
+    if (merged === lastTranscriptRef.current) return;
+
+    lastTranscriptRef.current = merged;
+    setCurrentSpeechSentence(merged);
+    setAiChatLiveTranscript(merged);
+    console.log('Partial:', merged);
   };
 
 Speech.onSpeechResults = async (e) => {
@@ -2247,6 +2247,11 @@ Speech.onSpeechResults = async (e) => {
         console.log('initializeKeywordDetection() 5');
         setShowSVPrompt(false);
         setSvPromptHasSavedEnrollment(false);
+        if (svChoice === 'skip') {
+          enrollmentJson = null;
+          enrollmentJsonRef.current = null;
+          enrollmentJsonPathRef.current = null;
+        }
         if (svChoice !== 'skip') {
           setShowSVStatusScreen(true);
           setSvStatusCanContinue(false);
