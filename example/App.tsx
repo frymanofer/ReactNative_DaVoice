@@ -1454,6 +1454,7 @@ function App(): React.JSX.Element {
   const [latestWakewordRecordingPaths, setLatestWakewordRecordingPaths] = useState<string[]>([]);
   const lastPartialTimeRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const speechSessionUIAllowedRef = useRef(false);
   let vadCBintervalID: any = null;
   const silenceThresholdMsRef = useRef(2000);
   const lastTranscriptRef = useRef('');
@@ -1501,6 +1502,11 @@ function App(): React.JSX.Element {
   function clearSpeechSentenceUI(epoch?: number) {
     if (epoch != null && !isSpeechUiEpochCurrent(epoch)) return;
     setCurrentSpeechSentence('');
+  }
+
+  function setSpeechSessionUIActive(active: boolean) {
+    speechSessionUIAllowedRef.current = active;
+    setIsSpeechSessionActive(active);
   }
 
   const resetAIChatSession = () => {
@@ -1793,6 +1799,10 @@ function App(): React.JSX.Element {
 
   Speech.onSpeechStart = async () => {
     console.log('onSpeechStart: Speech started');
+    if (!speechSessionUIAllowedRef.current) {
+      console.log('onSpeechStart: ignored for UI because no speech-session screen is active');
+      return;
+    }
     setIsSpeechSessionActive(true);
   };
 
@@ -2029,7 +2039,7 @@ Speech.onSpeechResults = async (e) => {
         }
         if (isFirstCall) {
           setAppModeChoice('tts_test');
-          setIsSpeechSessionActive(false);
+          setSpeechSessionUIActive(false);
           clearSpeechSentenceUI();
           try {
             await Speech.pauseSpeechRecognition();
@@ -2052,7 +2062,7 @@ Speech.onSpeechResults = async (e) => {
 
         /***** END OF SPEAKER VERIFICATION CODE ONLY END *****/
 
-        setIsSpeechSessionActive(true);
+        setSpeechSessionUIActive(true);
         setCurrentSpeechSentence('');
         enrollmentJson = enrollmentJsonRef.current ?? enrollmentJson;
         setIsSpeakerIdentificationActive(typeof enrollmentJson === 'string' && enrollmentJson.length > 0);
@@ -2492,6 +2502,7 @@ Speech.onSpeechResults = async (e) => {
     resetSpeechTranscriptState();
     resetAIChatSession();
     clearSpeechSentenceUI();
+    setSpeechSessionUIActive(false);
     setIsFullAIChatMode(false);
     setIsAIChatHistoryVisible(false);
     setMessage('TTS Test Mode');
@@ -2508,7 +2519,7 @@ Speech.onSpeechResults = async (e) => {
     }
     Keyboard.dismiss();
     clearSpeechSentenceUI();
-    setIsSpeechSessionActive(false);
+    setSpeechSessionUIActive(false);
     setIsSpeakerIdentificationActive(false);
     setIsIntroSpeaking(false);
     setIntroScript('');
@@ -2535,6 +2546,7 @@ Speech.onSpeechResults = async (e) => {
     //   timeoutRef.current = null;
     // }
     clearSpeechSentenceUI();
+    setSpeechSessionUIActive(false);
     setShowAppModePrompt(false);
     setShowTTSModelPrompt(false);
     setShowSVPrompt(false);
@@ -2902,7 +2914,7 @@ Speech.onSpeechResults = async (e) => {
                       svStopRef.current = null;
                     }
                   }
-                  setIsSpeechSessionActive(false);
+                  setSpeechSessionUIActive(false);
                   setCurrentSpeechSentence('');
                   setIsSpeakerIdentificationActive(false);
                   setShowSVStatusScreen(false);
