@@ -79,14 +79,17 @@ type GeminiTextPartDebug = {
   length: number;
 };
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
 const GEMINI_SYSTEM_PROMPT =
   'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. For time-sensitive facts like current leaders, dates, news, prices, or recent events, answer cautiously and say when you may be unsure rather than asserting a stale fact.';
 const GEMINI_MAX_OUTPUT_TOKENS = 512;
 const GEMINI_THINKING_BUDGET = 256;
 const AI_CHAT_MIN_REQUEST_GAP_MS = 4000;
 const AI_CHAT_RATE_LIMIT_BACKOFF_MS = 30000;
+const GEMINI_ENABLE_STREAMING = false;
+const AI_CHAT_STRIP_WAKE_WORD_PREFIX = false;
 
 function getSVUIMatch(score: number, nativeIsMatch: boolean): boolean {
   if (Platform.OS === 'android') {
@@ -120,6 +123,93 @@ function normalizeTextForSpeech(text: string): string {
     .trim();
 }
 
+function buildGeminiRequestBody(history: GeminiChatMessage[]) {
+  return {
+    system_instruction: {
+      parts: [{ text: GEMINI_SYSTEM_PROMPT }],
+    },
+    contents: history,
+    tools: [
+      {
+        google_search: {},
+      },
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      thinkingConfig: {
+        thinkingBudget: GEMINI_THINKING_BUDGET,
+      },
+    },
+  };
+}
+
+function computeStreamDelta(accumulatedText: string, incomingText: string): string {
+  if (!incomingText) return '';
+  if (!accumulatedText) return incomingText;
+  if (incomingText.startsWith(accumulatedText)) {
+    return incomingText.slice(accumulatedText.length);
+  }
+  if (accumulatedText.endsWith(incomingText)) {
+    return '';
+  }
+  return incomingText;
+}
+
+function splitCompletedSentences(text: string): { completed: string[]; remainder: string } {
+  const completed: string[] = [];
+  let start = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    if (!/[.!?]/.test(text[index])) continue;
+
+    let boundary = index + 1;
+    while (boundary < text.length && /["')\]]/.test(text[boundary])) {
+      boundary += 1;
+    }
+    while (boundary < text.length && /\s/.test(text[boundary])) {
+      boundary += 1;
+    }
+
+    const sentence = text.slice(start, boundary).trim();
+    if (sentence) {
+      completed.push(sentence);
+    }
+    start = boundary;
+    index = boundary - 1;
+  }
+
+  return {
+    completed,
+    remainder: text.slice(start),
+  };
+}
+
+function stripWakeWordPrefix(text: string, wakeWord: string): string {
+  const trimmedText = text.trim();
+  const wakeWordTokens = wakeWord
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (wakeWordTokens.length === 0) {
+    return trimmedText;
+  }
+
+  let stripped = trimmedText;
+  for (let tokenCount = wakeWordTokens.length; tokenCount >= 1; tokenCount -= 1) {
+    const prefix = wakeWordTokens.slice(0, tokenCount).join('\\s+');
+    const prefixRegex = new RegExp(`^${prefix}(?:\\s|[,.!?;:])+`, 'i');
+    if (prefixRegex.test(stripped)) {
+      stripped = stripped.replace(prefixRegex, '').trim();
+      break;
+    }
+  }
+
+  return stripped || trimmedText;
+}
+
 async function generateGeminiReply(
   history: GeminiChatMessage[],
   meta: GeminiRequestLogMeta,
@@ -142,24 +232,7 @@ async function generateGeminiReply(
     JSON.stringify(history, null, 2),
   );
 
-  const requestBody = {
-    system_instruction: {
-      parts: [{ text: GEMINI_SYSTEM_PROMPT }],
-    },
-    contents: history,
-    tools: [
-      {
-        google_search: {},
-      },
-    ],
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-      thinkingConfig: {
-        thinkingBudget: GEMINI_THINKING_BUDGET,
-      },
-    },
-  };
+  const requestBody = buildGeminiRequestBody(history);
 
   console.log(
     `[AIChat] Gemini request #${meta.requestId} request body`,
@@ -256,6 +329,144 @@ async function generateGeminiReply(
     },
   );
   return text;
+}
+
+async function generateGeminiReplyStream(
+  history: GeminiChatMessage[],
+  meta: GeminiRequestLogMeta,
+  onTextDelta: (deltaText: string, aggregateText: string) => void | Promise<void>,
+): Promise<{ text: string; usedStreaming: boolean }> {
+  const transcriptPreview =
+    meta.userText.length > 120 ? `${meta.userText.slice(0, 120)}...` : meta.userText;
+  const requestBody = buildGeminiRequestBody(history);
+
+  console.log(
+    `[AIChat] Gemini stream request #${meta.requestId} start`,
+    {
+      model: GEMINI_MODEL,
+      historyMessages: history.length,
+      transcriptPreview,
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      thinkingBudget: GEMINI_THINKING_BUDGET,
+      streaming: true,
+    },
+  );
+
+  return await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let eventBuffer = '';
+    let aggregateText = '';
+    let processedLength = 0;
+    let usedStreaming = false;
+    let settled = false;
+    let consumeChain = Promise.resolve();
+
+    const settleReject = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      try { xhr.abort(); } catch { }
+      reject(error);
+    };
+
+    const queueConsumeEventBlock = (eventBlock: string) => {
+      consumeChain = consumeChain.then(async () => {
+        const dataLines = eventBlock
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trim())
+          .filter(Boolean);
+
+        for (const dataLine of dataLines) {
+          if (dataLine === '[DONE]') continue;
+          const payload = JSON.parse(dataLine);
+          const incomingText = extractGeminiText(payload);
+          const deltaText = computeStreamDelta(aggregateText, incomingText);
+          if (!deltaText) continue;
+          aggregateText += deltaText;
+          await onTextDelta(deltaText, aggregateText);
+        }
+      }).catch((error) => {
+        settleReject(error instanceof Error ? error : new Error(String(error)));
+      });
+    };
+
+    const processIncomingText = (chunk: string, markStreaming: boolean) => {
+      if (!chunk) return;
+      if (markStreaming) {
+        usedStreaming = true;
+      }
+      eventBuffer += chunk.replace(/\r\n/g, '\n');
+      let separatorIndex = eventBuffer.indexOf('\n\n');
+      while (separatorIndex >= 0) {
+        const eventBlock = eventBuffer.slice(0, separatorIndex);
+        eventBuffer = eventBuffer.slice(separatorIndex + 2);
+        queueConsumeEventBlock(eventBlock);
+        separatorIndex = eventBuffer.indexOf('\n\n');
+      }
+    };
+
+    xhr.open('POST', GEMINI_STREAM_API_URL, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('x-goog-api-key', GEMINI_API_KEY);
+    xhr.timeout = 45000;
+
+    xhr.onprogress = () => {
+      const responseText = xhr.responseText ?? '';
+      if (responseText.length <= processedLength) return;
+      const chunk = responseText.slice(processedLength);
+      processedLength = responseText.length;
+      processIncomingText(chunk, true);
+    };
+
+    xhr.onerror = () => {
+      settleReject(new Error('Gemini stream XHR network error'));
+    };
+
+    xhr.ontimeout = () => {
+      settleReject(new Error('Gemini stream XHR timed out'));
+    };
+
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === xhr.DONE) {
+        const responseText = xhr.responseText ?? '';
+        if (responseText.length > processedLength) {
+          const chunk = responseText.slice(processedLength);
+          processedLength = responseText.length;
+          processIncomingText(chunk, false);
+        }
+
+        consumeChain.then(() => {
+          if (settled) return;
+          if (xhr.status < 200 || xhr.status >= 300) {
+            settled = true;
+            reject(new Error(`Gemini stream HTTP ${xhr.status}: ${xhr.responseText || 'Unknown error'}`));
+            return;
+          }
+
+          if (eventBuffer.trim()) {
+            queueConsumeEventBlock(eventBuffer);
+            eventBuffer = '';
+          }
+
+          consumeChain.then(() => {
+            if (settled) return;
+            settled = true;
+            resolve({
+              text: aggregateText.trim(),
+              usedStreaming,
+            });
+          }).catch((error) => {
+            settleReject(error instanceof Error ? error : new Error(String(error)));
+          });
+        }).catch((error) => {
+          settleReject(error instanceof Error ? error : new Error(String(error)));
+        });
+      }
+    };
+
+    xhr.send(JSON.stringify(requestBody));
+  });
 }
 
 const waitForNextInteraction = () =>
@@ -1427,7 +1638,7 @@ function App(): React.JSX.Element {
   }, [isPermissionGranted]);
 
   // UI message + Speech state (kept)
-  const [message, setMessage] = useState(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+  const [message, setMessage] = useState('Preparing voice demo...');
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
@@ -1468,6 +1679,13 @@ function App(): React.JSX.Element {
   const aiChatBlockedUntilRef = useRef(0);
   const lastAIChatSubmittedTextRef = useRef('');
   const geminiNetworkRequestCountRef = useRef(0);
+  const pendingWakeWordPrefixRef = useRef<string | null>(null);
+  const aiChatStreamingSupportedRef = useRef(true);
+  const aiChatSpeechQueueRef = useRef<string[]>([]);
+  const aiChatPendingSentenceBufferRef = useRef('');
+  const aiChatStreamingActiveRef = useRef(false);
+  const aiChatStreamGenerationDoneRef = useRef(false);
+  const aiChatStreamSpeakingRef = useRef(false);
 
   const SILENCE_TIMEOUT = 2000;
   function beginSpeechUiEpoch(): number {
@@ -1509,6 +1727,58 @@ function App(): React.JSX.Element {
     setIsSpeechSessionActive(active);
   }
 
+  const finishAIChatSpeechFlow = async () => {
+    aiChatStreamingActiveRef.current = false;
+    aiChatStreamGenerationDoneRef.current = false;
+    aiChatStreamSpeakingRef.current = false;
+    aiChatPendingSentenceBufferRef.current = '';
+    aiChatSpeechQueueRef.current = [];
+    aiChatAwaitingSpeechFinishRef.current = false;
+    lastProcessedRef.current = '';
+    aiChatInFlightRef.current = false;
+    setIsAIChatLoading(false);
+    resetSpeechTranscriptState();
+    setAiChatStatus('Listening for your next question...');
+    await Speech.unPauseSpeechRecognition(-1);
+  };
+
+  const speakNextAIChatSentence = async () => {
+    if (aiChatStreamSpeakingRef.current) return;
+
+    const nextSentence = aiChatSpeechQueueRef.current.shift();
+    if (nextSentence) {
+      aiChatStreamSpeakingRef.current = true;
+      setCurrentSpeechSentence(`Gemini: ${nextSentence}`);
+      setAiChatStatus('Speaking Gemini reply...');
+      await Speech.speak(normalizeTextForSpeech(nextSentence), SPEAKER, getSelectedSpeakerSpeed());
+      return;
+    }
+
+    if (aiChatStreamGenerationDoneRef.current) {
+      const trailing = normalizeTextForSpeech(aiChatPendingSentenceBufferRef.current);
+      if (trailing) {
+        aiChatPendingSentenceBufferRef.current = '';
+        aiChatStreamSpeakingRef.current = true;
+        setCurrentSpeechSentence(`Gemini: ${trailing}`);
+        setAiChatStatus('Speaking Gemini reply...');
+        await Speech.speak(trailing, SPEAKER, getSelectedSpeakerSpeed());
+        return;
+      }
+      await finishAIChatSpeechFlow();
+    }
+  };
+
+  const enqueueAIChatSpeechFromDelta = async (deltaText: string, aggregateText: string) => {
+    aiChatPendingSentenceBufferRef.current += deltaText;
+    const { completed, remainder } = splitCompletedSentences(aiChatPendingSentenceBufferRef.current);
+    aiChatPendingSentenceBufferRef.current = remainder;
+    if (completed.length > 0) {
+      aiChatSpeechQueueRef.current.push(...completed);
+      await speakNextAIChatSentence();
+    }
+    setAiChatResponse(aggregateText);
+  };
+
   const resetAIChatSession = () => {
     //resetSpeechTranscriptState();
     geminiConversationRef.current = [];
@@ -1519,6 +1789,11 @@ function App(): React.JSX.Element {
     lastAIChatSubmitAtRef.current = 0;
     aiChatBlockedUntilRef.current = 0;
     lastAIChatSubmittedTextRef.current = '';
+    aiChatSpeechQueueRef.current = [];
+    aiChatPendingSentenceBufferRef.current = '';
+    aiChatStreamingActiveRef.current = false;
+    aiChatStreamGenerationDoneRef.current = false;
+    aiChatStreamSpeakingRef.current = false;
     setAiChatLiveTranscript('');
     setAiChatTranscript('');
     setAiChatResponse('');
@@ -1544,14 +1819,14 @@ function App(): React.JSX.Element {
 
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
+      if (aiChatStreamingActiveRef.current) {
+        aiChatStreamSpeakingRef.current = false;
+        await speakNextAIChatSentence();
+        return;
+      }
       if (aiChatAwaitingSpeechFinishRef.current) {
         aiChatAwaitingSpeechFinishRef.current = false;
-        lastProcessedRef.current = '';
-        aiChatInFlightRef.current = false;
-        setIsAIChatLoading(false);
-        resetSpeechTranscriptState();
-        setAiChatStatus('Listening for your next question...');
-        await Speech.unPauseSpeechRecognition(-1);
+        await finishAIChatSpeechFlow();
       }
     };
   }
@@ -1579,7 +1854,14 @@ function App(): React.JSX.Element {
   }
 
   const processAIChatTurn = async (rawText: string) => {
-    const userText = rawText.trim();
+    const sanitizedInput =
+      AI_CHAT_STRIP_WAKE_WORD_PREFIX &&
+      typeof pendingWakeWordPrefixRef.current === 'string' &&
+      pendingWakeWordPrefixRef.current.length > 0
+        ? stripWakeWordPrefix(rawText, pendingWakeWordPrefixRef.current)
+        : rawText;
+    pendingWakeWordPrefixRef.current = null;
+    const userText = sanitizedInput.trim();
     if (!userText || aiChatInFlightRef.current) return;
 
     const now = Date.now();
@@ -1622,6 +1904,11 @@ function App(): React.JSX.Element {
         role: 'user',
         text: userText,
       },
+      {
+        id: `model-${requestId}`,
+        role: 'model',
+        text: '',
+      },
     ]);
     setIsAIChatLoading(true);
 
@@ -1638,10 +1925,63 @@ function App(): React.JSX.Element {
         `[AIChat] preparing Gemini request #${networkRequestId} for turn #${requestId}`,
         { userText }
       );
-      const aiReply = await generateGeminiReply(nextHistory, {
-        requestId: networkRequestId,
-        userText,
-      });
+
+      let aiReply = '';
+      const shouldUseStreaming = GEMINI_ENABLE_STREAMING && aiChatStreamingSupportedRef.current;
+      if (shouldUseStreaming) {
+        aiChatStreamingActiveRef.current = true;
+        aiChatStreamGenerationDoneRef.current = false;
+        aiChatStreamSpeakingRef.current = false;
+        aiChatPendingSentenceBufferRef.current = '';
+        aiChatSpeechQueueRef.current = [];
+        let streamDeliveredChunks = false;
+        setAiChatStatus('Streaming Gemini reply...');
+
+        const streamResult = await generateGeminiReplyStream(
+          nextHistory,
+          {
+            requestId: networkRequestId,
+            userText,
+          },
+          async (deltaText, aggregateText) => {
+            if (aiChatRequestIdRef.current !== requestId) return;
+            streamDeliveredChunks = true;
+            setAiChatStatus('Streaming Gemini reply...');
+            setAiChatMessages((prev) =>
+              prev.map((message) =>
+                message.id === `model-${requestId}`
+                  ? { ...message, text: aggregateText }
+                  : message
+              )
+            );
+            await enqueueAIChatSpeechFromDelta(deltaText, aggregateText);
+          },
+        );
+        aiReply = streamResult.text;
+        if (!streamResult.usedStreaming) {
+          aiChatStreamingSupportedRef.current = false;
+          aiChatStreamingActiveRef.current = false;
+        }
+
+        if (!streamDeliveredChunks && aiReply) {
+          if (streamResult.usedStreaming) {
+            await enqueueAIChatSpeechFromDelta(aiReply, aiReply);
+            setAiChatMessages((prev) =>
+              prev.map((message) =>
+                message.id === `model-${requestId}`
+                  ? { ...message, text: aiReply }
+                  : message
+              )
+            );
+          }
+        }
+      } else {
+        aiReply = await generateGeminiReply(nextHistory, {
+          requestId: networkRequestId,
+          userText,
+        });
+      }
+
       console.log(`[AIChat] Gemini reply #${networkRequestId}:`, aiReply);
       console.log('[AIChat][FULL_REPLY_BEGIN]');
       console.log(aiReply);
@@ -1655,21 +1995,31 @@ function App(): React.JSX.Element {
       ];
 
       setAiChatResponse(aiReply);
-      setAiChatMessages((prev) => [
-        ...prev,
-        {
-          id: `model-${requestId}`,
-          role: 'model',
-          text: aiReply,
-        },
-      ]);
-      setCurrentSpeechSentence(`Gemini: ${aiReply}`);
-      setAiChatStatus('Speaking Gemini reply...');
-      aiChatAwaitingSpeechFinishRef.current = true;
-      await Speech.speak(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
+      setAiChatMessages((prev) =>
+        prev.map((message) =>
+          message.id === `model-${requestId}`
+            ? { ...message, text: aiReply }
+            : message
+        )
+      );
+
+      if (shouldUseStreaming && aiChatStreamingActiveRef.current) {
+        aiChatStreamGenerationDoneRef.current = true;
+        aiChatAwaitingSpeechFinishRef.current = true;
+        await speakNextAIChatSentence();
+      } else {
+        aiChatStreamingActiveRef.current = false;
+        setCurrentSpeechSentence(`Gemini: ${aiReply}`);
+        setAiChatStatus('Speaking Gemini reply...');
+        aiChatAwaitingSpeechFinishRef.current = true;
+        await Speech.speak(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
+      }
     } catch (error) {
       const message = String((error as any)?.message ?? error);
       console.log('[AIChat] Gemini error:', message);
+      aiChatStreamingActiveRef.current = false;
+      aiChatStreamGenerationDoneRef.current = false;
+      aiChatStreamSpeakingRef.current = false;
       aiChatAwaitingSpeechFinishRef.current = false;
       if (/quota|rate limit|429|too many requests/i.test(message)) {
         aiChatBlockedUntilRef.current = Date.now() + AI_CHAT_RATE_LIMIT_BACKOFF_MS;
@@ -1679,7 +2029,7 @@ function App(): React.JSX.Element {
       }
     } finally {
       if (aiChatRequestIdRef.current === requestId) {
-        if (!aiChatAwaitingSpeechFinishRef.current) {
+        if (!aiChatAwaitingSpeechFinishRef.current && aiChatInFlightRef.current) {
           lastProcessedRef.current = '';
           aiChatInFlightRef.current = false;
           setIsAIChatLoading(false);
@@ -2021,6 +2371,7 @@ Speech.onSpeechResults = async (e) => {
         modelWordIndex >= 0
           ? keywordWords.slice(0, modelWordIndex).join(' ')
           : keywordText;
+      pendingWakeWordPrefixRef.current = cleanWakeWord;
       setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
       setIsFlashing(true);
 
