@@ -41,9 +41,10 @@ const ARIANA_SPEAKER_SPEED = 0.88; //0.75;
 //const SPEAKER_SPEED = 0.75;
 // const SPEAKER_SPEED_ = 0.85;
 const SPEAKER_SPEED = 1.0;// 0.85;
-const SV_MATCH_HOLD_MS = 500;
+const SV_MATCH_HOLD_MS = 750;
 const SV_ONBOARDING_SAMPLE_COUNT = 5;
-const ANDROID_SV_UI_MATCH_THRESHOLD = 0.5;
+const ANDROID_SV_UI_MATCH_THRESHOLD = 0.34;
+const SV_DECISION_THRESHOLD = Platform.OS === 'android' ? 0.34 : 0.35;
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 type TTSVoiceChoice = 'Ariana' | 'Rich';
 type TTSQualityChoice = 'lite' | 'heavy';
@@ -632,7 +633,7 @@ async function startEndlessVerificationWithEnrollmentFix(
   const micConfig = {
     modelPath: 'speaker_model.dm',
     options: {
-      decisionThreshold: 0.35,
+      decisionThreshold: SV_DECISION_THRESHOLD,
       //tailSeconds: 2.0,
       tailSeconds: 2.0,
       frameSize: 1280,
@@ -698,14 +699,21 @@ async function startEndlessVerificationWithEnrollmentFix(
     const ok = !!e?.isMatch;
     const nowMs = Date.now();
     const hasBest = Number.isFinite(best);
+    const wasInHoldWindow = nowMs < matchHoldUntilMs;
+    if (ok && !wasInHoldWindow) {
+      holdScoreHistory = [];
+    }
+    if (hasBest && (ok || wasInHoldWindow)) {
+      holdScoreHistory.push({ timeMs: nowMs, score: best });
+      holdScoreHistory = holdScoreHistory.filter((item) => nowMs - item.timeMs <= matchHoldMs);
+    }
     if (ok) {
       matchHoldUntilMs = nowMs + matchHoldMs;
-      holdBestScore = hasBest ? best : holdBestScore;
     }
     const inHoldWindow = nowMs < matchHoldUntilMs;
-    if (!ok && inHoldWindow && hasBest) {
-      holdBestScore = Number.isFinite(holdBestScore) ? Math.max(holdBestScore, best) : best;
-    }
+    holdBestScore = inHoldWindow && holdScoreHistory.length > 0
+      ? Math.max(...holdScoreHistory.map((item) => item.score))
+      : Number.NaN;
 
     const showAsMatch = ok || inHoldWindow;
     const scoreToShow = showAsMatch && Number.isFinite(holdBestScore) ? holdBestScore : best;
@@ -725,6 +733,7 @@ async function startEndlessVerificationWithEnrollmentFix(
   });
   let matchHoldUntilMs = -1_000_000_000;
   let holdBestScore = Number.NaN;
+  let holdScoreHistory: Array<{ timeMs: number; score: number }> = [];
 
   setUiMessage?.(`🎙️ Verify Speaker Identification Now`);//  (hop=${hopSeconds}s)`);
 
@@ -765,7 +774,7 @@ async function startEndlessVerificationWithEnrollment(
   const micConfig = {
     modelPath: 'speaker_model.dm',
     options: {
-      decisionThreshold: 0.35,
+      decisionThreshold: SV_DECISION_THRESHOLD,
       tailSeconds: 2.0,
       frameSize: 1280,
       maxTailSeconds: 3.0,
@@ -903,7 +912,7 @@ async function verifyFromMicWithEnrollment(
   const micConfig = {
     modelPath: 'speaker_model.dm',
     options: {
-      decisionThreshold: 0.35,
+      decisionThreshold: SV_DECISION_THRESHOLD,
       // tailSeconds: 2.0,
       tailSeconds: 2.0,
       frameSize: 1280,
@@ -968,7 +977,7 @@ async function runVerificationWithEnrollment(
   const micConfig = {
     modelPath: 'speaker_model.dm',
     options: {
-      decisionThreshold: 0.35,
+      decisionThreshold: SV_DECISION_THRESHOLD,
       tailSeconds: 2.0,
       frameSize: 1280,
       maxTailSeconds: 3.0,
@@ -1064,7 +1073,7 @@ async function runSpeakerVerifyEnrollment(
   const micConfig = {
     modelPath: 'speaker_model.dm',
     options: {
-      decisionThreshold: 0.35,
+      decisionThreshold: SV_DECISION_THRESHOLD,
       // TODO IOS IGNORES tailSeconds!!! AND ANDROID DOES NOT!!!
       tailSeconds: 2.0,
       frameSize: 1280,
@@ -1212,7 +1221,7 @@ async function runSpeakerVerifyEnrollment() {
     'speaker_model.dm',
     'davoice_enrollment.json',
     {
-      decisionThreshold: 0.35,
+      decisionThreshold: SV_DECISION_THRESHOLD,
       tailSeconds: 2.0,
       frameSize: 1280,
       maxTailSeconds: 3.0,
@@ -3087,7 +3096,7 @@ Speech.onSpeechResults = async (e) => {
     );
   };
 
-  const aiChatTitle = 'Chat with Gemini 2.5 Flash';
+  const aiChatTitle = 'Limited Gemini 3.1 Flash Lite Chat';
 
   if (shouldShowFullAIChatScreen) {
     return (
