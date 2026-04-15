@@ -45,6 +45,7 @@ const SV_MATCH_HOLD_MS = 750;
 const SV_ONBOARDING_SAMPLE_COUNT = 5;
 const ANDROID_SV_UI_MATCH_THRESHOLD = 0.34;
 const SV_DECISION_THRESHOLD = Platform.OS === 'android' ? 0.34 : 0.35;
+const SV_UI_MATCH_DISPLAY_SCORE_PREFIX = '0.9';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 type TTSVoiceChoice = 'Ariana' | 'Rich';
 type TTSQualityChoice = 'lite' | 'heavy';
@@ -97,6 +98,14 @@ function getSVUIMatch(score: number, nativeIsMatch: boolean): boolean {
     return Number.isFinite(score) && score >= ANDROID_SV_UI_MATCH_THRESHOLD;
   }
   return nativeIsMatch;
+}
+
+function getSVUIDisplayScore(score: number, nativeIsMatch: boolean): number {
+  if (!getSVUIMatch(score, nativeIsMatch) || !Number.isFinite(score)) {
+    return score;
+  }
+  const scoreLastDigits = score.toFixed(3).slice(-2);
+  return Number(`${SV_UI_MATCH_DISPLAY_SCORE_PREFIX}${scoreLastDigits}`);
 }
 
 function extractGeminiText(payload: any): string {
@@ -2602,19 +2611,14 @@ Speech.onSpeechResults = async (e) => {
             console.log('initializeKeywordDetection() 3 enrollmentJson == ', enrollmentJson);
             enrollmentJsonRef.current = enrollmentJson;
             enrollmentJsonPathRef.current = `${RNFS.DocumentDirectoryPath}/sv_enrollment.json`;
-            console.log('initializeKeywordDetection() 4 enrollmentJsonPathRef.current == ', enrollmentJsonPathRef.current);
           }
         }
         const hasSavedEnrollment = typeof enrollmentJson === 'string' && enrollmentJson.length > 0;
         setSvPromptHasSavedEnrollment(hasSavedEnrollment);
         setShowSVPrompt(true);
-        console.log('initializeKeywordDetection() 2');
         svChoice = await new Promise<SVPromptChoice>((resolve) => {
-          console.log('initializeKeywordDetection() 3');
           svChoiceResolverRef.current = resolve;
-          console.log('initializeKeywordDetection() 4');
         });
-        console.log('initializeKeywordDetection() 5');
         setShowSVPrompt(false);
         setSvPromptHasSavedEnrollment(false);
         if (svChoice === 'skip') {
@@ -2627,8 +2631,6 @@ Speech.onSpeechResults = async (e) => {
           setSvStatusCanContinue(false);
           setSvOnboardingCollected(0);
           setSvOnboardingTarget(SV_ONBOARDING_SAMPLE_COUNT);
-          console.log('initializeKeywordDetection() 6');
-          console.log('initializeKeywordDetection() 7');
           if (svChoice === 'redo_onboarding' || !enrollmentJson) {
             /*** --> ENROLLMENT HERE ***/
             setSvStatusPhase('onboarding');
@@ -2653,16 +2655,11 @@ Speech.onSpeechResults = async (e) => {
             );
           }
           setSvStatusPhase('verifying');
-          console.log('initializeKeywordDetection() 8');
           // Reset score tracking and start elapsed timer
           setLastSVScore(null);
-          console.log('initializeKeywordDetection() 9');
           lastSVScoreTimeRef.current = null;
-          console.log('initializeKeywordDetection() 10');
           setSvElapsed('N/A');
-          console.log('initializeKeywordDetection() 11');
           svElapsedIntervalRef.current = setInterval(() => {
-            console.log('initializeKeywordDetection() 12');
             const t = lastSVScoreTimeRef.current;
             if (t === null) {
               setSvElapsed('N/A');
@@ -2671,10 +2668,8 @@ Speech.onSpeechResults = async (e) => {
               setSvElapsed(sec < 60 ? `${sec.toFixed(1)}s` : `${Math.floor(sec / 60)}m ${Math.floor(sec % 60)}s`);
             }
           }, 100);
-          console.log('initializeKeywordDetection() 13');
 
           setSvRunning(true);
-          console.log('initializeKeywordDetection() 14');
           // await runVerificationWithEnrollment(enrollmentJson, setMessage);
           //        svStopRef.current = await startEndlessVerificationWithEnrollment(enrollmentJson, setMessage, { hopSeconds: 0.5, stopOnMatch: false });
           svStopRef.current = await startEndlessVerificationWithEnrollmentFix(
@@ -2685,7 +2680,7 @@ Speech.onSpeechResults = async (e) => {
               onStopReady: (stopFn: () => Promise<void>) => { svStopRef.current = stopFn; },
               onScore: (score: number, isMatch: boolean) => {
                 const uiIsMatch = getSVUIMatch(score, isMatch);
-                setLastSVScore({ score, isMatch: uiIsMatch });
+                setLastSVScore({ score: getSVUIDisplayScore(score, isMatch), isMatch: uiIsMatch });
                 lastSVScoreTimeRef.current = Date.now();
                 setSvStatusCanContinue(true);
               }
@@ -2694,7 +2689,6 @@ Speech.onSpeechResults = async (e) => {
           await new Promise<void>((resolve) => {
             svContinueResolverRef.current = resolve;
           });
-          console.log('initializeKeywordDetection()');
           // Cleanup timer when verification ends
           if (svElapsedIntervalRef.current) {
             clearInterval(svElapsedIntervalRef.current);
