@@ -555,10 +555,14 @@ export async function ensureMicPermission(): Promise<boolean> {
 const moonRocksSound = require('./assets/cashRegisterSound.mp3');
 const subtractMoonRocksSound = require('./assets/bellServiceDeskPressXThree.mp3');
 
-const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
-const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
-const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
-const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
+const ttsModelFast = require('./assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
+const ttsModelSlow = require('./assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
+// const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
+// const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
+const ttsModelRichFast = require('./assets/models/model_ex_rich_fast_davoice_phoneme.dm');
+const ttsModelRichSlow = require('./assets/models/model_ex_rich_fast_davoice_phoneme.dm');
+// const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
+// const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
 
 // This is how you send the speech library the tts model.
 // const ttsModel = require('./assets/models/model_ex.dm');
@@ -1519,6 +1523,7 @@ function App(): React.JSX.Element {
   const svElapsedIntervalRef = useRef<any>(null);
   const initStartedRef = useRef(false);
   const speechLibraryInitializedRef = useRef(false);
+  const suppressAndroidPartialResultsRef = useRef(false);
 
   const sidRef = useRef<any>(null);
   const [didInitSID, setDidInitSID] = useState(false);
@@ -1757,7 +1762,9 @@ function App(): React.JSX.Element {
     setIsAIChatLoading(false);
     resetSpeechTranscriptState();
     setAiChatStatus('Listening for your next question...');
+    console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in finishAIChatSpeechFlow');
     await Speech.unPauseSpeechRecognition(-1);
+    console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in finishAIChatSpeechFlow');
   };
 
   const speakNextAIChatSentence = async () => {
@@ -1821,6 +1828,18 @@ function App(): React.JSX.Element {
     setIsAIChatLoading(false);
   };
 
+  const buildFriendlyGeminiErrorMessage = (rawMessage: string) => {
+    if (/quota|rate limit|429|too many requests/i.test(rawMessage)) {
+      return 'This demo uses Google Gemini as its backend LLM. Gemini is currently experiencing rate limits or heavy demand, so it cannot answer right now. Please try again in about 30 seconds.';
+    }
+
+    if (/busy|overloaded|unavailable|timeout|temporar/i.test(rawMessage)) {
+      return 'This demo uses Google Gemini as its backend LLM. Gemini is temporarily busy right now, so the demo could not get a reply. Please try again in a moment.';
+    }
+
+    return 'This demo uses Google Gemini as its backend LLM. Gemini is temporarily unavailable right now, so the demo could not get a reply. Please try again in a moment.';
+  };
+
   async function initializeSpeechLibrary(enrollmentJsonPath?: string | null) {
     console.log('Calling Speech.initAll');
     if (typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
@@ -1834,7 +1853,6 @@ function App(): React.JSX.Element {
       console.log('Calling Speech.initAll WITHOUT');
       await Speech.initAll({ locale: 'en-US', model: selectedTTSModelRef.current });
     }
-
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
       if (aiChatStreamingActiveRef.current) {
@@ -1847,6 +1865,7 @@ function App(): React.JSX.Element {
         await finishAIChatSpeechFlow();
       }
     };
+    await Speech.pauseSpeechRecognition();
   }
 
   async function promptForTTSModelChoice() {
@@ -1885,7 +1904,9 @@ function App(): React.JSX.Element {
     const now = Date.now();
     if (now < aiChatBlockedUntilRef.current) {
       const waitSeconds = Math.ceil((aiChatBlockedUntilRef.current - now) / 1000);
-      setAiChatStatus(`Gemini cooling down after rate limit. Try again in ${waitSeconds}s.`);
+      setAiChatStatus(
+        `This demo uses Google Gemini as its backend LLM. Gemini is cooling down after rate limiting. Please try again in ${waitSeconds}s.`,
+      );
       return;
     }
 
@@ -2034,6 +2055,7 @@ function App(): React.JSX.Element {
       }
     } catch (error) {
       const message = String((error as any)?.message ?? error);
+      const friendlyMessage = buildFriendlyGeminiErrorMessage(message);
       console.log('[AIChat] Gemini error:', message);
       aiChatStreamingActiveRef.current = false;
       aiChatStreamGenerationDoneRef.current = false;
@@ -2041,9 +2063,29 @@ function App(): React.JSX.Element {
       aiChatAwaitingSpeechFinishRef.current = false;
       if (/quota|rate limit|429|too many requests/i.test(message)) {
         aiChatBlockedUntilRef.current = Date.now() + AI_CHAT_RATE_LIMIT_BACKOFF_MS;
-        setAiChatStatus('Gemini rate limit hit. Cooling down for 30 seconds.');
-      } else {
-        setAiChatStatus(`Gemini error: ${message}`);
+        setAiChatStatus('Gemini is rate limited right now. Please try again in about 30 seconds.');
+      }
+      setAiChatResponse(friendlyMessage);
+      setAiChatMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === `model-${requestId}`
+            ? { ...msg, text: friendlyMessage }
+            : msg
+        )
+      );
+      setCurrentSpeechSentence(`Gemini: ${friendlyMessage}`);
+      setAiChatStatus('Speaking demo status update...');
+      aiChatAwaitingSpeechFinishRef.current = true;
+      try {
+        await Speech.speak(
+          normalizeTextForSpeech(friendlyMessage),
+          SPEAKER,
+          getSelectedSpeakerSpeed(),
+        );
+      } catch (speechError) {
+        console.log('[AIChat] failed to speak Gemini fallback message:', speechError);
+        aiChatAwaitingSpeechFinishRef.current = false;
+        await finishAIChatSpeechFlow();
       }
     } finally {
       if (aiChatRequestIdRef.current === requestId) {
@@ -2051,7 +2093,9 @@ function App(): React.JSX.Element {
           lastProcessedRef.current = '';
           aiChatInFlightRef.current = false;
           setIsAIChatLoading(false);
+          console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
           await Speech.unPauseSpeechRecognition(-1);
+          console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
         }
       }
     }
@@ -2184,6 +2228,11 @@ function App(): React.JSX.Element {
   Speech.onSpeechPartialResults = (e) => {
         console.log('onSpeechPartialResults: 1');
 
+    if (Platform.OS === 'android' && suppressAndroidPartialResultsRef.current) {
+      console.log('[STT_INIT_GUARD] ignoring Android partial result while speech library is still loading/pause is settling', e.value?.[0]);
+      return;
+    }
+
     if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) return;
     const curr = e.value?.[0];
     if (Platform.OS === 'ios') {
@@ -2222,7 +2271,9 @@ function App(): React.JSX.Element {
       const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
       await Speech.speak(newText, SPEAKER, adjustedSpeed);
       resetSpeechTranscriptState();
+      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in onSpeechPartialResults silence timeout');
       await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in onSpeechPartialResults silence timeout');
       await sleep(300);
       clearSpeechSentenceUI(speechUiEpoch);
     }, silenceThresholdMsRef.current);
@@ -2295,7 +2346,9 @@ Speech.onSpeechResults = async (e) => {
     const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
     await Speech.speak(newText, SPEAKER, adjustedSpeed);
     resetSpeechTranscriptState();
+    console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in onSpeechResults silence timeout');
     await Speech.unPauseSpeechRecognition(-1);
+    console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in onSpeechResults silence timeout');
     await sleep(300);
     clearSpeechSentenceUI(speechUiEpoch);
   }, silenceThresholdMsRef.current);
@@ -2501,7 +2554,9 @@ Speech.onSpeechResults = async (e) => {
       } finally {
         setIntroSpeakingGuarded(speechUiEpoch, false);
       }
+      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after intro speech');
       await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after intro speech');
 
       // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
       // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
@@ -2544,7 +2599,9 @@ Speech.onSpeechResults = async (e) => {
       */
       await waitForNextInteraction();
       resetSpeechTranscriptState();
+      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after waitForNextInteraction');
       await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after waitForNextInteraction');
       await sleep(500);
       clearSpeechSentenceUI(speechUiEpoch);
 
@@ -2779,6 +2836,7 @@ Speech.onSpeechResults = async (e) => {
 
         let speechInitCompleted = false;
         try {
+          suppressAndroidPartialResultsRef.current = true;
           setMessage('Initializing speech engine...');
           console.log('Before initializeSpeechLibrary');
           await withTimeout(
@@ -2799,9 +2857,12 @@ Speech.onSpeechResults = async (e) => {
             await Speech.pauseSpeechRecognition();
           } catch (e) {
             console.warn('Initial pauseSpeechRecognition failed (ignored):', e);
+          } finally {
+            suppressAndroidPartialResultsRef.current = false;
           }
-          console.log('Post pauseDetection 2');
+          // console.log('Post pauseDetection 2');
         } catch (e) {
+          suppressAndroidPartialResultsRef.current = false;
           speechLibraryInitializedRef.current = false;
           console.error('Speech initialization failed or hung:', e);
           setMessage('Speech init stalled. Wakeword detection was resumed, but speech may need a retry.');
@@ -2923,7 +2984,9 @@ Speech.onSpeechResults = async (e) => {
     try {
       await waitForNextInteraction();
       resetSpeechTranscriptState();
+      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
       await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
       await sleep(300);
     } catch (error) {
       console.log('[AIChat] failed to unpause speech recognition:', error);
