@@ -90,6 +90,12 @@ abstract_target 'ExampleAppShared' do
       t.build_configurations.each do |cfg|
         cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_min
       end
+
+      if t.name == 'fmt'
+        t.build_configurations.each do |cfg|
+          cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        end
+      end
     end
 
     if linkage && linkage.to_s == 'static'
