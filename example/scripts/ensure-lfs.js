@@ -3,8 +3,7 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 const path = require("path");
 
-const FILE = path.join("assets", "models", "model_ex.dm");
-const MIN_REAL_SIZE = 50 * 1024 * 1024; // 50MB
+const FILE = path.join("assets", "models", "model_ex_rich.dm");const MIN_REAL_SIZE = 50 * 1024 * 1024; // 50MB
 
 function isLFSPointer(p) {
   if (!fs.existsSync(p)) return false;
