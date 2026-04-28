@@ -1,4 +1,5 @@
-import { GEMINI_API_KEY } from '../../local.config';
+// import { GEMINI_API_KEY } from '../../local.config';
+const GEMINI_API_KEY = 'PLACE_YOUR_API_KEY_HERE';
 
 export type GeminiChatMessage = {
   role: 'user' | 'model';
