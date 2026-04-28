@@ -110,10 +110,101 @@ The example can share recorded wake-word audio. On Android that uses a `FileProv
 
 ## Relevant files
 
-- [App.tsx](./App.tsx): end-to-end voice flow
+- [App.tsx](./App.tsx): top-level app container, React state, screen flow, and JSX
+- [src/README.md](./src/README.md): detailed source-map for the extracted feature modules
+- [src/appflow.ts](./src/appflow.ts): shared app constants and flow helpers
+- [src/initialization/](./src/initialization): startup, permission, and speech-init helpers
+- [src/stt/](./src/stt): STT transcript merge logic and speech callback registration
+- [src/tts/](./src/tts): TTS constants, model assets, and intro speech flow
+- [src/wakeword/](./src/wakeword): wakeword config, bootstrap, listener, capture, and sharing helpers
+- [src/speaker_verification/](./src/speaker_verification): onboarding and verification helpers
+- [src/aichat/](./src/aichat): Gemini request helpers and AI-chat speech/session helpers
 - [package.json](./package.json): example dependencies
 - [AndroidManifest.xml](./android/app/src/main/AndroidManifest.xml): Android permissions and file sharing
 - [share_file_paths.xml](./android/app/src/main/res/xml/share_file_paths.xml): Android file-sharing resource
+
+## New source structure
+
+The example no longer keeps all of the voice logic in one giant file.
+
+The original `App.tsx` was broken into reusable logic modules under `src/` so developers can lift individual features into their own React Native app with less effort.
+
+### `App.tsx` now focuses on
+
+- React state and refs
+- top-level app flow
+- prompt transitions
+- screen rendering
+- styles
+
+### `src/` now contains the reusable logic
+
+#### `src/appflow.ts`
+- shared app constants and UI-facing helpers
+- includes speaker-verification thresholds and score-display helpers
+
+#### `src/initialization/`
+- microphone permission helpers
+- speech-library initialization helpers
+- TTS model-selection prompt flow
+- startup timing helpers like `withTimeout(...)`
+
+#### `src/stt/`
+- STT merge logic for partial/final transcripts
+- `Speech.onSpeechError`
+- `Speech.onSpeechStart`
+- `Speech.onSpeechEnd`
+- `Speech.onSpeechPartialResults`
+- `Speech.onSpeechResults`
+- Android-specific partial-results guard during initialization
+
+#### `src/tts/`
+- TTS constants and model assets
+- wakeword intro speech flow
+- reusable TTS-related helpers
+
+#### `src/wakeword/`
+- wakeword model/config constants
+- listener attach/detach helpers
+- wakeword startup/bootstrap flow
+- wakeword detection capture helpers
+- wakeword recording-share helpers
+- iOS audio-routing config used by wakeword flows
+
+#### `src/speaker_verification/`
+- enrollment JSON load/save helpers
+- onboarding flow
+- endless verification/runtime verification helpers
+
+#### `src/aichat/`
+- Gemini request and streaming helpers
+- speech queue handling for AI-chat replies
+- AI-chat session reset/finish helpers
+
+## How to copy pieces into your app
+
+If you only need one feature from this example, these are the best starting points:
+
+- Wakeword only:
+  - start with [src/wakeword/index.ts](./src/wakeword/index.ts)
+- Speaker verification onboarding + verification:
+  - start with [src/speaker_verification/onboarding.ts](./src/speaker_verification/onboarding.ts) and [src/speaker_verification/verification.ts](./src/speaker_verification/verification.ts)
+  - also use [src/appflow.ts](./src/appflow.ts) for SV-related thresholds/UI helpers
+- STT + TTS interaction loop:
+  - start with [src/stt/index.ts](./src/stt/index.ts), [src/tts/index.ts](./src/tts/index.ts), and [src/initialization/index.ts](./src/initialization/index.ts)
+- Gemini voice chat:
+  - start with [src/aichat/index.ts](./src/aichat/index.ts) plus the STT/TTS modules above
+
+## Important note about behavior preservation
+
+This refactor was intentionally done as a move/extract refactor, not as a redesign.
+
+The goal of the new structure is:
+
+- keep the same voice behavior
+- preserve the Android/iOS-specific logic
+- preserve the STT/TTS/wakeword pause-resume orchestration
+- make the example easier to understand and easier to copy feature-by-feature
 
 ## Search-friendly summary
 

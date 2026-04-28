@@ -127,11 +127,71 @@ This repository is specifically valuable because it tackles those integration ed
 
 - [README.md](./README.md): main overview for the full voice AI solution
 - [example/README.md](./example/README.md): how to run and understand the demo app
-- [example/App.tsx](./example/App.tsx): full end-to-end React Native example
+- [example/App.tsx](./example/App.tsx): top-level screen container and app orchestration
+- [example/src/README.md](./example/src/README.md): detailed map of the extracted example source modules
+- [example/src/appflow.ts](./example/src/appflow.ts): shared app constants and UI-oriented flow helpers
+- [example/src/initialization/](./example/src/initialization): startup, permission, and speech-init helpers
+- [example/src/stt/](./example/src/stt): STT transcript merge logic and speech callback registration
+- [example/src/tts/](./example/src/tts): TTS constants, model assets, and intro speech flow
+- [example/src/wakeword/](./example/src/wakeword): wakeword config, listener wiring, bootstrap, capture, and share helpers
+- [example/src/speaker_verification/](./example/src/speaker_verification): speaker onboarding and verification helpers
+- [example/src/aichat/](./example/src/aichat): Gemini request helpers and AI-chat speech/session helpers
 - [docs/react-native-speaker-identification.md](./docs/react-native-speaker-identification.md): focused page for speaker identification / verification
 - [docs/react-native-wake-word-detection.md](./docs/react-native-wake-word-detection.md): focused page for wake word / keyword spotting
 - [docs/react-native-speech-to-text.md](./docs/react-native-speech-to-text.md): focused page for ASR / STT
 - [docs/react-native-text-to-speech.md](./docs/react-native-text-to-speech.md): focused page for TTS
+
+## New example source structure
+
+The example app used to keep most of the voice logic in one very large `example/App.tsx`. It is now split into feature-oriented modules so developers can copy only the parts they need into their own app.
+
+### What stays in `example/App.tsx`
+
+`App.tsx` is now mainly responsible for:
+
+- React state and refs
+- top-level orchestration between voice features
+- prompt and screen transitions
+- JSX and styles
+
+### What moved into `example/src`
+
+- `appflow.ts`
+  - shared constants and UI-facing helpers such as speaker-verification thresholds and display-score mapping
+- `initialization/`
+  - startup and permission helpers
+  - speech-library initialization
+  - TTS model-selection prompt flow
+- `stt/`
+  - STT partial/final transcript merging
+  - `Speech.onSpeech...` callback registration
+  - Android-specific STT initialization guard behavior
+- `tts/`
+  - TTS constants and model assets
+  - reusable intro speech flow after wakeword detection
+- `wakeword/`
+  - wakeword configuration
+  - listener attach/detach helpers
+  - wakeword bootstrap/start/pause/resume helpers
+  - wakeword recording capture and sharing helpers
+- `speaker_verification/`
+  - enrollment file load/save
+  - onboarding flow
+  - verification runtime helpers
+- `aichat/`
+  - Gemini request helpers
+  - AI-chat speech queue/session reset helpers
+
+### Why this structure is important
+
+This makes the example easier to maintain, but more importantly it makes it easier for other developers to take only the feature they care about:
+
+- if you only want wakeword, start with `example/src/wakeword/`
+- if you only want speaker verification, start with `example/src/speaker_verification/`
+- if you only want STT + TTS orchestration, start with `example/src/stt/`, `example/src/tts/`, and `example/src/initialization/`
+- if you want the Gemini voice-chat layer, start with `example/src/aichat/`
+
+For a more detailed breakdown of the extracted modules, see [example/src/README.md](./example/src/README.md).
 
 ## Running the demo
 
