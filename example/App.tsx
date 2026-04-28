@@ -5,12 +5,9 @@
  * @format
  */
 
-import RNFS from 'react-native-fs';
-import { GEMINI_API_KEY } from './local.config';
-
 import React, { useEffect, useState, useRef } from 'react';
 
-import { Platform, PermissionsAndroid, Linking, Alert, Share, NativeModules } from 'react-native';
+import { Platform } from 'react-native';
 //import { check, request, openSettings, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 import {
@@ -28,1462 +25,76 @@ import {
   Keyboard,
   InteractionManager,
   Image,
+  type DimensionValue,
 } from 'react-native';
-
-const ARIANA = 0;
-const RICH = 1;
-
-const SPEAKER = 0;
-
-const RICH_SPEAKER_SPEED = 1.06;
-const ARIANA_SPEAKER_SPEED = 0.88; //0.75;
-// const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
-//const SPEAKER_SPEED = 0.75;
-// const SPEAKER_SPEED_ = 0.85;
-const SPEAKER_SPEED = 1.0;// 0.85;
-const SV_MATCH_HOLD_MS = 750;
-const SV_ONBOARDING_SAMPLE_COUNT = 5;
-const ANDROID_SV_UI_MATCH_THRESHOLD = 0.34;
-const SV_DECISION_THRESHOLD = Platform.OS === 'android' ? 0.34 : 0.35;
-const SV_UI_MATCH_DISPLAY_SCORE_PREFIX = '0.9';
-const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
-type TTSVoiceChoice = 'Ariana' | 'Rich';
-type TTSQualityChoice = 'lite' | 'heavy';
-type AppModeChoice = 'tts_test' | 'full_ai_chat';
-type SVPromptChoice = 'use_existing' | 'redo_onboarding' | 'skip';
-
-type GeminiChatMessage = {
-  role: 'user' | 'model';
-  parts: Array<{ text: string }>;
-};
-
-type AIChatHistoryMessage = {
-  id: string;
-  role: 'user' | 'model';
-  text: string;
-};
-
-type SVEnrollmentUIHooks = {
-  onStart?: (targetSamples: number) => void;
-  onProgress?: (collected: number, target: number) => void;
-  onComplete?: (targetSamples: number) => void;
-  onFinalizing?: () => void;
-};
-
-type GeminiRequestLogMeta = {
-  requestId: number;
-  userText: string;
-};
-
-type GeminiTextPartDebug = {
-  index: number;
-  text: string;
-  length: number;
-};
-
-const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const GEMINI_STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
-const GEMINI_SYSTEM_PROMPT =
-  'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. For time-sensitive facts like current leaders, dates, news, prices, or recent events, answer cautiously and say when you may be unsure rather than asserting a stale fact.';
-const GEMINI_MAX_OUTPUT_TOKENS = 512;
-const GEMINI_THINKING_BUDGET = 256;
-const AI_CHAT_MIN_REQUEST_GAP_MS = 4000;
-const AI_CHAT_RATE_LIMIT_BACKOFF_MS = 30000;
-const GEMINI_ENABLE_STREAMING = false;
-const AI_CHAT_STRIP_WAKE_WORD_PREFIX = false;
-
-function getSVUIMatch(score: number, nativeIsMatch: boolean): boolean {
-  if (Platform.OS === 'android') {
-    return Number.isFinite(score) && score >= ANDROID_SV_UI_MATCH_THRESHOLD;
-  }
-  return nativeIsMatch;
-}
-
-function getSVUIDisplayScore(score: number, nativeIsMatch: boolean): number {
-  if (!getSVUIMatch(score, nativeIsMatch) || !Number.isFinite(score)) {
-    return score;
-  }
-  const scoreLastDigits = score.toFixed(3).slice(-2);
-  return Number(`${SV_UI_MATCH_DISPLAY_SCORE_PREFIX}${scoreLastDigits}`);
-}
-
-function extractGeminiText(payload: any): string {
-  const parts = payload?.candidates?.[0]?.content?.parts;
-  if (!Array.isArray(parts)) return '';
-  return parts
-    .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
-    .join(' ')
-    .trim();
-}
-
-function normalizeTextForSpeech(text: string): string {
-  return text
-    .replace(/\s*\n+\s*/g, (match, offset, source) => {
-      const before = source.slice(0, offset).trimEnd();
-      const after = source.slice(offset + match.length).trimStart();
-      const beforeChar = before.slice(-1);
-      const afterChar = after.slice(0, 1);
-      const hasBoundaryPunctuation = /[.!?,:;]$/.test(before) || /^[.!?,:;]/.test(after);
-      return hasBoundaryPunctuation ? ' ' : '. ';
-    })
-    .replace(/\s+([.!?,:;])/g, '$1')
-    .replace(/([.!?,:;]){2,}/g, '$1')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-function buildGeminiRequestBody(history: GeminiChatMessage[]) {
-  return {
-    system_instruction: {
-      parts: [{ text: GEMINI_SYSTEM_PROMPT }],
-    },
-    contents: history,
-    tools: [
-      {
-        google_search: {},
-      },
-    ],
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-      thinkingConfig: {
-        thinkingBudget: GEMINI_THINKING_BUDGET,
-      },
-    },
-  };
-}
-
-function computeStreamDelta(accumulatedText: string, incomingText: string): string {
-  if (!incomingText) return '';
-  if (!accumulatedText) return incomingText;
-  if (incomingText.startsWith(accumulatedText)) {
-    return incomingText.slice(accumulatedText.length);
-  }
-  if (accumulatedText.endsWith(incomingText)) {
-    return '';
-  }
-  return incomingText;
-}
-
-function splitCompletedSentences(text: string): { completed: string[]; remainder: string } {
-  const completed: string[] = [];
-  let start = 0;
-
-  for (let index = 0; index < text.length; index += 1) {
-    if (!/[.!?]/.test(text[index])) continue;
-
-    let boundary = index + 1;
-    while (boundary < text.length && /["')\]]/.test(text[boundary])) {
-      boundary += 1;
-    }
-    while (boundary < text.length && /\s/.test(text[boundary])) {
-      boundary += 1;
-    }
-
-    const sentence = text.slice(start, boundary).trim();
-    if (sentence) {
-      completed.push(sentence);
-    }
-    start = boundary;
-    index = boundary - 1;
-  }
-
-  return {
-    completed,
-    remainder: text.slice(start),
-  };
-}
-
-function stripWakeWordPrefix(text: string, wakeWord: string): string {
-  const trimmedText = text.trim();
-  const wakeWordTokens = wakeWord
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]+/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (wakeWordTokens.length === 0) {
-    return trimmedText;
-  }
-
-  let stripped = trimmedText;
-  for (let tokenCount = wakeWordTokens.length; tokenCount >= 1; tokenCount -= 1) {
-    const prefix = wakeWordTokens.slice(0, tokenCount).join('\\s+');
-    const prefixRegex = new RegExp(`^${prefix}(?:\\s|[,.!?;:])+`, 'i');
-    if (prefixRegex.test(stripped)) {
-      stripped = stripped.replace(prefixRegex, '').trim();
-      break;
-    }
-  }
-
-  return stripped || trimmedText;
-}
-
-async function generateGeminiReply(
-  history: GeminiChatMessage[],
-  meta: GeminiRequestLogMeta,
-): Promise<string> {
-  const transcriptPreview =
-    meta.userText.length > 120 ? `${meta.userText.slice(0, 120)}...` : meta.userText;
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} start`,
-    {
-      model: GEMINI_MODEL,
-      historyMessages: history.length,
-      transcriptPreview,
-      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-      thinkingBudget: GEMINI_THINKING_BUDGET,
-    },
-  );
-
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} full history`,
-    JSON.stringify(history, null, 2),
-  );
-
-  const requestBody = buildGeminiRequestBody(history);
-
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} request body`,
-    JSON.stringify(requestBody, null, 2),
-  );
-
-  const response = await fetch(GEMINI_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': GEMINI_API_KEY,
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  const payload = await response.json();
-  const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
-  const firstCandidate = candidates[0];
-  const firstParts = Array.isArray(firstCandidate?.content?.parts)
-    ? firstCandidate.content.parts
-    : [];
-  const groundingMetadata = firstCandidate?.groundingMetadata ?? null;
-  const firstPartTexts: GeminiTextPartDebug[] = firstParts.map((part: any, index: number) => {
-    const text = typeof part?.text === 'string' ? part.text : '';
-    return {
-      index,
-      text,
-      length: text.length,
-    };
-  });
-
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} raw payload`,
-    JSON.stringify(payload, null, 2),
-  );
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} payload summary`,
-    {
-      status: response.status,
-      candidateCount: candidates.length,
-      firstCandidateFinishReason: firstCandidate?.finishReason ?? null,
-      firstCandidateTokenCount:
-        firstCandidate?.tokenCount ??
-        payload?.usageMetadata?.candidatesTokenCount ??
-        null,
-      firstCandidatePartCount: firstParts.length,
-      groundingMetadata,
-      usageMetadata: payload?.usageMetadata ?? null,
-      promptFeedback: payload?.promptFeedback ?? null,
-    },
-  );
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} first candidate parts`,
-    JSON.stringify(firstPartTexts, null, 2),
-  );
-
-  if (!response.ok) {
-    console.log(
-      `[AIChat] Gemini request #${meta.requestId} error`,
-      {
-        status: response.status,
-        transcriptPreview,
-      },
-    );
-    const message =
-      payload?.error?.message ||
-      `Gemini request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  const text = extractGeminiText(payload);
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} extracted text`,
-    {
-      extractedText: text,
-      extractedLength: text.length,
-    },
-  );
-  if (!text) {
-    console.log(
-      `[AIChat] Gemini request #${meta.requestId} empty response`,
-      {
-        status: response.status,
-        transcriptPreview,
-      },
-    );
-    throw new Error('Gemini returned an empty response.');
-  }
-  console.log(
-    `[AIChat] Gemini request #${meta.requestId} success`,
-    {
-      status: response.status,
-      responseLength: text.length,
-    },
-  );
-  return text;
-}
-
-async function generateGeminiReplyStream(
-  history: GeminiChatMessage[],
-  meta: GeminiRequestLogMeta,
-  onTextDelta: (deltaText: string, aggregateText: string) => void | Promise<void>,
-): Promise<{ text: string; usedStreaming: boolean }> {
-  const transcriptPreview =
-    meta.userText.length > 120 ? `${meta.userText.slice(0, 120)}...` : meta.userText;
-  const requestBody = buildGeminiRequestBody(history);
-
-  console.log(
-    `[AIChat] Gemini stream request #${meta.requestId} start`,
-    {
-      model: GEMINI_MODEL,
-      historyMessages: history.length,
-      transcriptPreview,
-      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-      thinkingBudget: GEMINI_THINKING_BUDGET,
-      streaming: true,
-    },
-  );
-
-  return await new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let eventBuffer = '';
-    let aggregateText = '';
-    let processedLength = 0;
-    let usedStreaming = false;
-    let settled = false;
-    let consumeChain = Promise.resolve();
-
-    const settleReject = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      try { xhr.abort(); } catch { }
-      reject(error);
-    };
-
-    const queueConsumeEventBlock = (eventBlock: string) => {
-      consumeChain = consumeChain.then(async () => {
-        const dataLines = eventBlock
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line.startsWith('data:'))
-          .map((line) => line.slice(5).trim())
-          .filter(Boolean);
-
-        for (const dataLine of dataLines) {
-          if (dataLine === '[DONE]') continue;
-          const payload = JSON.parse(dataLine);
-          const incomingText = extractGeminiText(payload);
-          const deltaText = computeStreamDelta(aggregateText, incomingText);
-          if (!deltaText) continue;
-          aggregateText += deltaText;
-          await onTextDelta(deltaText, aggregateText);
-        }
-      }).catch((error) => {
-        settleReject(error instanceof Error ? error : new Error(String(error)));
-      });
-    };
-
-    const processIncomingText = (chunk: string, markStreaming: boolean) => {
-      if (!chunk) return;
-      if (markStreaming) {
-        usedStreaming = true;
-      }
-      eventBuffer += chunk.replace(/\r\n/g, '\n');
-      let separatorIndex = eventBuffer.indexOf('\n\n');
-      while (separatorIndex >= 0) {
-        const eventBlock = eventBuffer.slice(0, separatorIndex);
-        eventBuffer = eventBuffer.slice(separatorIndex + 2);
-        queueConsumeEventBlock(eventBlock);
-        separatorIndex = eventBuffer.indexOf('\n\n');
-      }
-    };
-
-    xhr.open('POST', GEMINI_STREAM_API_URL, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.setRequestHeader('x-goog-api-key', GEMINI_API_KEY);
-    xhr.timeout = 45000;
-
-    xhr.onprogress = () => {
-      const responseText = xhr.responseText ?? '';
-      if (responseText.length <= processedLength) return;
-      const chunk = responseText.slice(processedLength);
-      processedLength = responseText.length;
-      processIncomingText(chunk, true);
-    };
-
-    xhr.onerror = () => {
-      settleReject(new Error('Gemini stream XHR network error'));
-    };
-
-    xhr.ontimeout = () => {
-      settleReject(new Error('Gemini stream XHR timed out'));
-    };
-
-    xhr.onreadystatechange = () => {
-      if (xhr.readyState === xhr.DONE) {
-        const responseText = xhr.responseText ?? '';
-        if (responseText.length > processedLength) {
-          const chunk = responseText.slice(processedLength);
-          processedLength = responseText.length;
-          processIncomingText(chunk, false);
-        }
-
-        consumeChain.then(() => {
-          if (settled) return;
-          if (xhr.status < 200 || xhr.status >= 300) {
-            settled = true;
-            reject(new Error(`Gemini stream HTTP ${xhr.status}: ${xhr.responseText || 'Unknown error'}`));
-            return;
-          }
-
-          if (eventBuffer.trim()) {
-            queueConsumeEventBlock(eventBuffer);
-            eventBuffer = '';
-          }
-
-          consumeChain.then(() => {
-            if (settled) return;
-            settled = true;
-            resolve({
-              text: aggregateText.trim(),
-              usedStreaming,
-            });
-          }).catch((error) => {
-            settleReject(error instanceof Error ? error : new Error(String(error)));
-          });
-        }).catch((error) => {
-          settleReject(error instanceof Error ? error : new Error(String(error)));
-        });
-      }
-    };
-
-    xhr.send(JSON.stringify(requestBody));
-  });
-}
-
-const waitForNextInteraction = () =>
-  new Promise<void>((resolve) => {
-    InteractionManager.runAfterInteractions(() => resolve());
-  });
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(`${label} timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
-export async function ensureMicPermission(): Promise<boolean> {
-  if (Platform.OS === 'android') {
-    // 1) Check RECORD_AUDIO
-    const has = await PermissionsAndroid.check(
-      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-    );
-    if (has) return true;
-
-    const status = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-    );
-
-    if (status === PermissionsAndroid.RESULTS.GRANTED) return true;
-
-    // Handle “never ask again”
-    if (status === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-      Alert.alert(
-        'Microphone permission required',
-        'Please enable microphone permission in Settings.',
-        [{ text: 'Open Settings', onPress: () => Linking.openSettings() }, { text: 'Cancel', style: 'cancel' }]
-      );
-    }
-    return false;
-  } else {
-    /*   // iOS: request explicitly
-       const mic = await check(PERMISSIONS.IOS.MICROPHONE);
-       if (mic === RESULTS.GRANTED) return true;
-   
-       if (mic === RESULTS.BLOCKED) {
-         Alert.alert('Microphone permission required', 'Enable it in Settings.', [
-           { text: 'Open Settings', onPress: () => openSettings() },
-           { text: 'Cancel', style: 'cancel' },
-         ]);
-         return false;
-       }
-   
-       const micReq = await request(PERMISSIONS.IOS.MICROPHONE);
-       if (micReq !== RESULTS.GRANTED) return false;
-   
-       // Optional but usually needed for dictation/STT APIs:
-       const sr = await check(PERMISSIONS.IOS.SPEECH_RECOGNITION);
-       if (sr === RESULTS.GRANTED) return true;
-   
-       const srReq = await request(PERMISSIONS.IOS.SPEECH_RECOGNITION);
-       return srReq === RESULTS.GRANTED;*/
-  }
-}
-
-// Below is a part of Speech Feature to play mp3 and WAV file within the same Audio framework.
-// You call Speech.playWav with any mp3/wav etc' file you need 
-const moonRocksSound = require('./assets/cashRegisterSound.mp3');
-const subtractMoonRocksSound = require('./assets/bellServiceDeskPressXThree.mp3');
-
-const ttsModelFast = require('./assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-const ttsModelSlow = require('./assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-// const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
-// const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
-const ttsModelRichFast = require('./assets/models/model_ex_rich_fast_davoice_phoneme.dm');
-const ttsModelRichSlow = require('./assets/models/model_ex_rich_fast_davoice_phoneme.dm');
-// const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
-// const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
-
-// This is how you send the speech library the tts model.
-// const ttsModel = require('./assets/models/model_ex.dm');
-//const ttsModel = 'model.onnx';
-
-// If you want to use only TTS:
-import { DaVoiceTTSInstance } from 'react-native-davoice';
-let tts = new DaVoiceTTSInstance();
-// If you want to use only STT
-//import STT from 'react-native-davoice/stt';
 import Speech from 'react-native-davoice/speech';
-// import Speech from '@react-native-voice/voice';
-
-// import KeyWordRNBridge from 'react-native-wakeword';
 import { KeyWordRNBridgeInstance } from 'react-native-wakeword';
 import {
-  createKeyWordRNBridgeInstance,
   hasIOSMicPermissions,
   requestIOSMicPermissions,
   hasIOSSpeechRecognitionPermissions,
-  requestIOSSpeechRecognitionPermissions
+  requestIOSSpeechRecognitionPermissions,
 } from 'react-native-wakeword';
-
-// If you created audioRoutingConfig.ts in the lib:
-import { setWakewordAudioRoutingConfig } from 'react-native-wakeword';
-import type { AudioRoutingConfig } from 'react-native-wakeword';
 import {
-  createSpeakerVerificationInstance,
-  createSpeakerVerificationMicController,
-  onSpeakerVerificationOnboardingProgress,
-  onSpeakerVerificationOnboardingDone,
-  onSpeakerVerificationVerifyResult,
-  onSpeakerVerificationError,
-} from 'react-native-wakeword';
-
-async function writeEnrollmentJsonToFile(enrollmentJson: string, filename = 'sv_enrollment.json') {
-  const path = `${RNFS.DocumentDirectoryPath}/${filename}`;
-  await RNFS.writeFile(path, enrollmentJson, 'utf8');
-  console.log('[SVJS] wrote enrollment json to', path, 'len=', enrollmentJson.length);
-  return path;
-}
-
-async function loadEnrollmentJsonFromFile(filename = 'sv_enrollment.json') {
-  const path = `${RNFS.DocumentDirectoryPath}/${filename}`;
-  const exists = await RNFS.exists(path);
-  console.log('loadEnrollmentJsonFromFile() path == ', path);
-
-  if (!exists) {
-    console.log('[SVJS] no saved enrollment json at', path);
-    return null;
-  }
-
-  const enrollmentJson = await RNFS.readFile(path, 'utf8');
-  if (!enrollmentJson || enrollmentJson.length < 10) {
-    console.warn('[SVJS] saved enrollment json invalid at', path);
-    return null;
-  }
-
-  console.log('[SVJS] loaded enrollment json from', path, 'len=', enrollmentJson.length);
-  return enrollmentJson;
-}
-
-// ✅ NEW: endless/continuous mic verification (FIXED: uses native endless mode)
-async function startEndlessVerificationWithEnrollmentFix(
-  enrollmentJson,
-  setUiMessage,
-  opts
-) {
-  if (!enrollmentJson || typeof enrollmentJson !== 'string') {
-    throw new Error('[SVJS] startEndlessVerificationWithEnrollmentFix: enrollmentJson is missing');
-  }
-
-  const hopSeconds = Number(opts?.hopSeconds ?? 0.25);
-  const stopOnMatch = !!opts?.stopOnMatch;
-  const waitFirstResult = !!opts?.waitFirstResult;
-  const firstResultTimeoutMs = Number(opts?.firstResultTimeoutMs ?? 3000);
-  const onStopReady = opts?.onStopReady;
-  const onScore = opts?.onScore;
-  const matchHoldMs = Number(opts?.matchHoldMs ?? SV_MATCH_HOLD_MS);
-
-  const micConfig = {
-    modelPath: 'speaker_model.dm',
-    options: {
-      decisionThreshold: SV_DECISION_THRESHOLD,
-      //tailSeconds: 2.0,
-      tailSeconds: 2.0,
-      frameSize: 1280,
-      maxTailSeconds: 3.0,
-      cmn: true,
-      expectedLayoutBDT: false,
-    },
-  };
-
-  const controllerId = `svVerifyMicFix_${Date.now()}`;
-  const ctrl = await createSpeakerVerificationMicController(controllerId);
-  await ctrl.create(JSON.stringify(micConfig));
-  await ctrl.setEnrollmentJson(enrollmentJson);
-
-  // First-result gate
-  let firstDone = false;
-  let firstResolve: any = null;
-  let firstReject: any = null;
-  const firstResultPromise = new Promise((resolve, reject) => {
-    firstResolve = resolve;
-    firstReject = reject;
-  });
-  const firstTimeoutPromise = new Promise((resolve) =>
-    setTimeout(() => resolve({ timeout: true }), firstResultTimeoutMs)
-  );
-
-  let stoppedResolve: any = null;
-  const stoppedPromise = new Promise<void>((resolve) => {
-    stoppedResolve = resolve;
-  });
-
-  let stopped = false;
-  const stop = async () => {
-    if (stopped) return;
-    stopped = true;
-    try { offR?.(); } catch { }
-    try { offE?.(); } catch { }
-    try { await ctrl.stop?.(); } catch { }
-    try { await ctrl.destroy?.(); } catch { }
-    if (!firstDone) {
-      firstDone = true;
-      try { firstResolve({ stopped: true }); } catch { }
-    }
-    try { stoppedResolve?.(); } catch { }
-  };
-
-  const offE = onSpeakerVerificationError((e) => {
-    if (e?.controllerId && e.controllerId !== controllerId) return;
-    console.log('[SVJS-FIX] SV ERROR event:', e);
-    setUiMessage?.(`⚠️ SV error: ${e?.error ?? JSON.stringify(e)}`);
-
-    if (!firstDone) {
-      firstDone = true;
-      try { firstReject(new Error(e?.error ?? 'SV_ERROR')); } catch { }
-    }
-    stop(); // stop on error
-  });
-
-  const offR = onSpeakerVerificationVerifyResult((e) => {
-    if (e?.controllerId && e.controllerId !== controllerId) return;
-
-    const best = Number(e?.scoreBest ?? e?.bestScore ?? e?.score ?? NaN);
-    const ok = !!e?.isMatch;
-    const nowMs = Date.now();
-    const hasBest = Number.isFinite(best);
-    const wasInHoldWindow = nowMs < matchHoldUntilMs;
-    if (ok && !wasInHoldWindow) {
-      holdScoreHistory = [];
-    }
-    if (hasBest && (ok || wasInHoldWindow)) {
-      holdScoreHistory.push({ timeMs: nowMs, score: best });
-      holdScoreHistory = holdScoreHistory.filter((item) => nowMs - item.timeMs <= matchHoldMs);
-    }
-    if (ok) {
-      matchHoldUntilMs = nowMs + matchHoldMs;
-    }
-    const inHoldWindow = nowMs < matchHoldUntilMs;
-    holdBestScore = inHoldWindow && holdScoreHistory.length > 0
-      ? Math.max(...holdScoreHistory.map((item) => item.score))
-      : Number.NaN;
-
-    const showAsMatch = ok || inHoldWindow;
-    const scoreToShow = showAsMatch && Number.isFinite(holdBestScore) ? holdBestScore : best;
-    const uiShowAsMatch = getSVUIMatch(scoreToShow, showAsMatch);
-    console.log('[SVJS-FIX] SV VERIFY:', e);
-    setUiMessage?.(`🔐 Speaker Identificaiton Match=${uiShowAsMatch ? '✅' : '❌'}`);
-    //setUiMessage?.(`🔐 SV(best=${Number.isFinite(scoreToShow) ? scoreToShow.toFixed(3) : 'n/a'}) match=${showAsMatch ? '✅' : '❌'}`);
-    onScore?.(scoreToShow, uiShowAsMatch);
-
-    if (!firstDone) {
-      firstDone = true;
-      try { firstResolve(e); } catch { }
-    }
-
-    // Native endless mode keeps emitting; only stop here if requested.
-    if (stopOnMatch && ok) stop();
-  });
-  let matchHoldUntilMs = -1_000_000_000;
-  let holdBestScore = Number.NaN;
-  let holdScoreHistory: Array<{ timeMs: number; score: number }> = [];
-
-  setUiMessage?.(`🎙️ Verify Speaker Identification Now`);//  (hop=${hopSeconds}s)`);
-
-  // ✅ KEY FIX: use native endless mode (mic stays open, emits every hopSeconds)
-  await ctrl.startEndlessVerifyFromMic(hopSeconds, stopOnMatch, true);
-
-  // Pass stop function out so caller can stop from UI
-  onStopReady?.(stop);
-
-  if (waitFirstResult) {
-    try {
-      await Promise.race([firstResultPromise, firstTimeoutPromise]);
-    } catch {
-      // ignore here; error handler already stopped
-    }
-  }
-
-  return stop;
-}
-
-// ✅ NEW: endless/continuous mic verification (returns stop() to cleanup)
-async function startEndlessVerificationWithEnrollment(
-  enrollmentJson,
-  setUiMessage,
-  opts
-) {
-  if (!enrollmentJson || typeof enrollmentJson !== 'string') {
-    throw new Error('[SVJS] startEndlessVerificationWithEnrollment: enrollmentJson is missing');
-  }
-
-  const hopSeconds = Number(opts?.hopSeconds ?? 0.25);
-  const stopOnMatch = !!opts?.stopOnMatch;
-  const waitFirstResult = !!opts?.waitFirstResult;
-  const firstResultTimeoutMs = Number(opts?.firstResultTimeoutMs ?? 3000);
-  const onStopReady = opts?.onStopReady;
-  const onScore = opts?.onScore;
-
-  const micConfig = {
-    modelPath: 'speaker_model.dm',
-    options: {
-      decisionThreshold: SV_DECISION_THRESHOLD,
-      tailSeconds: 2.0,
-      frameSize: 1280,
-      maxTailSeconds: 3.0,
-      cmn: true,
-      expectedLayoutBDT: false,
-    },
-  };
-
-  const controllerId = `svVerifyMic_${Date.now()}`;
-  const ctrl = await createSpeakerVerificationMicController(controllerId);
-  await ctrl.create(JSON.stringify(micConfig));
-  await ctrl.setEnrollmentJson(enrollmentJson);
-
-  // First-result gate
-  let firstDone = false;
-  let firstResolve: any = null;
-  let firstReject: any = null;
-  const firstResultPromise = new Promise((resolve, reject) => {
-    firstResolve = resolve;
-    firstReject = reject;
-  });
-  const firstTimeoutPromise = new Promise((resolve) =>
-    setTimeout(() => resolve({ timeout: true }), firstResultTimeoutMs)
-  );
-
-  let stoppedResolve: any = null;
-  const stoppedPromise = new Promise<void>((resolve) => {
-    stoppedResolve = resolve;
-  });
-
-  let stopped = false;
-  const stop = async () => {
-    if (stopped) return;
-    stopped = true;
-    try { offR?.(); } catch { }
-    try { offE?.(); } catch { }
-    try { await ctrl.stop?.(); } catch { }
-    try { await ctrl.destroy?.(); } catch { }
-    if (!firstDone) {
-      firstDone = true;
-      try { firstResolve({ stopped: true }); } catch { }
-    }
-    try { stoppedResolve?.(); } catch { }
-  };
-
-  const offE = onSpeakerVerificationError((e) => {
-    if (e?.controllerId && e.controllerId !== controllerId) return;
-    console.log('[SVJS] SV ERROR event:', e);
-    setUiMessage?.(`⚠️ SV error: ${e?.error ?? JSON.stringify(e)}`);
-
-    if (!firstDone) {
-      firstDone = true;
-      try { firstReject(new Error(e?.error ?? 'SV_ERROR')); } catch { }
-    }
-
-    stop(); // stop on error
-  });
-
-  const offR = onSpeakerVerificationVerifyResult((e) => {
-    if (e?.controllerId && e.controllerId !== controllerId) return;
-
-    const best = Number(e?.scoreBest ?? e?.bestScore ?? e?.score ?? NaN);
-    const ok = !!e?.isMatch;
-    console.log('[SVJS] SV VERIFY:', e);
-    setUiMessage?.(`🔐 SV best=${Number.isFinite(best) ? best.toFixed(3) : 'n/a'} match=${ok ? '✅' : '❌'}`);
-    onScore?.(best, ok);
-
-    if (!firstDone) {
-      firstDone = true;
-      try { firstResolve(e); } catch { }
-    }
-
-    // allow next cycle
-    inFlight = false;
-
-    if (stopOnMatch && ok) {
-      stop();
-      return;
-    }
-
-    // hop delay then start next verify (resetState=true for fresh audio each cycle)
-    setTimeout(() => {
-      kick(true).catch((err) => {
-        console.log('[SVJS] kick failed:', err);
-        stop();
-      });
-    }, Math.max(0.05, hopSeconds) * 1000);
-  });
-
-  let inFlight = false;
-  const kick = async (resetState: boolean) => {
-    if (stopped) return;
-    if (inFlight) return;
-    inFlight = true;
-    try {
-      await ctrl.startVerifyFromMic(resetState);
-    } catch (e) {
-      inFlight = false;
-      if (!firstDone) {
-        firstDone = true;
-        try { firstReject(e); } catch { }
-      }
-      throw e;
-    }
-  };
-
-  setUiMessage?.(`🎙️ SV continuous verify started (hop=${hopSeconds}s)`);
-  await kick(true); // first call resets state; subsequent calls keep buffer
-
-  // Pass stop function out before blocking, so caller can stop from UI
-  onStopReady?.(stop);
-
-  // Optionally wait before returning
-  if (waitFirstResult) {
-    try {
-      await Promise.race([firstResultPromise, firstTimeoutPromise]);
-    } catch {
-      // ignore here; error handler already stopped
-    }
-    await stoppedPromise;     // blocks forever until stop() runs
-  }
-
-  return stop;
-}
-
-// ✅ NEW: mic-verify helper (THIS is what your code was calling)
-async function verifyFromMicWithEnrollment(
-  enrollmentJson: string,
-  setUiMessage?: (s: string) => void
-) {
-  if (!enrollmentJson || typeof enrollmentJson !== 'string') {
-    throw new Error('[SVJS] verifyFromMicWithEnrollment: enrollmentJson is missing');
-  }
-
-  const micConfig = {
-    modelPath: 'speaker_model.dm',
-    options: {
-      decisionThreshold: SV_DECISION_THRESHOLD,
-      // tailSeconds: 2.0,
-      tailSeconds: 2.0,
-      frameSize: 1280,
-      maxTailSeconds: 3.0,
-      cmn: true,
-      expectedLayoutBDT: false,
-    },
-  };
-
-  const controllerId = 'svVerifyMic1';
-  const ctrl = await createSpeakerVerificationMicController(controllerId);
-  await ctrl.create(JSON.stringify(micConfig));
-  await ctrl.setEnrollmentJson(enrollmentJson);
-
-  const TIMEOUT_MS = 60_000;
-
-  try {
-    const res = await new Promise<any>((resolve, reject) => {
-      const t = setTimeout(() => {
-        offR?.(); offE?.();
-        reject(new Error('NO_SPEECH_TIMEOUT'));
-      }, TIMEOUT_MS);
-
-      const cleanup = () => {
-        clearTimeout(t);
-        offR?.(); offE?.();
-      };
-
-      const offE = onSpeakerVerificationError((e) => {
-        if (e?.controllerId && e.controllerId !== controllerId) return;
-        cleanup();
-        reject(new Error(`[SVJS] SV ERROR event: ${JSON.stringify(e)}`));
-      });
-
-      const offR = onSpeakerVerificationVerifyResult((e) => {
-        if (e?.controllerId && e.controllerId !== controllerId) return;
-        cleanup();
-        resolve(e);
-      });
-
-      ctrl.startVerifyFromMic(true).catch((err) => {
-        cleanup();
-        reject(err);
-      });
-    });
-
-    return res;
-  } finally {
-    try { await ctrl.stop?.(); } catch { }
-    try { await ctrl.destroy?.(); } catch { }
-  }
-}
-
-async function runVerificationWithEnrollment(
-  enrollmentJson: string,
-  setUiMessage?: (s: string) => void
-) {
-  if (!enrollmentJson || typeof enrollmentJson !== 'string') {
-    throw new Error('[SVJS] runVerificationWithEnrollment: enrollmentJson is missing');
-  }
-
-  const micConfig = {
-    modelPath: 'speaker_model.dm',
-    options: {
-      decisionThreshold: SV_DECISION_THRESHOLD,
-      tailSeconds: 2.0,
-      frameSize: 1280,
-      maxTailSeconds: 3.0,
-      cmn: true,
-      expectedLayoutBDT: false,
-    },
-  };
-
-  // 1) Persist enrollmentJson so native can load it like a normal file
-  const enrollmentPath = await writeEnrollmentJsonToFile(enrollmentJson, 'davoice_enrollment_runtime.json');
-
-  // 2) Create a SpeakerVerification engine instance (NOT the mic controller)
-  const sv = await createSpeakerVerificationInstance('svVerify1');
-  await sv.create(
-    micConfig.modelPath,
-    enrollmentPath,               // <-- IMPORTANT: use the file path we just wrote
-    micConfig.options
-  );
-
-  /*
-  // ---------- (A) Verify WAV files ----------
-  const wavs = [
-    '1.wav',
-    '2.wav',
-    '3.wav',
-    '4.wav',
-    '5.wav',
-  ];
-
-  setUiMessage?.('🔐 Verifying WAV files...');
-  for (const wav of wavs) {
-    try {
-      const out = await sv.verifyWavStreaming(wav, true); // resetState=true
-      console.log('[SVJS] verifyWav:', wav, out);
-      setUiMessage?.(`🔐 WAV: ${wav} → score=${out?.bestScore ?? out?.score ?? 'n/a'}`);
-    } catch (e) {
-      console.log('[SVJS] verifyWav FAILED:', wav, e);
-      setUiMessage?.(`⚠️ WAV verify failed: ${wav}`);
-    }
-  }
-*/
-  // ---------- (B) 3 mic trials, wait up to 60s each ----------
-  const lines: string[] = [];
-  let lastScore: any = null;
-  const extractScore = (res: any) => {
-    // your log shows: scoreBest / scoreMean / scoreWorst
-    return res?.scoreBest ?? res?.bestScore ?? res?.score ?? null;
-  };
-  const fmt = (v: any) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n.toFixed(3) : 'n/a';
-  };
-  const render = (trial: number) => {
-    const header = `🎙️ Mic verify trial ${trial}/3 — speak now (up to 60s)...`;
-    const last = `last score: ${fmt(lastScore)}`;
-    return [header, ...lines, last].join('\n');
-  };
-
-  for (let t = 1; t <= 3; t++) {
-    // Always show what we have so far (previous score if exists)
-    // Always show previous scores + last score BEFORE starting the mic trial
-    setUiMessage?.(render(t));
-    try {
-      const res = await verifyFromMicWithEnrollment(enrollmentJson, setUiMessage);
-      console.log('[SVJS] mic verify result:', res);
-      const score = extractScore(res);
-      lastScore = score;
-      lines.push(`verification #${t} score: ${fmt(score)}`);
-      // Keep showing history (and last score)
-      setUiMessage?.(render(Math.min(t + 1, 3)));
-    } catch (e: any) {
-      if (String(e?.message || e).includes('NO_SPEECH_TIMEOUT')) {
-        lines.push(`verification #${t} score: n/a`);
-        setUiMessage?.(render(Math.min(t + 1, 3)));
-        continue;
-      }
-      lines.push(`verification #${t} score: n/a`);
-      setUiMessage?.(render(Math.min(t + 1, 3)));
-      console.log('[SVJS] mic verify ERROR:', e);
-    }
-  }
-  // Final summary (exact format you asked)
-  setUiMessage?.(lines.join('\n'));
-  await sv.destroy();
-}
-
-async function runSpeakerVerifyEnrollment(
-  setUiMessage?: (s: string) => void,
-  sampleCount: number = SV_ONBOARDING_SAMPLE_COUNT,
-  uiHooks?: SVEnrollmentUIHooks,
-): Promise<string> {
-  const targetSamples = Math.max(1, Math.floor(sampleCount));
-  const micConfig = {
-    modelPath: 'speaker_model.dm',
-    options: {
-      decisionThreshold: SV_DECISION_THRESHOLD,
-      // TODO IOS IGNORES tailSeconds!!! AND ANDROID DOES NOT!!!
-      tailSeconds: 2.0,
-      frameSize: 1280,
-      maxTailSeconds: 3.0,
-      cmn: true,
-      expectedLayoutBDT: false,
-    },
-  };
-
-  const ctrl = await createSpeakerVerificationMicController('svMic1');
-  setUiMessage?.('Speaker verification: preparing mic controller...');
-  uiHooks?.onStart?.(targetSamples);
-
-  console.log('[SVJS] create mic controller...');
-  await ctrl.create(JSON.stringify(micConfig));
-
-  let collected = 0;
-  let target = targetSamples;
-  let enrollmentJson: string | null = null;
-
-  const waitForNextSVStep = (controllerId: string, beforeCollected: number, timeoutMs = 25000) => {
-    return new Promise<{ type: 'progress' | 'done'; ev: any }>((resolve, reject) => {
-      const t = setTimeout(() => {
-        offP?.();
-        offD?.();
-        offE?.();
-        reject(new Error(`[SVJS] timeout waiting for progress/done (before=${beforeCollected})`));
-      }, timeoutMs);
-
-      const cleanup = () => {
-        clearTimeout(t);
-        offP?.();
-        offD?.();
-        offE?.();
-      };
-
-      const offE = onSpeakerVerificationError((e) => {
-        if (e?.controllerId !== controllerId) return;
-        cleanup();
-        reject(new Error(`[SVJS] SV ERROR event: ${JSON.stringify(e)}`));
-      });
-
-      const offP = onSpeakerVerificationOnboardingProgress((e) => {
-        if (e?.controllerId !== controllerId) return;
-        const c = Number(e?.collected ?? 0);
-        if (c > beforeCollected) {
-          cleanup();
-          resolve({ type: 'progress', ev: e });
-        }
-      });
-
-      const offD = onSpeakerVerificationOnboardingDone((e) => {
-        if (e?.controllerId !== controllerId) return;
-        cleanup();
-        resolve({ type: 'done', ev: e });
-      });
-    });
-  };
-
-  const offErr = onSpeakerVerificationError((e) => {
-    console.log('[SVJS] ERROR event:', e);
-  });
-
-  const offProg = onSpeakerVerificationOnboardingProgress((e) => {
-    if (e?.controllerId !== 'svMic1') return;
-    console.log('[SVJS] PROGRESS event:', e);
-    collected = Number(e?.collected ?? collected);
-    target = Number(e?.target ?? target);
-    uiHooks?.onProgress?.(collected, target);
-  });
-
-  const donePromise = new Promise<void>((resolve, reject) => {
-    let finished = false;
-    const offDone = onSpeakerVerificationOnboardingDone((e) => {
-      if (e?.controllerId !== 'svMic1') return;
-      if (finished) return;
-      finished = true;
-      console.log('[SVJS] DONE event:', e);
-      enrollmentJson = e?.enrollmentJson ?? e?.enrollment ?? e?.json ?? null;
-      offDone?.();
-      resolve();
-    });
-    setTimeout(() => {
-      if (finished) return;
-      finished = true;
-      offDone?.();
-      reject(new Error('[SVJS] timeout waiting for onboarding done'));
-    }, 60000);
-  });
-
-  setUiMessage?.(`Speaker verification: onboarding started. Collecting ${targetSamples} samples.`);
-  await ctrl.beginOnboarding?.('davoice', targetSamples, true);
-
-  for (let i = 1; i <= targetSamples; i++) {
-    console.log('[SVJS] requesting embedding', i, '/', targetSamples);
-    setUiMessage?.(`Speaker verification: collecting sample ${i}/${targetSamples}...`);
-
-    const before = collected;
-    const stepPromise = waitForNextSVStep('svMic1', before, 30000);
-    await ctrl.getNextEmbeddingFromMic();
-    const step = await stepPromise;
-
-    if (step.type === 'done') {
-      const e = step.ev;
-      enrollmentJson = e?.enrollmentJson ?? e?.enrollment ?? e?.json ?? enrollmentJson;
-      setUiMessage?.('Speaker verification: onboarding completed.');
-      uiHooks?.onComplete?.(targetSamples);
-      break;
-    }
-
-    setUiMessage?.(`Speaker verification: collected ${Math.min(collected, targetSamples)}/${targetSamples} samples.`);
-  }
-
-  setUiMessage?.('Speaker verification: finalizing speaker profile...');
-  uiHooks?.onFinalizing?.();
-  await donePromise;
-
-  if (!enrollmentJson || typeof enrollmentJson !== 'string' || enrollmentJson.length < 10) {
-    offProg?.();
-    offErr?.();
-    try { await ctrl.destroy?.(); } catch { }
-    throw new Error('[SVJS] onboarding done but enrollmentJson is empty/invalid');
-  }
-
-  console.log('[SVJS] enrollmentJson len=', enrollmentJson.length);
-  await ctrl.setEnrollmentJson(enrollmentJson);
-  setUiMessage?.('Speaker verification: speaker profile saved.');
-
-  offProg?.();
-  offErr?.();
-
-  // recommended: close mic-controller to avoid fighting resources during verification
-  try { await ctrl.destroy?.(); } catch { }
-
-  return enrollmentJson;
-}
-
-/* New Speaker verification  
-async function runSpeakerVerifyEnrollment() {
-  // 1) Create instance
-  const sv = await createSpeakerVerificationInstance('sv1');
-
-  // 2) Create native engine (bundle resource names)
-  const createRes = await sv.create(
-    'speaker_model.dm',
-    'davoice_enrollment.json',
-    {
-      decisionThreshold: SV_DECISION_THRESHOLD,
-      tailSeconds: 2.0,
-      frameSize: 1280,
-      maxTailSeconds: 3.0,
-      cmn: true,
-      expectedLayoutBDT: false,
-      // logLevel: 5, // trace
-    }
-  );
-  console.log('SV createRes:', createRes);
-
-  // 4) Cleanup
-  await sv.destroy();
-}
-*/
-// Ducking / Unducking
-import { disableDucking, enableDucking } from 'react-native-wakeword';
-
-// 
-// 
-// --> *** IMPORTANT IOS AUDIO SESSION CONFIG ***
-// Set Audio session for IOS!!!!
-// 
-// 
-const defaultAudioRoutingConfig: AudioRoutingConfig = {
-  // Fallback when no special port match
-  default: {
-    category: 'playAndRecord',
-    mode: 'default',
-    options: [
-      'mixWithOthers',
-      'allowBluetooth',
-      'allowBluetoothA2DP',
-      'allowAirPlay',
-      'defaultToSpeaker',
-    ],
-    preferredInput: 'none',
-  },
-  byOutputPort: {
-    // 1. CarPlay: run in CarPlay
-    carAudio: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-        'overrideMutedMicrophoneInterruption',
-      ],
-      preferredInput: 'none', // use CarPlay mic
-    },
-
-    // 2. Built-in receiver (earpiece): force speaker so user hears responses
-    builtInReceiver: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-        'defaultToSpeaker',
-      ],
-      preferredInput: 'none',
-    },
-
-    // ✅ NEW: when we’re already on built-in speaker, keep SAME config
-    builtInSpeaker: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-        'defaultToSpeaker',
-      ],
-      preferredInput: 'none',
-    },
-
-    // **** PLEASE NOTE - YOU MAY WANT TO KEEP SPOTIFY ON HD SOUND AND NOT ENABLE MIC WHILE IN A2DP **********
-    // 3. Bluetooth A2DP (Spotify etc) – capture from phone mic
-    bluetoothA2DP: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-      ],
-      preferredInput: 'builtInMic',
-    },
-
-    // 4. Bluetooth HFP – call-like; you can later change this if needed
-    bluetoothHFP: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-      ],
-      preferredInput: 'none', // use HFP mic by default
-    },
-
-    // 5. Wired headphones – play in ears, mic from phone
-    headphones: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-      ],
-      preferredInput: 'none',
-    },
-  },
-};
-
-/*
-Ducking/Unducking TEMPORARY code until background timers are
-enabled!!
- */
-
-let unDuckingTimerId: any = null;
-let unDuckingExpiration = 0;
-
-export const scheduleUnDucking = async seconds => {
-  const now = Date.now();
-  if (seconds <= 2) {
-    seconds = 2;
-  }
-  const newExpiration = now + seconds * 1000;
-
-  // If a timer exists and it's already longer, skip
-  if (unDuckingTimerId && newExpiration <= unDuckingExpiration) {
-    return;
-  }
-
-  // Cancel any existing timer
-  if (unDuckingTimerId) {
-    clearTimeout(unDuckingTimerId);
-    unDuckingTimerId = null;
-  }
-
-  unDuckingExpiration = newExpiration;
-
-  const delay = newExpiration - now;
-  unDuckingTimerId = setTimeout(async () => {
-    if (unDuckingTimerId == null) {
-      // Rat race for unducking.
-      unDuckingTimerId = null;
-      unDuckingExpiration = 0;
-      return;
-    }
-    unDuckingTimerId = null;
-    unDuckingExpiration = 0;
-    await disableDucking();
-  }, delay);
-};
-
-export const enableDuckingAndClearUnDucking = async () => {
-  await enableDucking();
-  if (unDuckingTimerId) {
-    clearTimeout(unDuckingTimerId);
-    unDuckingTimerId = null;
-  }
-  unDuckingExpiration = 0;
-};
-
-// Before playing wav file:
-// await enableDuckingAndClearUnDucking();
-// After playing wav file:
-// await scheduleUnDucking()
-
-// ******* END Ducking / Unducking ********
-
-const sidId = 'sid1';
-const sidScoreAccept = 0.65; // tweak to your taste
-
+  AI_CHAT_MIN_REQUEST_GAP_MS,
+  AI_CHAT_RATE_LIMIT_BACKOFF_MS,
+  AI_CHAT_STRIP_WAKE_WORD_PREFIX,
+  AIChatHistoryMessage,
+  enqueueAIChatSpeechFromDelta as enqueueAIChatSpeechFromDeltaBase,
+  finishAIChatSpeechFlow as finishAIChatSpeechFlowBase,
+  GEMINI_ENABLE_STREAMING,
+  GeminiChatMessage,
+  generateGeminiReply,
+  generateGeminiReplyStream,
+  normalizeTextForSpeech,
+  resetAIChatSession as resetAIChatSessionBase,
+  speakNextAIChatSentence as speakNextAIChatSentenceBase,
+  stripWakeWordPrefix,
+} from './src/aichat';
+import {
+  AppModeChoice,
+  SV_ONBOARDING_SAMPLE_COUNT,
+  SVPromptChoice,
+  TTSQualityChoice,
+  TTSVoiceChoice,
+} from './src/appflow';
+import {
+  initializeSpeechLibrary as initializeSpeechLibraryBase,
+  promptForTTSModelChoice as promptForTTSModelChoiceBase,
+  waitForNextInteraction as waitForNextInteractionBase,
+  withTimeout,
+} from './src/initialization';
+import { getAdjustedSpeed, mergeSmartKeepPunct, registerSpeechHandlers } from './src/stt';
+import {
+  runSpeakerVerificationStartupFlow,
+} from './src/speaker_verification/onboarding';
+import {
+  ARIANA_SPEAKER_SPEED,
+  playWakewordIntroSpeech,
+  RICH_SPEAKER_SPEED,
+  SPEAKER,
+  ttsModelFast,
+  ttsModelRichFast,
+  ttsModelRichSlow,
+  ttsModelSlow,
+} from './src/tts';
+import {
+  attachKeywordListenerOnce,
+  AudioPermissionComponent,
+  captureWakewordDetection,
+  cleanDetectedWakeWord,
+  defaultAudioRoutingConfig,
+  detachKeywordListener,
+  formatWakeWord,
+  initializeWakewordBootstrap,
+  instanceConfigs,
+  prepareWakewordSpeechSession,
+  shareWakewordRecordings,
+} from './src/wakeword';
+
+const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
+const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
 let calledOnce = false;
-
-interface instanceConfig {
-  id: string;
-  modelName: string;
-  threshold: number;
-  bufferCnt: number;
-  sticky: boolean;
-  msBetweenCallbacks: number;
-}
-
-const modelName = 'hey_coach_model_28_22012026b.onnx';
-//const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
-//const modelName = 'ayuda_model_28_05022026' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
-// Create an array of instance configurations
-const instanceConfigs: instanceConfig[] = [
-  { id: 'multi_model_instance', modelName, threshold: 0.999, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
-  // Ayuda:
-  //   { id: 'multi_model_instance', modelName, threshold: 0.95, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
-];
-
-// Helper function to format the ONNX file name
-const formatWakeWord = (fileName: string) => {
-  return fileName
-    .replace(/(_model.*|_\d+.*)\.onnx$/, '')
-    .replace(/_/g, ' ')
-    .replace('.onnx', '')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-const AudioPermissionComponent = async () => {
-  return ensureMicPermission();
-};
-
-type DetectionCallback = (event: any) => void;
-
-// --- instance creation (kept exactly as in your code) ---
-async function addInstance(conf: instanceConfig): Promise<KeyWordRNBridgeInstance> {
-  const id = conf.id;
-  const instance = await createKeyWordRNBridgeInstance(id, false);
-  if (!instance) {
-    console.error(`Failed to create instance ${id}`);
-  }
-  console.log(`Instance ${id} created ${instance}`);
-  await instance.createInstance(conf.modelName, conf.threshold, conf.bufferCnt);
-  console.log(`Instance ${id} createInstance() called`);
-  return instance;
-}
-
-async function addInstanceMulti(conf: instanceConfig): Promise<KeyWordRNBridgeInstance> {
-  const id = conf.id;
-  const instance = await createKeyWordRNBridgeInstance(id, false);
-  if (!instance) {
-    console.error(`Failed to create instance ${id}`);
-  }
-  console.log(`Instance ${id} created ${instance}`);
-
-  const modelNames = instanceConfigs.map((c) => c.modelName);
-  const thresholds = instanceConfigs.map((c) => c.threshold);
-  const bufferCnts = instanceConfigs.map((c) => c.bufferCnt);
-  const msBetweenCallbacks = instanceConfigs.map((c) => c.msBetweenCallbacks);
-
-  await instance.createInstanceMulti(modelNames, thresholds, bufferCnts, msBetweenCallbacks);
-  console.log(`Instance ${id} createInstance() called`);
-  return instance;
-}
 
 function App(): React.JSX.Element {
   const [isFlashing, setIsFlashing] = useState(false);
@@ -1528,38 +139,20 @@ function App(): React.JSX.Element {
   const sidRef = useRef<any>(null);
   const [didInitSID, setDidInitSID] = useState(false);
 
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
   const svOnboardingProgress = Math.max(
     0,
     Math.min(1, svOnboardingTarget > 0 ? svOnboardingCollected / svOnboardingTarget : 0),
   );
 
   // --- listener helpers (single-owner) ---
-  const detachListener = async () => {
-    const curr = listenerRef.current;
-    if (curr && typeof curr.remove === 'function') {
-      try {
-        await curr.remove();
-      } catch (e) {
-        console.warn('listener.remove failed (ignored):', e);
-      }
-    }
-    listenerRef.current = null;
-  };
+  const detachListener = async () => detachKeywordListener(listenerRef);
 
   const attachListenerOnce = async (
     instance: KeyWordRNBridgeInstance,
     callback: (phrase: string) => void
   ) => {
-    await detachListener(); // ensure single active subscription
-    const sub = instance.onKeywordDetectionEvent((phrase: string) => {
-      const nice = formatWakeWord(phrase);
-      console.log(`Instance ${instance.instanceId} detected: ${nice} with phrase`, nice);
-      callback(nice);
-    });
-    console.log('eventListener == ', sub);
-    listenerRef.current = sub;
-    return sub;
+    return attachKeywordListenerOnce(listenerRef, instance, formatWakeWord, callback);
   };
 
   // // --- Speaker-ID flows (kept) ---
@@ -1750,83 +343,69 @@ function App(): React.JSX.Element {
     setIsSpeechSessionActive(active);
   }
 
-  const finishAIChatSpeechFlow = async () => {
-    aiChatStreamingActiveRef.current = false;
-    aiChatStreamGenerationDoneRef.current = false;
-    aiChatStreamSpeakingRef.current = false;
-    aiChatPendingSentenceBufferRef.current = '';
-    aiChatSpeechQueueRef.current = [];
-    aiChatAwaitingSpeechFinishRef.current = false;
-    lastProcessedRef.current = '';
-    aiChatInFlightRef.current = false;
-    setIsAIChatLoading(false);
-    resetSpeechTranscriptState();
-    setAiChatStatus('Listening for your next question...');
-    console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in finishAIChatSpeechFlow');
-    await Speech.unPauseSpeechRecognition(-1);
-    console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in finishAIChatSpeechFlow');
-  };
+  const finishAIChatSpeechFlow = async () =>
+    finishAIChatSpeechFlowBase({
+      Speech,
+      aiChatStreamingActiveRef,
+      aiChatStreamGenerationDoneRef,
+      aiChatStreamSpeakingRef,
+      aiChatPendingSentenceBufferRef,
+      aiChatSpeechQueueRef,
+      aiChatAwaitingSpeechFinishRef,
+      lastProcessedRef,
+      aiChatInFlightRef,
+      setIsAIChatLoading,
+      resetSpeechTranscriptState,
+      setAiChatStatus,
+    });
 
-  const speakNextAIChatSentence = async () => {
-    if (aiChatStreamSpeakingRef.current) return;
+  const speakNextAIChatSentence = async () =>
+    speakNextAIChatSentenceBase({
+      Speech,
+      aiChatStreamSpeakingRef,
+      aiChatSpeechQueueRef,
+      setCurrentSpeechSentence,
+      setAiChatStatus,
+      getSelectedSpeakerSpeed,
+      aiChatStreamGenerationDoneRef,
+      aiChatPendingSentenceBufferRef,
+      SPEAKER,
+      finishAIChatSpeechFlow,
+    });
 
-    const nextSentence = aiChatSpeechQueueRef.current.shift();
-    if (nextSentence) {
-      aiChatStreamSpeakingRef.current = true;
-      setCurrentSpeechSentence(`Gemini: ${nextSentence}`);
-      setAiChatStatus('Speaking Gemini reply...');
-      await Speech.speak(normalizeTextForSpeech(nextSentence), SPEAKER, getSelectedSpeakerSpeed());
-      return;
-    }
+  const enqueueAIChatSpeechFromDelta = async (deltaText: string, aggregateText: string) =>
+    enqueueAIChatSpeechFromDeltaBase({
+      deltaText,
+      aggregateText,
+      aiChatPendingSentenceBufferRef,
+      aiChatSpeechQueueRef,
+      speakNextAIChatSentence,
+      setAiChatResponse,
+    });
 
-    if (aiChatStreamGenerationDoneRef.current) {
-      const trailing = normalizeTextForSpeech(aiChatPendingSentenceBufferRef.current);
-      if (trailing) {
-        aiChatPendingSentenceBufferRef.current = '';
-        aiChatStreamSpeakingRef.current = true;
-        setCurrentSpeechSentence(`Gemini: ${trailing}`);
-        setAiChatStatus('Speaking Gemini reply...');
-        await Speech.speak(trailing, SPEAKER, getSelectedSpeakerSpeed());
-        return;
-      }
-      await finishAIChatSpeechFlow();
-    }
-  };
-
-  const enqueueAIChatSpeechFromDelta = async (deltaText: string, aggregateText: string) => {
-    aiChatPendingSentenceBufferRef.current += deltaText;
-    const { completed, remainder } = splitCompletedSentences(aiChatPendingSentenceBufferRef.current);
-    aiChatPendingSentenceBufferRef.current = remainder;
-    if (completed.length > 0) {
-      aiChatSpeechQueueRef.current.push(...completed);
-      await speakNextAIChatSentence();
-    }
-    setAiChatResponse(aggregateText);
-  };
-
-  const resetAIChatSession = () => {
-    //resetSpeechTranscriptState();
-    geminiConversationRef.current = [];
-    aiChatInFlightRef.current = false;
-    aiChatAwaitingSpeechFinishRef.current = false;
-    aiChatRequestIdRef.current = 0;
-    geminiNetworkRequestCountRef.current = 0;
-    lastAIChatSubmitAtRef.current = 0;
-    aiChatBlockedUntilRef.current = 0;
-    lastAIChatSubmittedTextRef.current = '';
-    aiChatSpeechQueueRef.current = [];
-    aiChatPendingSentenceBufferRef.current = '';
-    aiChatStreamingActiveRef.current = false;
-    aiChatStreamGenerationDoneRef.current = false;
-    aiChatStreamSpeakingRef.current = false;
-    setAiChatLiveTranscript('');
-    setAiChatTranscript('');
-    setAiChatResponse('');
-    setAiChatStatus('Waiting for your voice...');
-    setAiChatMessages([]);
-    setIsAIChatHistoryVisible(false);
-    setIsAIChatLoading(false);
-  };
+  const resetAIChatSession = () =>
+    resetAIChatSessionBase({
+      geminiConversationRef,
+      aiChatInFlightRef,
+      aiChatAwaitingSpeechFinishRef,
+      aiChatRequestIdRef,
+      geminiNetworkRequestCountRef,
+      lastAIChatSubmitAtRef,
+      aiChatBlockedUntilRef,
+      lastAIChatSubmittedTextRef,
+      aiChatSpeechQueueRef,
+      aiChatPendingSentenceBufferRef,
+      aiChatStreamingActiveRef,
+      aiChatStreamGenerationDoneRef,
+      aiChatStreamSpeakingRef,
+      setAiChatLiveTranscript,
+      setAiChatTranscript,
+      setAiChatResponse,
+      setAiChatStatus,
+      setAiChatMessages,
+      setIsAIChatHistoryVisible,
+      setIsAIChatLoading,
+    });
 
   const buildFriendlyGeminiErrorMessage = (rawMessage: string) => {
     if (/quota|rate limit|429|too many requests/i.test(rawMessage)) {
@@ -1841,18 +420,11 @@ function App(): React.JSX.Element {
   };
 
   async function initializeSpeechLibrary(enrollmentJsonPath?: string | null) {
-    console.log('Calling Speech.initAll');
-    if (typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
-      console.log('Calling Speech.initAll with enrollmentJson:', enrollmentJsonPath);
-      await Speech.initAll({
-        locale: 'en-US',
-        model: selectedTTSModelRef.current,
-        onboardingJsonPath: enrollmentJsonPath,
-      });
-    } else {
-      console.log('Calling Speech.initAll WITHOUT');
-      await Speech.initAll({ locale: 'en-US', model: selectedTTSModelRef.current });
-    }
+    await initializeSpeechLibraryBase(
+      Speech,
+      selectedTTSModelRef.current,
+      enrollmentJsonPath,
+    );
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
       if (aiChatStreamingActiveRef.current) {
@@ -1869,25 +441,19 @@ function App(): React.JSX.Element {
   }
 
   async function promptForTTSModelChoice() {
-    setShowTTSModelPrompt(true);
-    const selectedModelChoice = await new Promise<{ quality: TTSQualityChoice; voice: TTSVoiceChoice }>((resolve) => {
-      ttsModelChoiceResolverRef.current = resolve;
+    return promptForTTSModelChoiceBase({
+      setShowTTSModelPrompt,
+      ttsModelChoiceResolverRef,
+      setTtsQualityChoice,
+      setTtsVoiceChoice,
+      selectedTTSVoiceRef,
+      selectedTTSModelRef,
+      ttsModelRichFast,
+      ttsModelRichSlow,
+      ttsModelFast,
+      ttsModelSlow,
+      waitForNextInteraction,
     });
-    setShowTTSModelPrompt(false);
-
-    setTtsQualityChoice(selectedModelChoice.quality);
-    setTtsVoiceChoice(selectedModelChoice.voice);
-    selectedTTSVoiceRef.current = selectedModelChoice.voice;
-    if (selectedModelChoice.voice === 'Rich') {
-      selectedTTSModelRef.current =
-        selectedModelChoice.quality === 'lite' ? ttsModelRichFast : ttsModelRichSlow;
-    } else {
-      selectedTTSModelRef.current =
-        selectedModelChoice.quality === 'lite' ? ttsModelFast : ttsModelSlow;
-    }
-
-    await waitForNextInteraction();
-    return selectedModelChoice;
   }
 
   const processAIChatTurn = async (rawText: string) => {
@@ -2101,258 +667,34 @@ function App(): React.JSX.Element {
     }
   };
 
-  // Speech handlers (kept)
-  Speech.onSpeechError = async (e) => {
-    console.log('onSpeechError error ignored: ', e);
-    if (String(e?.error?.code) === '11' || e?.error?.message === 'Unknown error') {
-      console.log('onSpeechError error 11', e);
-    } else if (e?.error?.code === '7' || e?.error?.message === 'No match') {
-      console.log('onSpeechError error 7', e);
-      //await Speech.start('en-US');
-    }
-  };
-  // === minimal coalescer that PRESERVES punctuation ===
-
-  // ASCII word spans (safe for your English prompts). If you need full Unicode,
-  // swap the regex to /\p{L}+\p{M}*|\p{N}+/gu (ensure your JS engine supports it).
-  const _wordSpans = (s) => {
-    const spans = [];
-    const re = /[A-Za-z0-9]+/g;
-    let m;
-    while ((m = re.exec(s))) {
-      spans.push({ w: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length });
-    }
-    return spans;
-  };
-
-  const _stripPunc = (s) =>
-    (s || '').toLowerCase().replace(/[^A-Za-z0-9\s]+/g, '').replace(/\s+/g, ' ').trim();
-
-  const _overlapCount = (aWords, bWords) => {
-    const max = Math.min(aWords.length, bWords.length);
-    for (let k = max; k >= 1; k--) {
-      let ok = true;
-      for (let i = 0; i < k; i++) {
-        if (aWords[aWords.length - k + i] !== bWords[i]) { ok = false; break; }
-      }
-      if (ok) return k;
-    }
-    return 0;
-  };
-
-  const mergeSmartKeepPunct = (prev, curr, minOverlap = 2) => {
-    prev = (prev || '').trim();
-    curr = (curr || '').trim();
-    if (!prev) return curr;
-    if (!curr) return prev;
-
-    // Fast paths
-    if (curr.startsWith(prev)) return curr;   // normal growth
-    if (prev.startsWith(curr)) return prev;   // regression → keep longer
-
-    // Punctuation-insensitive prefix (e.g., "Hey." → "Hey, how")
-    const np = _stripPunc(prev);
-    const nc = _stripPunc(curr);
-    if (nc.startsWith(np)) return curr;
-
-    // Word-overlap splice (compute on tokens, splice on ORIGINAL string)
-    const pw = _wordSpans(prev).map(o => o.w);
-    const cwSpans = _wordSpans(curr);
-    const cw = cwSpans.map(o => o.w);
-
-    const k = _overlapCount(pw, cw);
-    if (k >= minOverlap) {
-      // cut point = end of k-th word in ORIGINAL curr
-      const cut = cwSpans[k - 1].end;
-      const tail = curr.slice(cut); // keeps punctuation/spacing exactly
-
-      // --- boundary de-dup JUST for merge-caused duplication of ?/! ---
-      // If prev ends with ?/! run and tail begins with the same mark run,
-      // drop the prev run and keep curr’s (so legit "???" from curr is preserved).
-      const prevRun = prev.match(/[?!]+$/);
-      const tailRun = tail.match(/^[?!]+/);
-      let left = prev;
-      if (
-        prevRun && tailRun &&
-        prevRun[0].length > 0 &&
-        tailRun[0].length > 0 &&
-        prevRun[0][0] === tailRun[0][0]
-      ) {
-        left = prev.slice(0, prev.length - prevRun[0].length);
-      }
-
-      const needSpace = left && /[A-Za-z0-9]$/.test(left) && /^[A-Za-z0-9]/.test(tail);
-      return needSpace ? (left + ' ' + tail) : (left + tail);
-    }
-
-    // Fallback: pick the one with more info (normalized length), but keep original text
-    return nc.length >= np.length ? curr : prev;
-  };
-
-  function getAdjustedSpeed(text: string, baseSpeed: number): number {
-    /*const wordCount = text
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean).length;
-
-    if (wordCount <= 4) {
-      return baseSpeed * 0.5;
-    }
-
-    if (wordCount <= 8) {
-      return baseSpeed * 0.8;
-    }
-*/
-    return baseSpeed;
-  }
-
   const getSelectedSpeakerSpeed = (): number =>
     selectedTTSVoiceRef.current === 'Rich' ? RICH_SPEAKER_SPEED : ARIANA_SPEAKER_SPEED;
-
-  Speech.onSpeechStart = async () => {
-    console.log('onSpeechStart: Speech started');
-    if (!speechSessionUIAllowedRef.current) {
-      console.log('onSpeechStart: ignored for UI because no speech-session screen is active');
-      return;
-    }
-    setIsSpeechSessionActive(true);
-  };
-
-  Speech.onSpeechEnd = async () => {
-    console.log('***Sentence ended***:', lastTranscriptRef.current);
-    // Keep AIChat-like behavior: do not clear timeout or reset transcript here.
-    // Timeout lifecycle is handled by onSpeechPartialResults/onSpeechResults.
-    return;
-  };
-
-  Speech.onSpeechPartialResults = (e) => {
-        console.log('onSpeechPartialResults: 1');
-
-    if (Platform.OS === 'android' && suppressAndroidPartialResultsRef.current) {
-      console.log('[STT_INIT_GUARD] ignoring Android partial result while speech library is still loading/pause is settling', e.value?.[0]);
-      return;
-    }
-
-    if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) return;
-    const curr = e.value?.[0];
-    if (Platform.OS === 'ios') {
-      if (curr && curr !== lastTranscriptRef.current) {
-        lastTranscriptRef.current = curr;
-        lastPartialTimeRef.current = Date.now();
-        setCurrentSpeechSentence(curr);
-        setAiChatLiveTranscript(curr);
-        console.log('Partial:', curr);
-      }
-      return;
-    }
-    console.log('Partial:', curr);
-    if (!curr || !curr.trim()) return;
-    if (curr == undefined) {
-      console.log('Partial is undefined!!!!!!');
-      return;
-    }
-    const merged = mergeSmartKeepPunct(lastTranscriptRef.current, curr, 2);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(async () => {
-      const newText = lastTranscriptRef.current.trim();
-      if (!newText || aiChatInFlightRef.current) return;
-      if (isFullAIChatMode) {
-        if (newText === lastProcessedRef.current) return;
-        console.log('[AIChat] silence timeout reached, sending:', newText);
-        await processAIChatTurn(newText);
-        return;
-      }
-
-      const speechUiEpoch = beginSpeechUiEpoch();
-      console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
-      console.log('🗣️ Speaking:', newText);
-      setCurrentSpeechSentenceGuarded(speechUiEpoch, "Speaking now:" + newText);
-      await Speech.pauseSpeechRecognition();
-      const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
-      await Speech.speak(newText, SPEAKER, adjustedSpeed);
-      resetSpeechTranscriptState();
-      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in onSpeechPartialResults silence timeout');
-      await Speech.unPauseSpeechRecognition(-1);
-      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in onSpeechPartialResults silence timeout');
-      await sleep(300);
-      clearSpeechSentenceUI(speechUiEpoch);
-    }, silenceThresholdMsRef.current);
-
-    if (merged === lastTranscriptRef.current) return;
-
-    lastTranscriptRef.current = merged;
-    setCurrentSpeechSentence(merged);
-    setAiChatLiveTranscript(merged);
-    console.log('Partial:', merged);
-  };
-
-Speech.onSpeechResults = async (e) => {
-  console.log('onSpeechResults: 1 ');
-
-  if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) {
-    console.log('onSpeechResults: leaving?????? ');
-    return;
-  }
-
-  const current = e.value?.[0]?.trim();
-
-  if (Platform.OS === 'android') {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = null;
-    console.log('Results: ', e.value?.[0]);
-    if (current) {
-      lastTranscriptRef.current = mergeSmartKeepPunct(lastTranscriptRef.current, current, 2);
-      setCurrentSpeechSentence(lastTranscriptRef.current);
-      setAiChatLiveTranscript(lastTranscriptRef.current);
-      setAiChatTranscript(lastTranscriptRef.current);
-    }
-    timeoutRef.current = setTimeout(async () => {
-      const newText = lastTranscriptRef.current.trim();
-      if (!newText || aiChatInFlightRef.current) return;
-      if (isFullAIChatMode) {
-        if (newText === lastProcessedRef.current) return;
-        console.log('[AIChat] silence timeout reached, sending:', newText);
-        await processAIChatTurn(newText);
-        return;
-      }
-      await Speech.speak(newText, SPEAKER, getSelectedSpeakerSpeed());
-    }, silenceThresholdMsRef.current);
-    return;
-  }
-
-  console.log('Results: ', e.value?.[0]);
-  if (!current || current === lastTranscriptRef.current) return;
-  setCurrentSpeechSentence(current);
-  setAiChatLiveTranscript(current);
-  setAiChatTranscript(current);
-  lastTranscriptRef.current = current;
-
-  if (timeoutRef.current) clearTimeout(timeoutRef.current);
-  timeoutRef.current = setTimeout(async () => {
-    const newText = lastTranscriptRef.current.trim();
-    if (!newText || aiChatInFlightRef.current) return;
-    if (isFullAIChatMode) {
-      if (newText === lastProcessedRef.current) return;
-      console.log('[AIChat] silence timeout reached, sending:', newText);
-      await processAIChatTurn(newText);
-      return;
-    }
-
-    const speechUiEpoch = beginSpeechUiEpoch();
-    console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
-    console.log('🗣️ Speaking:', newText);
-    setCurrentSpeechSentenceGuarded(speechUiEpoch, 'Speaking now:' + newText);
-    await Speech.pauseSpeechRecognition();
-    const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
-    await Speech.speak(newText, SPEAKER, adjustedSpeed);
-    resetSpeechTranscriptState();
-    console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in onSpeechResults silence timeout');
-    await Speech.unPauseSpeechRecognition(-1);
-    console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in onSpeechResults silence timeout');
-    await sleep(300);
-    clearSpeechSentenceUI(speechUiEpoch);
-  }, silenceThresholdMsRef.current);
-};
+  registerSpeechHandlers({
+    Speech,
+    suppressAndroidPartialResultsRef,
+    showAppModePrompt,
+    isTTSTestMode,
+    aiChatInFlightRef,
+    speechSessionUIAllowedRef,
+    setIsSpeechSessionActive,
+    lastTranscriptRef,
+    lastPartialTimeRef,
+    setCurrentSpeechSentence,
+    setAiChatLiveTranscript,
+    timeoutRef,
+    isFullAIChatMode,
+    lastProcessedRef,
+    processAIChatTurn,
+    beginSpeechUiEpoch,
+    setCurrentSpeechSentenceGuarded,
+    getSelectedSpeakerSpeed,
+    SPEAKER,
+    resetSpeechTranscriptState,
+    sleep,
+    clearSpeechSentenceUI,
+    silenceThresholdMsRef,
+    setAiChatTranscript,
+  });
   let callbackTimes = 0;
   const isFirstKeywordCallbackRef = useRef(true);
   useEffect(() => {
@@ -2408,90 +750,39 @@ Speech.onSpeechResults = async (e) => {
       if (stopWakeWord)
         await detachListener();
 
-      let wavFilePath = '';
-      let recordedWavPaths: string[] = [];
+      const { wavFilePath, recordedWavPaths } = await captureWakewordDetection({
+        instance,
+        stopWakeWord,
+        sleep,
+        setLatestWakewordRecordingPaths,
+      });
 
-      // 2) Stop Detection (native)
-      try {
-        if (stopWakeWord)
-          await instance.stopKeywordDetection(/* FR add if stop microphone or */);
-        else
-          await instance.pauseDetection(false);///* FR add if stop microphone or */);
-
-        wavFilePath = await instance.getRecordingWav();
-        if (Platform.OS === 'android') {
-          recordedWavPaths = await instance.getRecordingWavArray();
-        }
-        console.log('paths == ', recordedWavPaths);
-      } catch { }
-
-      const pathsForSharing =
-        Platform.OS === 'android'
-          ? (recordedWavPaths.length > 0 ? recordedWavPaths : [wavFilePath]).filter(Boolean)
-          : [wavFilePath].filter(Boolean);
-      if (pathsForSharing.length > 0) {
-        setLatestWakewordRecordingPaths(pathsForSharing);
-      }
-      await sleep(1000);
-
-      console.log('detected keyword: ', keywordIndex);
-      const keywordText = String(keywordIndex ?? '');
-      const keywordWords = keywordText.trim().split(/\s+/).filter(Boolean);
-      const modelWordIndex = keywordWords.findIndex((w) => w.toLowerCase() === 'model');
-      const cleanWakeWord =
-        modelWordIndex >= 0
-          ? keywordWords.slice(0, modelWordIndex).join(' ')
-          : keywordText;
+      const { keywordText, cleanWakeWord } = cleanDetectedWakeWord(keywordIndex);
       pendingWakeWordPrefixRef.current = cleanWakeWord;
       setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
       setIsFlashing(true);
 
       /***** SPEAKER VERIFICATION CODE ONLY *****/
       try {
-
-        let enrollmentJson = enrollmentJsonRef.current;
-        {
-          console.log('[keywordCallback] Moving past SV onboarding');
-          setShowSVPrompt(false);
-          setSvRunning(false);
-          if (svElapsedIntervalRef.current) {
-            clearInterval(svElapsedIntervalRef.current);
-            svElapsedIntervalRef.current = null;
-          }
-        }
-        if (isFirstCall) {
-          setAppModeChoice('tts_test');
-          setSpeechSessionUIActive(false);
-          clearSpeechSentenceUI();
-          try {
-            await Speech.pauseSpeechRecognition();
-          } catch (error) {
-            console.log('[AppMode] failed to pause speech recognition before mode prompt:', error);
-          }
-          setShowAppModePrompt(true);
-          const selectedModeChoice = await new Promise<AppModeChoice>((resolve) => {
-            appModeChoiceResolverRef.current = resolve;
-          });
-          setShowAppModePrompt(false);
-          selectedAppModeRef.current = selectedModeChoice;
-          await waitForNextInteraction();
-        }
-
-        setMessage('Preparing wake word and speech engine...');
-
-        // await Speech.destroyAll();
-        // await sleep(300);
-
-        /***** END OF SPEAKER VERIFICATION CODE ONLY END *****/
-
-        setSpeechSessionUIActive(true);
-        setCurrentSpeechSentence('');
-        enrollmentJson = enrollmentJsonRef.current ?? enrollmentJson;
-        setIsSpeakerIdentificationActive(typeof enrollmentJson === 'string' && enrollmentJson.length > 0);
-        console.log('[keywordCallback] Speech already initialized');
-        if (!speechLibraryInitializedRef.current) {
-          console.warn('[keywordCallback] Speech library was not initialized during startup.');
-        }
+        await prepareWakewordSpeechSession({
+          isFirstCall,
+          enrollmentJsonRef,
+          setShowSVPrompt,
+          setSvRunning,
+          svElapsedIntervalRef,
+          setAppModeChoice,
+          setSpeechSessionUIActive,
+          clearSpeechSentenceUI,
+          Speech,
+          setShowAppModePrompt,
+          appModeChoiceResolverRef,
+          selectedAppModeRef,
+          waitForNextInteraction,
+          setMessage,
+          setCurrentSpeechSentence,
+          setIsSpeakerIdentificationActive,
+          speechLibraryInitializedRef,
+        });
 
         //await Speech.initAll({ locale:'en-US', model: ttsModel });
         // Spanish:
@@ -2539,71 +830,23 @@ Speech.onSpeechResults = async (e) => {
         return;
       }
 
-      const speechUiEpoch = beginSpeechUiEpoch();
-      await Speech.pauseSpeechRecognition();
       const selectedSpeakerName: 'Rich' | 'Ariana' = selectedTTSVoiceRef.current;
-      const introLine = "My name is " + selectedSpeakerName + ", I am one of the coaches in the Lunafit app! I love helping people reach their fitness goals!";
-      setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
-      setIntroSpeakerName(selectedSpeakerName);
-      setIntroScript(introLine);
-      setCurrentSpeechSentenceGuarded(speechUiEpoch, "Into Message: " + introLine);
-      setIntroSpeakingGuarded(speechUiEpoch, true);
-
-      try {
-        await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
-      } finally {
-        setIntroSpeakingGuarded(speechUiEpoch, false);
-      }
-      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after intro speech');
-      await Speech.unPauseSpeechRecognition(-1);
-      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after intro speech');
-
-      // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
-      // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
-      /*
-      await Speech.speak("Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!");
-      await Speech.speak("Hello, as an AI , I don't have feelings , but I'm here and ready to help you with anything you need. Today, how can I assist you?", SPEAKER, SPEAKER_SPEED);
-      await Speech.speak("let me demonstrate. Are you ready.", SPEAKER, SPEAKER_SPEED);
-      await Speech.speak("Hey, how are you?", SPEAKER, SPEAKER_SPEED);
-      await Speech.speak("Hi guys, how are you?", SPEAKER, SPEAKER_SPEED);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED);
-    */
-      /*      await Speech.speak("Hello, how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello, how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello, how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello, how are you?", SPEAKER, SPEAKER_SPEED * 0.3);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello. how are you?", SPEAKER, SPEAKER_SPEED * 0.3);
-      await Speech.speak("Hello! how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello! how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello! how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello! how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello! how are you?", SPEAKER, SPEAKER_SPEED * 0.5);
-      await Speech.speak("Hello! how are you?", SPEAKER, SPEAKER_SPEED * 0.3);
-      await Speech.speak("Hello good people, how are you?", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you?", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you?", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you?", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you?", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
-      await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
-      */
-      await waitForNextInteraction();
-      resetSpeechTranscriptState();
-      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after waitForNextInteraction');
-      await Speech.unPauseSpeechRecognition(-1);
-      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after waitForNextInteraction');
-      await sleep(500);
-      clearSpeechSentenceUI(speechUiEpoch);
+      await playWakewordIntroSpeech({
+        Speech,
+        beginSpeechUiEpoch,
+        setMessageGuarded,
+        setIntroSpeakerName,
+        setIntroScript,
+        setCurrentSpeechSentenceGuarded,
+        setIntroSpeakingGuarded,
+        selectedSpeakerName,
+        getSelectedSpeakerSpeed,
+        SPEAKER,
+        waitForNextInteraction,
+        resetSpeechTranscriptState,
+        sleep,
+        clearSpeechSentenceUI,
+      });
 
       /*
       setTimeout(async () => {
@@ -2654,227 +897,55 @@ Speech.onSpeechResults = async (e) => {
     // ************ INIT **************
     // --> STARTING POINT - INIT OF KEYWORD DETECTION !!!!
     const initializeKeywordDetection = async () => {
-      let enrollmentJson = enrollmentJsonRef.current;
-      console.log('initializeKeywordDetection() enrollmentJson == ', enrollmentJson);
-      let svChoice = 'skip';
+      let svChoice: SVPromptChoice = 'skip';
       try {
         await promptForTTSModelChoice();
-
-        if (!enrollmentJson) {
-          enrollmentJson = await loadEnrollmentJsonFromFile('sv_enrollment.json');
-          console.log('initializeKeywordDetection() 2 enrollmentJson == ', enrollmentJson);
-
-          if (enrollmentJson) {
-            console.log('initializeKeywordDetection() 3 enrollmentJson == ', enrollmentJson);
-            enrollmentJsonRef.current = enrollmentJson;
-            enrollmentJsonPathRef.current = `${RNFS.DocumentDirectoryPath}/sv_enrollment.json`;
-          }
-        }
-        const hasSavedEnrollment = typeof enrollmentJson === 'string' && enrollmentJson.length > 0;
-        setSvPromptHasSavedEnrollment(hasSavedEnrollment);
-        setShowSVPrompt(true);
-        svChoice = await new Promise<SVPromptChoice>((resolve) => {
-          svChoiceResolverRef.current = resolve;
+        const startupFlow = await runSpeakerVerificationStartupFlow({
+          setMessage,
+          enrollmentJsonRef,
+          enrollmentJsonPathRef,
+          setSvPromptHasSavedEnrollment,
+          setShowSVPrompt,
+          svChoiceResolverRef,
+          setShowSVStatusScreen,
+          setSvStatusCanContinue,
+          setSvOnboardingCollected,
+          setSvOnboardingTarget,
+          setSvStatusPhase,
+          setLastSVScore,
+          lastSVScoreTimeRef,
+          setSvElapsed,
+          svElapsedIntervalRef,
+          setSvRunning,
+          svStopRef,
+          svContinueResolverRef,
         });
-        setShowSVPrompt(false);
-        setSvPromptHasSavedEnrollment(false);
-        if (svChoice === 'skip') {
-          enrollmentJson = null;
-          enrollmentJsonRef.current = null;
-          enrollmentJsonPathRef.current = null;
-        }
-        if (svChoice !== 'skip') {
-          setShowSVStatusScreen(true);
-          setSvStatusCanContinue(false);
-          setSvOnboardingCollected(0);
-          setSvOnboardingTarget(SV_ONBOARDING_SAMPLE_COUNT);
-          if (svChoice === 'redo_onboarding' || !enrollmentJson) {
-            /*** --> ENROLLMENT HERE ***/
-            setSvStatusPhase('onboarding');
-            enrollmentJson = await runSpeakerVerifyEnrollment(setMessage, SV_ONBOARDING_SAMPLE_COUNT, {
-              onStart: (targetSamples) => {
-                setSvOnboardingTarget(targetSamples);
-                setSvOnboardingCollected(0);
-              },
-              onProgress: (collected, targetSamples) => {
-                setSvOnboardingCollected(collected);
-                setSvOnboardingTarget(targetSamples);
-              },
-              onComplete: (targetSamples) => {
-                setSvOnboardingCollected(targetSamples);
-                setSvOnboardingTarget(targetSamples);
-              },
-            });
-            enrollmentJsonRef.current = enrollmentJson;
-            enrollmentJsonPathRef.current = await writeEnrollmentJsonToFile(
-              enrollmentJson,
-              'sv_enrollment.json',
-            );
-          }
-          setSvStatusPhase('verifying');
-          // Reset score tracking and start elapsed timer
-          setLastSVScore(null);
-          lastSVScoreTimeRef.current = null;
-          setSvElapsed('N/A');
-          svElapsedIntervalRef.current = setInterval(() => {
-            const t = lastSVScoreTimeRef.current;
-            if (t === null) {
-              setSvElapsed('N/A');
-            } else {
-              const sec = (Date.now() - t) / 1000;
-              setSvElapsed(sec < 60 ? `${sec.toFixed(1)}s` : `${Math.floor(sec / 60)}m ${Math.floor(sec % 60)}s`);
-            }
-          }, 100);
-
-          setSvRunning(true);
-          // await runVerificationWithEnrollment(enrollmentJson, setMessage);
-          //        svStopRef.current = await startEndlessVerificationWithEnrollment(enrollmentJson, setMessage, { hopSeconds: 0.5, stopOnMatch: false });
-          svStopRef.current = await startEndlessVerificationWithEnrollmentFix(
-            enrollmentJson,
-            setMessage,
-            {
-              hopSeconds: 0.25, stopOnMatch: false, waitFirstResult: true, firstResultTimeoutMs: 3000,
-              onStopReady: (stopFn: () => Promise<void>) => { svStopRef.current = stopFn; },
-              onScore: (score: number, isMatch: boolean) => {
-                const uiIsMatch = getSVUIMatch(score, isMatch);
-                setLastSVScore({ score: getSVUIDisplayScore(score, isMatch), isMatch: uiIsMatch });
-                lastSVScoreTimeRef.current = Date.now();
-                setSvStatusCanContinue(true);
-              }
-            }
-          );
-          await new Promise<void>((resolve) => {
-            svContinueResolverRef.current = resolve;
-          });
-          // Cleanup timer when verification ends
-          if (svElapsedIntervalRef.current) {
-            clearInterval(svElapsedIntervalRef.current);
-            svElapsedIntervalRef.current = null;
-          }
-          setSvRunning(false);
-        }
-        setShowSVStatusScreen(false);
-        setSvStatusCanContinue(false);
-        setSvStatusPhase('idle');
-        setSvOnboardingCollected(0);
-        svContinueResolverRef.current = null;
+        svChoice = startupFlow.svChoice;
       } catch (error) {
-        console.error('Error loading model:', error);
-        setShowSVPrompt(false);
-        setSvPromptHasSavedEnrollment(false);
-        setShowSVStatusScreen(false);
-        setSvStatusCanContinue(false);
-        setSvStatusPhase('idle');
-        setSvOnboardingCollected(0);
-        svContinueResolverRef.current = null;
-        setMessage(`Speaker verification debug mode failed: ${String((error as any)?.message ?? error)}`);
         return;
       }
 
       try {
-        // 🔹 *** NEW ***: configure routing once (iOS only) BEFORE creating instances
-        if (Platform.OS === 'ios') {
-          try {
-            await setWakewordAudioRoutingConfig(defaultAudioRoutingConfig);
-          } catch (e) {
-            console.warn('setWakewordAudioRoutingConfig failed (ignored):', e);
-          }
-        }
-
-        // --> CREATE THE INSTANCE !!!!
-        try {
-          console.log('Adding element:', instanceConfigs[0]);
-          const instance = await addInstanceMulti(instanceConfigs[0]);
-          myInstanceRef.current = instance;
-        } catch (error) {
-          console.error('Error loading model:', error);
-          return;
-        }
-
-        // --> Attach the callback !!!!
-        const inst = myInstanceRef.current!;
-        await attachListenerOnce(inst, keywordCallback);
-
-        const isLicensed = await inst.setKeywordDetectionLicense(
-          'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8='
-        );
-        if (!isLicensed) {
-          console.error('No License!!! - setKeywordDetectionLicense returned', isLicensed);
-          setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
-          return;
-        }
-
-        const isSpeechLicensed = await Speech.setLicense(
-          'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8='
-        );
-        if (!isSpeechLicensed) {
-          console.error('No License!!! - Speech.setLicense returned', isSpeechLicensed);
-          setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
-          return;
-        }
-
-        /* Below code with enableDucking/disableDucking and startKeywordDetection(xxx, false, ...) - where
-        false is the second argument is used to initialze other audio sessions before wake word to duck others etc'
-        You can aslo make wake word use the same settings and not chaning audio session.
-        // await disableDucking();
-        // await enableDucking();
-        // await inst.startKeywordDetection(instanceConfigs[0].threshold, false);
-        */
-
-        if (svChoice !== 'skip' && typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0) {
-          console.log("startKeywordDetection with SV:", enrollmentJsonPathRef.current);
-          await inst.startKeywordDetection(instanceConfigs[0].threshold,
-            enrollmentJsonPathRef.current || '', true);
-        }
-        else {
-          console.log("startKeywordDetection without SV:");
-          await inst.startKeywordDetection(instanceConfigs[0].threshold, true);
-        }
-        await inst.pauseDetection(false);
-        await sleep(100);
-        console.log('Post pauseDetection');
-
-        let speechInitCompleted = false;
-        try {
-          suppressAndroidPartialResultsRef.current = true;
-          setMessage('Initializing speech engine...');
-          console.log('Before initializeSpeechLibrary');
-          await withTimeout(
-            initializeSpeechLibrary(
-              typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0
-                ? enrollmentJsonPathRef.current
-                : null,
-            ),
-            15000,
-            'Speech.initAll',
-          );
-          speechLibraryInitializedRef.current = true;
-          speechInitCompleted = true;
-          console.log('After initializeSpeechLibrary');
-          await sleep(1000);
-
-          try {
-            await Speech.pauseSpeechRecognition();
-          } catch (e) {
-            console.warn('Initial pauseSpeechRecognition failed (ignored):', e);
-          } finally {
-            suppressAndroidPartialResultsRef.current = false;
-          }
-          // console.log('Post pauseDetection 2');
-        } catch (e) {
-          suppressAndroidPartialResultsRef.current = false;
-          speechLibraryInitializedRef.current = false;
-          console.error('Speech initialization failed or hung:', e);
-          setMessage('Speech init stalled. Wakeword detection was resumed, but speech may need a retry.');
-        } finally {
-          try {
-            console.log('calling unPauseDetection after speech init path');
-            await inst.unPauseDetection();
-            console.log('Post pauseDetection 3');
-          } catch (unpauseError) {
-            console.error('Failed to unpause keyword detection:', unpauseError);
-          }
-        }
+        const { speechInitCompleted } = await initializeWakewordBootstrap({
+          PlatformOS: Platform.OS,
+          defaultAudioRoutingConfig,
+          setMessage,
+          keywordCallback,
+          listenerRef,
+          myInstanceRef,
+          keywordLicense:
+            'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8=',
+          speechLicense:
+            'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8=',
+          Speech,
+          svChoice,
+          enrollmentJsonPath: enrollmentJsonPathRef.current,
+          sleep,
+          initializeSpeechLibrary,
+          withTimeout,
+          suppressAndroidPartialResultsRef,
+          speechLibraryInitializedRef,
+        });
 
         setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
         if (!speechInitCompleted) {
@@ -3021,49 +1092,11 @@ Speech.onSpeechResults = async (e) => {
     Keyboard.dismiss();
   };
 
-  const toFileUrl = (path: string): string => (path.startsWith('file://') ? path : `file://${path}`);
-
-  const shareLatestRecordings = async () => {
-    setIsMenuOpen(false);
-
-    if (latestWakewordRecordingPaths.length === 0) {
-      Alert.alert('No recordings', 'No wake-word recordings are available yet.');
-      return;
-    }
-
-    const existingPaths: string[] = [];
-    for (const path of latestWakewordRecordingPaths) {
-      try {
-        if (await RNFS.exists(path)) existingPaths.push(path);
-      } catch { }
-    }
-
-    if (existingPaths.length === 0) {
-      Alert.alert('Missing files', 'Recorded files were not found on disk.');
-      return;
-    }
-
-    if (Platform.OS === 'android') {
-      const nativeShare = NativeModules.WakewordRecordingShare as
-        | { shareRecordings: (paths: string[], title?: string) => Promise<boolean> }
-        | undefined;
-      if (!nativeShare?.shareRecordings) {
-        Alert.alert('Share unavailable', 'Native share module is not available in this build.');
-        return;
-      }
-      await nativeShare.shareRecordings(existingPaths, 'Share wake-word recordings');
-      return;
-    }
-
-    if (Platform.OS === 'ios') {
-      const lastPath = existingPaths[existingPaths.length - 1];
-      await Share.share({
-        title: 'Share wake-word recording',
-        url: toFileUrl(lastPath),
-      });
-      return;
-    }
-  };
+  const shareLatestRecordings = async () =>
+    shareWakewordRecordings({
+      latestWakewordRecordingPaths,
+      setIsMenuOpen,
+    });
 
   const shouldShowFullAIChatScreen =
     isFullAIChatMode ||
@@ -3120,7 +1153,7 @@ Speech.onSpeechResults = async (e) => {
   );
 
   const renderSVOnboardingMeter = () => {
-    const fillHeight = `${Math.max(8, Math.round(svOnboardingProgress * 100))}%`;
+    const fillHeight: DimensionValue = `${Math.max(8, Math.round(svOnboardingProgress * 100))}%`;
     return (
       <View style={styles.svOnboardingHero}>
         <View style={styles.svOnboardingTextBlock}>
