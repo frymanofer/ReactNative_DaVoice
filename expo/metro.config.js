@@ -1,12 +1,7 @@
 // metro.config.js
-const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+const { getDefaultConfig } = require('expo/metro-config');
+const { mergeConfig } = require('@react-native/metro-config');
 
-/**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- *
- * @type {import('metro-config').MetroConfig}
- */
 const defaultConfig = getDefaultConfig(__dirname);
 
 const config = {
@@ -15,10 +10,8 @@ const config = {
       ...(defaultConfig.resolver.assetExts || []),
       'dm',
       'onnx',
-      'json',
-      'onnx', 
-      'wav', 
-      'mp3'
+      'wav',
+      'mp3',
     ],
   },
 };
