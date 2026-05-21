@@ -1,27 +1,35 @@
 #!/usr/bin/env node
-const fs = require("fs");
-const { execSync } = require("child_process");
-const path = require("path");
+const fs = require('fs');
+const { execSync } = require('child_process');
+const path = require('path');
 
-const FILE = path.join("assets", "models", "model_ex_rich.dm");const MIN_REAL_SIZE = 50 * 1024 * 1024; // 50MB
+const FILES = [
+  path.join('assets', 'models', 'model_ex_ariana_fast_davoice_phoneme.dm'),
+  path.join('assets', 'models', 'model_ex_rich_fast_davoice_phoneme.dm'),
+];
+const MIN_REAL_SIZE = 50 * 1024 * 1024; // 50MB
 
-function isLFSPointer(p) {
-  if (!fs.existsSync(p)) return false;
-  const fd = fs.openSync(p, "r");
+function isLFSPointer(filePath) {
+  if (!fs.existsSync(filePath)) return false;
+  const fd = fs.openSync(filePath, 'r');
   const buf = Buffer.alloc(256);
   const n = fs.readSync(fd, buf, 0, buf.length, 0);
   fs.closeSync(fd);
-  const head = buf.slice(0, n).toString("utf8");
-  return head.includes("git-lfs.github.com/spec/v1");
+  const head = buf.slice(0, n).toString('utf8');
+  return head.includes('git-lfs.github.com/spec/v1');
 }
 
 function hasGitLfs() {
-  try { execSync("git lfs version", { stdio: "ignore" }); return true; }
-  catch { return false; }
+  try {
+    execSync('git lfs version', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function run(cmd) {
-  execSync(cmd, { stdio: "inherit" });
+  execSync(cmd, { stdio: 'inherit' });
 }
 
 function fail(msg) {
@@ -29,46 +37,54 @@ function fail(msg) {
   process.exit(1);
 }
 
-try {
-  if (!fs.existsSync(FILE)) fail(`Missing required model file: ${FILE}`);
-
-  const size = fs.statSync(FILE).size;
-  if (size >= MIN_REAL_SIZE) process.exit(0);
-
-  if (!isLFSPointer(FILE)) {
-    fail(`Model file is too small (${size} bytes). Expected ~60MB: ${FILE}`);
+function ensureFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    fail(`Missing required model file: ${filePath}`);
   }
 
-  console.error(`\n⚠️ Git LFS pointer detected for ${FILE} (size=${size} bytes).`);
+  const size = fs.statSync(filePath).size;
+  if (size >= MIN_REAL_SIZE) {
+    return;
+  }
+
+  if (!isLFSPointer(filePath)) {
+    fail(`Model file is too small (${size} bytes). Expected ~60MB: ${filePath}`);
+  }
+
+  console.error(`\n⚠️ Git LFS pointer detected for ${filePath} (size=${size} bytes).`);
 
   if (!hasGitLfs()) {
     fail(
-      `Git LFS is not installed / not on PATH.\n` +
-      `Install it, then run:\n` +
-      `  git lfs install\n` +
-      `  git lfs pull\n`
+      'Git LFS is not installed / not on PATH.\n' +
+        'Install it, then run:\n' +
+        '  git lfs install\n' +
+        '  git lfs pull\n'
     );
   }
 
-  console.error(`✅ git-lfs found. Fetching LFS objects...`);
-  run("git lfs install");
+  console.error(`✅ git-lfs found. Fetching LFS object for ${filePath}...`);
+  run('git lfs install');
 
-  // Pull only what you need (fast)
-  const incl = FILE.replace(/\\/g, "/");
+  const incl = filePath.replace(/\\/g, '/');
   run(`git lfs pull --include="${incl}"`);
 
-  const size2 = fs.statSync(FILE).size;
+  const size2 = fs.statSync(filePath).size;
   if (size2 < MIN_REAL_SIZE) {
     fail(
       `git lfs pull ran but the model is still not present.\n` +
-      `Try:\n` +
-      `  git lfs pull\n` +
-      `  git lfs checkout\n`
+        `Try:\n` +
+        `  git lfs pull\n` +
+        `  git lfs checkout\n`
     );
   }
 
-  console.error(`✅ LFS OK. ${FILE} is now ${size2} bytes.`);
+  console.error(`✅ LFS OK. ${filePath} is now ${size2} bytes.`);
+}
+
+try {
+  for (const filePath of FILES) {
+    ensureFile(filePath);
+  }
 } catch (e) {
   fail(`ensure-lfs failed: ${e?.message || e}`);
 }
-

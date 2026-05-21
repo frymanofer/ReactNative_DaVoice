@@ -1,10 +1,8 @@
-import { AppRegistry } from 'react-native';
 import { registerRootComponent } from 'expo';
 import App from './App';
 import { AppState } from 'react-native';
 // import BackgroundFetch from 'react-native-background-fetch';
 import { Platform } from 'react-native';
-import {name as appName} from './app.json';
 
 /*
 const startForegroundService = () => {
@@ -19,7 +17,7 @@ startForegroundService();
 */
 
 // Ensure the environment is set up appropriately whether you load the app in Expo Go or in a native build
-AppRegistry.registerComponent(appName, () => App);
+registerRootComponent(App);
 
 /*
   // Background Fetch setup for iOS
@@ -48,4 +46,3 @@ const configureBackgroundFetch = () => {
 
 // configureBackgroundFetch();
 */
-

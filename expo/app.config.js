@@ -32,6 +32,14 @@ module.exports = {
       bundleIdentifier: resolved.iosBundleIdentifier,
     },
     plugins: [
+      [
+        'expo-build-properties',
+        {
+          android: {
+            minSdkVersion: 26,
+          },
+        },
+      ],
       'react-native-wakeword',
       [
         './plugins/withDaVoiceNativeAssets',

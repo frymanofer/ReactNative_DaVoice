@@ -7,6 +7,7 @@ It includes a local Expo config plugin that handles the native setup Expo manage
 - add Android local Maven repos for `react-native-wakeword` and `react-native-davoice`
 - copy native filename-based model assets into Android native assets
 - copy the same native filename-based model assets into the iOS app bundle resources
+- raise Android `minSdkVersion` to `26` because `react-native-davoice` requires it
 
 Use this README in one of two ways:
 
@@ -35,7 +36,7 @@ From this folder:
 
 ```bash
 npm install
-npm install expo expo-dev-client @expo/config-plugins
+npm install expo expo-dev-client expo-build-properties @expo/config-plugins
 ```
 
 ### 2. Configure local app identifiers
@@ -111,6 +112,7 @@ npx expo prebuild --clean
 What the plugin does:
 
 - Android:
+  - sets `minSdkVersion` to `26`
   - adds:
     - `maven { url "${project(":react-native-wakeword").projectDir}/libs" }`
     - `maven { url "${project(":react-native-davoice").projectDir}/libs" }`
@@ -182,7 +184,7 @@ If you already have your own Expo app, copy only the pieces you need.
 In your app:
 
 ```bash
-npm install react-native-davoice react-native-wakeword expo expo-dev-client @expo/config-plugins
+npm install react-native-davoice react-native-wakeword expo expo-dev-client expo-build-properties @expo/config-plugins
 ```
 
 ### 2. Copy the local Expo plugin
@@ -213,6 +215,14 @@ In your `app.config.js` or `app.json`, add:
 
 ```js
 plugins: [
+  [
+    'expo-build-properties',
+    {
+      android: {
+        minSdkVersion: 26,
+      },
+    },
+  ],
   'react-native-wakeword',
   [
     './plugins/withDaVoiceNativeAssets',
@@ -238,6 +248,14 @@ module.exports = {
       bundleIdentifier: 'com.yourcompany.myvoiceapp',
     },
     plugins: [
+      [
+        'expo-build-properties',
+        {
+          android: {
+            minSdkVersion: 26,
+          },
+        },
+      ],
       'react-native-wakeword',
       [
         './plugins/withDaVoiceNativeAssets',
@@ -358,6 +376,17 @@ If Android fails to resolve DaVoice dependencies:
 1. Open generated `android/build.gradle`
 2. Confirm both local Maven repo lines exist
 3. Confirm the installed npm packages actually contain `android/libs`
+
+If Android fails with a manifest merge error mentioning `minSdkVersion 24` vs `26`:
+
+1. Confirm `expo-build-properties` is installed
+2. Confirm your Expo config sets Android `minSdkVersion` to `26`
+3. Delete generated native folders
+4. Rerun:
+
+```bash
+npx expo prebuild
+```
 
 ## Summary
 
