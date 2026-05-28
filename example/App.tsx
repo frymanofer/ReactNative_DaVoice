@@ -847,6 +847,12 @@ function App(): React.JSX.Element {
           setCurrentSpeechSentence,
           setIsSpeakerIdentificationActive,
           speechLibraryInitializedRef,
+          speakModeSelectionNarration: async () => {
+            await speakStartupNarration([
+              'Wake word, hey coach, detected.',
+              'Now there are two options. You can test the app with the Gemini API. Or you can simply test out speech to text and text to speech.',
+            ]);
+          },
         });
 
         //await Speech.initAll({ locale:'en-US', model: ttsModel });
@@ -992,15 +998,16 @@ function App(): React.JSX.Element {
         }
 
         await speakStartupNarration([
-          'Hi, my name is Rich. I will walk you through this demo step by step.',
+//          'Hey there! My name is Rich. My voice which was cloned for my application, which is called Lunafit App, is now being used to walk you through this demonstration, step by step.',
+          'Hey there! My name is Rich. In this application, we will use my cloned voice, to walk you through this demonstration, step by step.',
           'First, please choose which voice you want to use. You can stay with me, Rich, or switch to the Amazing Ariana.',
         ]);
 
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          `Great. You chose ${selectedTTSVoiceRef.current}.`,
-          'Next phase is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
+          `Awsome! You chose ${selectedTTSVoiceRef.current}.`,
+          'Next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
         ]);
 
         const startupFlow = await runSpeakerVerificationStartupFlow({
@@ -1037,6 +1044,10 @@ function App(): React.JSX.Element {
               : null,
           );
         }
+        await speakStartupNarration([
+          'Speaker verification is ready.',
+          'Now please say the wake word, hey coach, to continue.',
+        ]);
         setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
 
         //await disableDucking();

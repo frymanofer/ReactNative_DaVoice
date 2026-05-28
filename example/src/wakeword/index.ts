@@ -503,6 +503,7 @@ export async function prepareWakewordSpeechSession({
   setCurrentSpeechSentence,
   setIsSpeakerIdentificationActive,
   speechLibraryInitializedRef,
+  speakModeSelectionNarration,
 }: any) {
   let enrollmentJson = enrollmentJsonRef.current;
   {
@@ -522,6 +523,9 @@ export async function prepareWakewordSpeechSession({
       await Speech.pauseSpeechRecognition();
     } catch (error) {
       console.log('[AppMode] failed to pause speech recognition before mode prompt:', error);
+    }
+    if (typeof speakModeSelectionNarration === 'function') {
+      await speakModeSelectionNarration();
     }
     setShowAppModePrompt(true);
     const selectedModeChoice = await new Promise<AppModeChoice>((resolve) => {
