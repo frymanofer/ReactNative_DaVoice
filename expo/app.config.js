@@ -44,7 +44,7 @@ module.exports = {
       [
         './plugins/withDaVoiceNativeAssets',
         {
-          sourceDir: 'assets/models/local',
+          sourceDir: 'assets/models',
           iosBundleSubdir: 'DaVoiceModels',
         },
       ],

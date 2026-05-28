@@ -27,14 +27,30 @@ function getModelFiles(projectRoot, sourceDir) {
     );
   }
 
-  const entries = fs
-    .readdirSync(absSourceDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name)
-    .filter((name) => name.endsWith('.dm') || name.endsWith('.onnx'))
+  const entries = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const absEntry = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(absEntry);
+        continue;
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+      if (entry.name.endsWith('.dm') || entry.name.endsWith('.onnx')) {
+        entries.push(absEntry);
+      }
+    }
+  };
+
+  walk(absSourceDir);
+
+  const fileNames = entries
+    .map((absEntry) => path.basename(absEntry))
     .sort();
 
-  if (!entries.length) {
+  if (!fileNames.length) {
     throw new Error(
       `[withDaVoiceNativeAssets] No .dm or .onnx files found in ${absSourceDir}`
     );
@@ -42,7 +58,8 @@ function getModelFiles(projectRoot, sourceDir) {
 
   return {
     absSourceDir,
-    fileNames: entries,
+    files: entries.sort(),
+    fileNames,
   };
 }
 
@@ -50,11 +67,11 @@ function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function syncFiles(sourceDir, targetDir, fileNames) {
+function syncFiles(sourceFiles, targetDir) {
   ensureDir(targetDir);
 
-  for (const fileName of fileNames) {
-    fs.copyFileSync(path.join(sourceDir, fileName), path.join(targetDir, fileName));
+  for (const sourceFile of sourceFiles) {
+    fs.copyFileSync(sourceFile, path.join(targetDir, path.basename(sourceFile)));
   }
 }
 
@@ -119,7 +136,7 @@ const withDaVoiceNativeAssets = (config, options = {}) => {
   config = withDangerousMod(config, [
     'android',
     async (modConfig) => {
-      const { absSourceDir, fileNames } = getModelFiles(
+      const { files, fileNames } = getModelFiles(
         modConfig.modRequest.projectRoot,
         pluginOptions.sourceDir
       );
@@ -132,7 +149,7 @@ const withDaVoiceNativeAssets = (config, options = {}) => {
         'assets'
       );
 
-      syncFiles(absSourceDir, androidAssetsDir, fileNames);
+      syncFiles(files, androidAssetsDir);
       console.log(
         `[withDaVoiceNativeAssets] Copied Android assets: ${fileNames.join(', ')}`
       );
@@ -143,7 +160,7 @@ const withDaVoiceNativeAssets = (config, options = {}) => {
   config = withDangerousMod(config, [
     'ios',
     async (modConfig) => {
-      const { absSourceDir, fileNames } = getModelFiles(
+      const { files, fileNames } = getModelFiles(
         modConfig.modRequest.projectRoot,
         pluginOptions.sourceDir
       );
@@ -155,7 +172,7 @@ const withDaVoiceNativeAssets = (config, options = {}) => {
 
       const iosAppDir = path.join(modConfig.modRequest.platformProjectRoot, projectName);
       const iosTargetDir = path.join(iosAppDir, pluginOptions.iosBundleSubdir);
-      syncFiles(absSourceDir, iosTargetDir, fileNames);
+      syncFiles(files, iosTargetDir);
       console.log(
         `[withDaVoiceNativeAssets] Copied iOS assets: ${fileNames.join(', ')}`
       );

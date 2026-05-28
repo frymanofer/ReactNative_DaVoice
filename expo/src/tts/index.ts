@@ -16,15 +16,15 @@ export const SPEAKER_SPEED = 1.0;// 0.85;
 export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
-export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
+export const ttsModelFast = 'model_ex_ariana_fast_davoice_phoneme.dm';
+export const ttsModelSlow = 'model_ex_ariana_fast_davoice_phoneme.dm';
 
 // export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
 // export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast.dm');
 // const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
 // const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
-export const ttsModelRichFast = require('../../assets/models/model_ex_rich_fast_davoice_phoneme.dm');
-export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_fast_davoice_phoneme.dm');
+export const ttsModelRichFast = 'model_ex_rich_fast_davoice_phoneme.dm';
+export const ttsModelRichSlow = 'model_ex_rich_fast_davoice_phoneme.dm';
 // const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
 // const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
 
