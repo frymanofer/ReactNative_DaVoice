@@ -180,13 +180,12 @@ export interface InstanceConfig {
   msBetweenCallbacks: number;
 }
 
-export const modelName = 'hey_coach_model_28_22012026b.onnx';
-//const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
+export const modelName = 'hey_coach_model_28_22012026b.dm';
+export const modelNameLookDeep = 'hey_lookdeep.dm';
 //const modelName = 'ayuda_model_28_05022026' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
 // Create an array of instance configurations
 export const instanceConfigs: InstanceConfig[] = [
   { id: 'multi_model_instance', modelName, threshold: 0.999, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
-  // Ayuda:
   //   { id: 'multi_model_instance', modelName, threshold: 0.95, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
 ];
 

@@ -75,30 +75,6 @@
         }
       }
     },
-    "react-native-linear-gradient": {
-      "root": "/Volumes/T9/projects/ReactNative_WakeWordDetection/example/node_modules/react-native-linear-gradient",
-      "name": "react-native-linear-gradient",
-      "platforms": {
-        "ios": {
-          "podspecPath": "/Volumes/T9/projects/ReactNative_WakeWordDetection/example/node_modules/react-native-linear-gradient/BVLinearGradient.podspec",
-          "version": "2.8.3",
-          "configurations": [],
-          "scriptPhases": []
-        },
-        "android": {
-          "sourceDir": "/Volumes/T9/projects/ReactNative_WakeWordDetection/example/node_modules/react-native-linear-gradient/android",
-          "packageImportPath": "import com.BV.LinearGradient.LinearGradientPackage;",
-          "packageInstance": "new LinearGradientPackage()",
-          "buildTypes": [],
-          "componentDescriptors": [],
-          "cmakeListsPath": "/Volumes/T9/projects/ReactNative_WakeWordDetection/example/node_modules/react-native-linear-gradient/android/build/generated/source/codegen/jni/CMakeLists.txt",
-          "cxxModuleCMakeListsModuleName": null,
-          "cxxModuleCMakeListsPath": null,
-          "cxxModuleHeaderName": null,
-          "isPureCxxDependency": false
-        }
-      }
-    },
     "react-native-sound": {
       "root": "/Volumes/T9/projects/ReactNative_WakeWordDetection/example/node_modules/react-native-sound",
       "name": "react-native-sound",

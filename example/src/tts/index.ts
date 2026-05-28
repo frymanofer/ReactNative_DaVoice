@@ -16,12 +16,15 @@ export const SPEAKER_SPEED = 1.0;// 0.85;
 export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
-export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
+export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme_added_dummy.dm');
+export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme_added_dummy.dm');
+
+// export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
+// export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast.dm');
 // const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
 // const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
 export const ttsModelRichFast = require('../../assets/models/model_ex_rich_fast_davoice_phoneme.dm');
-export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_fast_davoice_phoneme.dm');
+export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_fast.dm');
 // const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
 // const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
 
@@ -53,7 +56,10 @@ export async function playWakewordIntroSpeech({
 }: any) {
   const speechUiEpoch = beginSpeechUiEpoch();
   await Speech.pauseSpeechRecognition();
-  const introLine = "My name is " + selectedSpeakerName + ", I am one of the coaches in the Lunafit app! I love helping people reach their fitness goals!";
+  const introLine =
+    selectedSpeakerName === 'Rich'
+      ? 'My name is Rich, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.'
+      : 'My name is Ariana, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.';
   setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
   setIntroSpeakerName(selectedSpeakerName);
   setIntroScript(introLine);

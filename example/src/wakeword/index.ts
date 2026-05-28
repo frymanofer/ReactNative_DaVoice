@@ -180,7 +180,7 @@ export interface InstanceConfig {
   msBetweenCallbacks: number;
 }
 
-export const modelName = 'hey_coach_model_28_22012026b.onnx';
+export const modelName = 'hey_coach_model_28_22012026b.dm';
 //const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
 //const modelName = 'ayuda_model_28_05022026' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
 // Create an array of instance configurations

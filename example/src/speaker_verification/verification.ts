@@ -29,7 +29,7 @@ export async function startEndlessVerificationWithEnrollmentFix(
   const matchHoldMs = Number(opts?.matchHoldMs ?? SV_MATCH_HOLD_MS);
 
   const micConfig = {
-    modelPath: 'speaker_model.dm',
+    modelPath: 'sv.dm',
     options: {
       decisionThreshold: SV_DECISION_THRESHOLD,
       //tailSeconds: 2.0,
@@ -163,7 +163,7 @@ export async function verifyFromMicWithEnrollment(
   }
 
   const micConfig = {
-    modelPath: 'speaker_model.dm',
+    modelPath: 'sv.dm',
     options: {
       decisionThreshold: SV_DECISION_THRESHOLD,
       // tailSeconds: 2.0,
@@ -228,7 +228,7 @@ export async function runVerificationWithEnrollment(
   }
 
   const micConfig = {
-    modelPath: 'speaker_model.dm',
+    modelPath: 'sv.dm',
     options: {
       decisionThreshold: SV_DECISION_THRESHOLD,
       tailSeconds: 2.0,

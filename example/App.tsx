@@ -121,10 +121,10 @@ function App(): React.JSX.Element {
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
   const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('lite');
-  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Ariana');
+  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Rich');
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('tts_test');
-  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Ariana');
-  const selectedTTSModelRef = useRef(ttsModelFast);
+  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Rich');
+  const selectedTTSModelRef = useRef(ttsModelRichFast);
   const selectedAppModeRef = useRef<AppModeChoice>('tts_test');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
@@ -258,7 +258,7 @@ function App(): React.JSX.Element {
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
-  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>('Ariana');
+  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>('Rich');
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
@@ -454,6 +454,71 @@ function App(): React.JSX.Element {
       ttsModelSlow,
       waitForNextInteraction,
     });
+  }
+
+  async function speakStartupNarration(lines: string[]) {
+    const inst = myInstanceRef.current;
+    if (inst) {
+      try {
+        await inst.pauseDetection(false);
+      } catch (e) {
+        console.warn('pauseDetection before startup narration failed (ignored):', e);
+      }
+    }
+
+    try {
+      await Speech.pauseSpeechRecognition();
+    } catch (e) {
+      console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
+    }
+
+    for (const line of lines) {
+      setMessage(line);
+      await Speech.speak(line, SPEAKER, getSelectedSpeakerSpeed());
+    }
+
+    if (inst) {
+      try {
+        await inst.unPauseDetection();
+      } catch (e) {
+        console.warn('unPauseDetection after startup narration failed (ignored):', e);
+      }
+    }
+  }
+
+  async function reloadSpeechLibraryForSelectedVoice(enrollmentJsonPath?: string | null) {
+    const inst = myInstanceRef.current;
+    if (inst) {
+      try {
+        await inst.pauseDetection(false);
+      } catch (e) {
+        console.warn('pauseDetection before reloading selected voice failed (ignored):', e);
+      }
+    }
+
+    try {
+      suppressAndroidPartialResultsRef.current = true;
+      setMessage(`Loading ${selectedTTSVoiceRef.current}...`);
+      try {
+        await Speech.stopSpeaking();
+      } catch {}
+      await Speech.destroyAll();
+      await withTimeout(
+        initializeSpeechLibrary(enrollmentJsonPath),
+        15000,
+        'Speech.initAll selected voice',
+      );
+    } finally {
+      suppressAndroidPartialResultsRef.current = false;
+    }
+
+    if (inst) {
+      try {
+        await inst.unPauseDetection();
+      } catch (e) {
+        console.warn('unPauseDetection after reloading selected voice failed (ignored):', e);
+      }
+    }
   }
 
   const processAIChatTurn = async (rawText: string) => {
@@ -898,32 +963,6 @@ function App(): React.JSX.Element {
     // --> STARTING POINT - INIT OF KEYWORD DETECTION !!!!
     const initializeKeywordDetection = async () => {
       let svChoice: SVPromptChoice = 'skip';
-      try {
-        await promptForTTSModelChoice();
-        const startupFlow = await runSpeakerVerificationStartupFlow({
-          setMessage,
-          enrollmentJsonRef,
-          enrollmentJsonPathRef,
-          setSvPromptHasSavedEnrollment,
-          setShowSVPrompt,
-          svChoiceResolverRef,
-          setShowSVStatusScreen,
-          setSvStatusCanContinue,
-          setSvOnboardingCollected,
-          setSvOnboardingTarget,
-          setSvStatusPhase,
-          setLastSVScore,
-          lastSVScoreTimeRef,
-          setSvElapsed,
-          svElapsedIntervalRef,
-          setSvRunning,
-          svStopRef,
-          svContinueResolverRef,
-        });
-        svChoice = startupFlow.svChoice;
-      } catch (error) {
-        return;
-      }
 
       try {
         const { speechInitCompleted } = await initializeWakewordBootstrap({
@@ -951,6 +990,55 @@ function App(): React.JSX.Element {
         if (!speechInitCompleted) {
           return;
         }
+
+        await speakStartupNarration([
+          'Hi, my name is Rich. I will walk you through this demo step by step.',
+          'First, please choose which voice you want to use. You can stay with me, Rich, or switch to the Amazing Ariana.',
+        ]);
+
+        await promptForTTSModelChoice();
+
+        await speakStartupNarration([
+          `Great. You chose ${selectedTTSVoiceRef.current}.`,
+          'Next phase is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
+        ]);
+
+        const startupFlow = await runSpeakerVerificationStartupFlow({
+          setMessage,
+          enrollmentJsonRef,
+          enrollmentJsonPathRef,
+          setSvPromptHasSavedEnrollment,
+          setShowSVPrompt,
+          svChoiceResolverRef,
+          setShowSVStatusScreen,
+          setSvStatusCanContinue,
+          setSvOnboardingCollected,
+          setSvOnboardingTarget,
+          setSvStatusPhase,
+          setLastSVScore,
+          lastSVScoreTimeRef,
+          setSvElapsed,
+          svElapsedIntervalRef,
+          setSvRunning,
+          svStopRef,
+          svContinueResolverRef,
+        });
+        svChoice = startupFlow.svChoice;
+
+        const needsSpeechReload =
+          svChoice !== 'skip' ||
+          selectedTTSVoiceRef.current !== 'Rich' ||
+          ttsQualityChoice !== 'lite';
+
+        if (needsSpeechReload) {
+          await reloadSpeechLibraryForSelectedVoice(
+            typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0
+              ? enrollmentJsonPathRef.current
+              : null,
+          );
+        }
+        setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+
         //await disableDucking();
 
         let ms = 5000;

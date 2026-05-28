@@ -49,7 +49,7 @@ export async function runSpeakerVerifyEnrollment(
 ): Promise<string> {
   const targetSamples = Math.max(1, Math.floor(sampleCount));
   const micConfig = {
-    modelPath: 'speaker_model.dm',
+    modelPath: 'sv.dm',
     options: {
       decisionThreshold: SV_DECISION_THRESHOLD,
       // TODO IOS IGNORES tailSeconds!!! AND ANDROID DOES NOT!!!

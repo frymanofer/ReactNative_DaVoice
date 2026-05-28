@@ -20,9 +20,8 @@ Some native models are loaded by simple file name only, not by JS `require(...)`
 
 Examples:
 
-- `hey_coach_model_28_22012026b.onnx`
-- `speaker_model.dm`
-- `ayuda_model_28_05022026.dm`
+- `hey_coach_model_28_22012026b.dm`
+- `sv.dm`
 
 Those files must be copied into native app locations during prebuild.
 
@@ -95,12 +94,12 @@ assets/models/local/
 Current examples:
 
 - `assets/models/local/ayuda_model_28_05022026.dm`
-- `assets/models/local/hey_coach_model_28_22012026b.onnx`
-- `assets/models/local/speaker_model.dm`
+- `assets/models/local/hey_coach_model_28_22012026b.dm`
+- `assets/models/local/sv.dm`
 
 Rule:
 
-- If native code expects a plain file name like `"speaker_model.dm"`, place it in `assets/models/local/`.
+- If native code expects a plain file name like `"sv.dm"`, place it in `assets/models/local/`.
 - If the model already works via JS `require(...)`, keep using the normal JS asset path.
 
 ### 5. Run Expo prebuild
@@ -205,8 +204,8 @@ Copy every native filename-based asset into that folder.
 
 Examples:
 
-- `speaker_model.dm`
-- `hey_coach_model_28_22012026b.onnx`
+- `sv.dm`
+- `hey_coach_model_28_22012026b.dm`
 - `ayuda_model_28_05022026.dm`
 
 ### 4. Add the plugin to your Expo config
