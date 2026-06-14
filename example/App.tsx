@@ -979,9 +979,9 @@ function App(): React.JSX.Element {
           listenerRef,
           myInstanceRef,
           keywordLicense:
-            'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8=',
+            'MTc4NTUzMTYwMDAwMA==-Gt6Mg+w5CfzNDxZrI738PMlcYrH+5GAotaD43oVeOiA=',
           speechLicense:
-            'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8=',
+            'MTc4NTUzMTYwMDAwMA==-Gt6Mg+w5CfzNDxZrI738PMlcYrH+5GAotaD43oVeOiA=',
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,
