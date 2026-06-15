@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { DeviceEventEmitter, Platform } from 'react-native';
 
 // === minimal coalescer that PRESERVES punctuation ===
 
@@ -94,6 +94,8 @@ export function getAdjustedSpeed(text: string, baseSpeed: number): number {
 */
   return baseSpeed;
 }
+
+let _androidSttSubs: any[] = [];
 
 export function registerSpeechHandlers({
   Speech,
@@ -276,4 +278,19 @@ export function registerSpeechHandlers({
       clearSpeechSentenceUI(speechUiEpoch);
     }, silenceThresholdMsRef.current);
   };
+
+  // Android: DaVoice STT emits events via DeviceEventEmitter, not NativeEventEmitter.
+  // Subscribe here as a fallback so speech events always reach JS regardless of emitter path.
+  if (Platform.OS === 'android') {
+    _androidSttSubs.forEach(sub => { try { sub.remove(); } catch {} });
+    _androidSttSubs = [];
+    const sttEventNames = ['onSpeechStart', 'onSpeechEnd', 'onSpeechError', 'onSpeechResults', 'onSpeechPartialResults'] as const;
+    sttEventNames.forEach(name => {
+      const sub = DeviceEventEmitter.addListener(name, (e: any) => {
+        const handler = (Speech as any).handlers?.[name];
+        if (typeof handler === 'function') handler(e);
+      });
+      _androidSttSubs.push(sub);
+    });
+  }
 }
