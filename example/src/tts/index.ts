@@ -16,8 +16,9 @@ export const SPEAKER_SPEED = 1.0;// 0.85;
 export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
-export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme_added_dummy.dm');
-export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme_added_dummy.dm');
+import { Platform } from 'react-native';
+export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
+export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
 
 // export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
 // export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast.dm');

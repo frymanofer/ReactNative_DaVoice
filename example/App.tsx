@@ -21,6 +21,7 @@ import {
   useWindowDimensions,
   View,
   AppState,
+  Alert,
   InputAccessoryView,
   Keyboard,
   InteractionManager,
@@ -94,6 +95,13 @@ import {
 
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
+const FULL_AI_CHAT_STT_OPTIONS = {
+  EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
+  EXTRA_MAX_RESULTS: 5,
+  EXTRA_PARTIAL_RESULTS: true,
+  EXTRA_PREFER_OFFLINE: false,
+  REQUEST_PERMISSIONS_AUTO: true,
+};
 let calledOnce = false;
 
 function App(): React.JSX.Element {
@@ -302,6 +310,7 @@ function App(): React.JSX.Element {
   const aiChatStreamingActiveRef = useRef(false);
   const aiChatStreamGenerationDoneRef = useRef(false);
   const aiChatStreamSpeakingRef = useRef(false);
+  const voiceDemoBootstrapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const SILENCE_TIMEOUT = 2000;
   function beginSpeechUiEpoch(): number {
@@ -343,21 +352,92 @@ function App(): React.JSX.Element {
     setIsSpeechSessionActive(active);
   }
 
-  const finishAIChatSpeechFlow = async () =>
-    finishAIChatSpeechFlowBase({
-      Speech,
-      aiChatStreamingActiveRef,
-      aiChatStreamGenerationDoneRef,
-      aiChatStreamSpeakingRef,
-      aiChatPendingSentenceBufferRef,
-      aiChatSpeechQueueRef,
-      aiChatAwaitingSpeechFinishRef,
-      lastProcessedRef,
-      aiChatInFlightRef,
-      setIsAIChatLoading,
-      resetSpeechTranscriptState,
-      setAiChatStatus,
-    });
+  async function stopFullAIChatMicrophone() {
+    if (Platform.OS === 'android') {
+      try {
+        await Speech.stop();
+      } catch (error) {
+        console.log('[AIChat] stop before chat turn failed (ignored):', error);
+      }
+      try {
+        await Speech.cancel();
+      } catch (error) {
+        console.log('[AIChat] cancel before chat turn failed (ignored):', error);
+      }
+      return;
+    }
+
+    try {
+      await Speech.pauseSpeechRecognition();
+    } catch (error) {
+      console.log('[AIChat] pauseSpeechRecognition before chat turn failed (ignored):', error);
+    }
+  }
+
+  async function restartFullAIChatMicrophone(reason: string) {
+    if (Platform.OS !== 'android') {
+      console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+      await Speech.unPauseSpeechRecognition(-1);
+      console.log(`[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+      return;
+    }
+
+    setSpeechSessionUIActive(true);
+    setAiChatStatus('Starting microphone...');
+    setCurrentSpeechSentence('Starting microphone...');
+    suppressAndroidPartialResultsRef.current = true;
+    resetSpeechTranscriptState();
+
+    try {
+      console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+      await Speech.unPauseSpeechRecognition(-1);
+      console.log(`[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+
+      await sleep(300);
+      const recognizing = await Speech.isRecognizing();
+      console.log('[AIChat] microphone restart result', { reason, recognizing });
+      setAiChatStatus('Listening...');
+      setCurrentSpeechSentence('Listening...');
+    } catch (error) {
+      console.log('[AIChat] failed to restart speech recognition:', { reason, error });
+      setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
+    } finally {
+      setTimeout(() => {
+        suppressAndroidPartialResultsRef.current = false;
+      }, 400);
+    }
+  }
+
+  const finishAIChatSpeechFlow = async () => {
+    if (Platform.OS === 'android') {
+      aiChatStreamingActiveRef.current = false;
+      aiChatStreamGenerationDoneRef.current = false;
+      aiChatStreamSpeakingRef.current = false;
+      aiChatPendingSentenceBufferRef.current = '';
+      aiChatSpeechQueueRef.current = [];
+      aiChatAwaitingSpeechFinishRef.current = false;
+      lastProcessedRef.current = '';
+      aiChatInFlightRef.current = false;
+      setIsAIChatLoading(false);
+      resetSpeechTranscriptState();
+      await restartFullAIChatMicrophone('finishAIChatSpeechFlow');
+    } else {
+      return finishAIChatSpeechFlowBase({
+        Speech,
+        aiChatStreamingActiveRef,
+        aiChatStreamGenerationDoneRef,
+        aiChatStreamSpeakingRef,
+        aiChatPendingSentenceBufferRef,
+        aiChatSpeechQueueRef,
+        aiChatAwaitingSpeechFinishRef,
+        lastProcessedRef,
+        aiChatInFlightRef,
+        setIsAIChatLoading,
+        resetSpeechTranscriptState,
+        setAiChatStatus,
+      });
+    }
+  };
 
   const speakNextAIChatSentence = async () =>
     speakNextAIChatSentenceBase({
@@ -460,7 +540,7 @@ function App(): React.JSX.Element {
     const inst = myInstanceRef.current;
     if (inst) {
       try {
-        await inst.pauseDetection(false);
+        await inst.pauseDetection(Platform.OS === 'android' ? true : false);
       } catch (e) {
         console.warn('pauseDetection before startup narration failed (ignored):', e);
       }
@@ -490,7 +570,7 @@ function App(): React.JSX.Element {
     const inst = myInstanceRef.current;
     if (inst) {
       try {
-        await inst.pauseDetection(false);
+        await inst.pauseDetection(Platform.OS === 'android' ? true : false);
       } catch (e) {
         console.warn('pauseDetection before reloading selected voice failed (ignored):', e);
       }
@@ -724,9 +804,13 @@ function App(): React.JSX.Element {
           lastProcessedRef.current = '';
           aiChatInFlightRef.current = false;
           setIsAIChatLoading(false);
-          console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
-          await Speech.unPauseSpeechRecognition(-1);
-          console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
+          if (Platform.OS === 'android') {
+            await restartFullAIChatMicrophone('processAIChatTurn.finally');
+          } else {
+            console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
+            await Speech.unPauseSpeechRecognition(-1);
+            console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
+          }
         }
       }
     }
@@ -971,6 +1055,16 @@ function App(): React.JSX.Element {
       let svChoice: SVPromptChoice = 'skip';
 
       try {
+        if (Platform.OS === 'android') {
+          if (voiceDemoBootstrapTimeoutRef.current) {
+            clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+          }
+          voiceDemoBootstrapTimeoutRef.current = setTimeout(() => {
+            console.warn('[Demo] voice demo bootstrap timed out; continuing with UI');
+            setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+          }, 10000);
+        }
+
         const { speechInitCompleted } = await initializeWakewordBootstrap({
           PlatformOS: Platform.OS,
           defaultAudioRoutingConfig,
@@ -991,6 +1085,13 @@ function App(): React.JSX.Element {
           suppressAndroidPartialResultsRef,
           speechLibraryInitializedRef,
         });
+
+        if (Platform.OS === 'android') {
+          if (voiceDemoBootstrapTimeoutRef.current) {
+            clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+            voiceDemoBootstrapTimeoutRef.current = null;
+          }
+        }
 
         setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
         if (!speechInitCompleted) {
@@ -1062,6 +1163,13 @@ function App(): React.JSX.Element {
 
         // vadCBintervalID = setInterval(updateVoiceProps, 200);
       } catch (error) {
+        if (Platform.OS === 'android') {
+          if (voiceDemoBootstrapTimeoutRef.current) {
+            clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+            voiceDemoBootstrapTimeoutRef.current = null;
+          }
+          setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+        }
         console.error('Error during keyword detection initialization:', error);
       }
     };
@@ -1082,12 +1190,21 @@ function App(): React.JSX.Element {
 
   }, [isPermissionGranted, didInitSID]);
 
+  useEffect(() => {
+    return () => {
+      if (voiceDemoBootstrapTimeoutRef.current) {
+        clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+        voiceDemoBootstrapTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const enterTTSTestMode = async () => {
     beginSpeechUiEpoch();
     resetSpeechTranscriptState();
     resetAIChatSession();
     clearSpeechSentenceUI();
-    setSpeechSessionUIActive(false);
+    setSpeechSessionUIActive(Platform.OS === 'android' ? true : false);
     setIsFullAIChatMode(false);
     setIsAIChatHistoryVisible(false);
     setMessage('TTS Test Mode');
@@ -1131,7 +1248,7 @@ function App(): React.JSX.Element {
     //   timeoutRef.current = null;
     // }
     clearSpeechSentenceUI();
-    setSpeechSessionUIActive(false);
+    setSpeechSessionUIActive(Platform.OS === 'android' ? true : false);
     setShowAppModePrompt(false);
     setShowTTSModelPrompt(false);
     setShowSVPrompt(false);
@@ -1142,25 +1259,49 @@ function App(): React.JSX.Element {
     setIsAIChatHistoryVisible(false);
     setIsFullAIChatMode(true);
     setMessage('Full AI Chat is active. Start speaking.');
-    setAiChatStatus('Listening...');
-    setCurrentSpeechSentence('Listening...');
-    try {
-      await Speech.pauseSpeechRecognition();
-    } catch (error) {
-      console.log('[AIChat] failed to pause speech recognition before chat reset:', error);
-    }
-    // await Speech.speak("Hello, I am rich!", SPEAKER, getSelectedSpeakerSpeed());
 
-    try {
-      await waitForNextInteraction();
-      resetSpeechTranscriptState();
-      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
-      await Speech.unPauseSpeechRecognition(-1);
-      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
-      await sleep(300);
-    } catch (error) {
-      console.log('[AIChat] failed to unpause speech recognition:', error);
-      setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
+    if (Platform.OS === 'android') {
+      // Pause wake word detection so it releases the microphone before STT starts.
+      const inst = myInstanceRef.current;
+      if (inst) {
+        try {
+          await inst.pauseDetection(true);
+        } catch (e) {
+          console.warn('[AIChat] pauseDetection before enterFullAIChatMode failed (ignored):', e);
+        }
+      }
+
+      try {
+        await Promise.race([
+          waitForNextInteraction(),
+          sleep(250),
+        ]);
+        await restartFullAIChatMicrophone('enterFullAIChatMode');
+      } catch (error) {
+        console.log('[AIChat] failed to enter Full AI Chat mode:', error);
+        setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
+      }
+    } else {
+      setAiChatStatus('Listening...');
+      setCurrentSpeechSentence('Listening...');
+      try {
+        await Speech.pauseSpeechRecognition();
+      } catch (error) {
+        console.log('[AIChat] failed to pause speech recognition before chat reset:', error);
+      }
+      // await Speech.speak("Hello, I am rich!", SPEAKER, getSelectedSpeakerSpeed());
+
+      try {
+        await waitForNextInteraction();
+        resetSpeechTranscriptState();
+        console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
+        await Speech.unPauseSpeechRecognition(-1);
+        console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
+        await sleep(300);
+      } catch (error) {
+        console.log('[AIChat] failed to unpause speech recognition:', error);
+        setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
+      }
     }
   };
 
