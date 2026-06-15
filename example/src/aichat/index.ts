@@ -1,4 +1,11 @@
 import { GEMINI_API_KEY } from '../../local.config';
+import {
+  resolveBase,
+  gabagoolProviderHeader,
+  isGabagoolBase,
+  markGabagoolDown,
+  DIRECT_GEMINI_BASE,
+} from './gabagool-base';
 
 export type GeminiChatMessage = {
   role: 'user' | 'model';
@@ -23,8 +30,11 @@ type GeminiTextPartDebug = {
 };
 
 export const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
-export const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-export const GEMINI_STREAM_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+export const GEMINI_API_PATH = `/v1beta/models/${GEMINI_MODEL}:generateContent`;
+export const GEMINI_STREAM_API_PATH = `/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+// Preserved for any external import — direct-Gemini URLs (fallback target).
+export const GEMINI_API_URL = `${DIRECT_GEMINI_BASE}${GEMINI_API_PATH}`;
+export const GEMINI_STREAM_API_URL = `${DIRECT_GEMINI_BASE}${GEMINI_STREAM_API_PATH}`;
 export const GEMINI_SYSTEM_PROMPT =
   'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. For time-sensitive facts like current leaders, dates, news, prices, or recent events, answer cautiously and say when you may be unsure rather than asserting a stale fact.';
 export const GEMINI_MAX_OUTPUT_TOKENS = 512;
@@ -175,14 +185,38 @@ export async function generateGeminiReply(
     JSON.stringify(requestBody, null, 2),
   );
 
-  const response = await fetch(GEMINI_API_URL, {
+  const base = await resolveBase();
+  const requestUrl = `${base}${GEMINI_API_PATH}`;
+  console.log(
+    `[AIChat] Gemini request #${meta.requestId} routing`,
+    { base, viaGabagool: isGabagoolBase(base) },
+  );
+  let response = await fetch(requestUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-goog-api-key': GEMINI_API_KEY,
+      ...gabagoolProviderHeader(base),
     },
     body: JSON.stringify(requestBody),
   });
+
+  // Fail-open: if the gateway returned an error, retry once direct to Gemini.
+  if (!response.ok && isGabagoolBase(base)) {
+    console.log(
+      `[AIChat] Gemini request #${meta.requestId} gateway error, retrying direct`,
+      { gatewayStatus: response.status },
+    );
+    markGabagoolDown();
+    response = await fetch(`${DIRECT_GEMINI_BASE}${GEMINI_API_PATH}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY,
+      },
+      body: JSON.stringify(requestBody),
+    });
+  }
 
   const payload = await response.json();
   const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
@@ -288,7 +322,25 @@ export async function generateGeminiReplyStream(
     },
   );
 
-  return await new Promise((resolve, reject) => {
+  const base = await resolveBase();
+  const streamUrl = `${base}${GEMINI_STREAM_API_PATH}`;
+  console.log(
+    `[AIChat] Gemini stream request #${meta.requestId} routing`,
+    { base, viaGabagool: isGabagoolBase(base) },
+  );
+
+  // Track whether the caller's listener has been invoked. If the gateway
+  // fails before any delta is emitted, we can safely retry direct.
+  let deltasEmitted = 0;
+  const originalOnTextDelta = onTextDelta;
+  const wrappedOnTextDelta = async (deltaText: string, aggregateText: string) => {
+    deltasEmitted += 1;
+    return originalOnTextDelta(deltaText, aggregateText);
+  };
+  onTextDelta = wrappedOnTextDelta;
+
+  try {
+    return await new Promise<{ text: string; usedStreaming: boolean }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let eventBuffer = '';
     let aggregateText = '';
@@ -342,9 +394,13 @@ export async function generateGeminiReplyStream(
       }
     };
 
-    xhr.open('POST', GEMINI_STREAM_API_URL, true);
+    xhr.open('POST', streamUrl, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.setRequestHeader('x-goog-api-key', GEMINI_API_KEY);
+    const providerHeader = gabagoolProviderHeader(base);
+    for (const [k, v] of Object.entries(providerHeader)) {
+      xhr.setRequestHeader(k, v);
+    }
     xhr.timeout = 45000;
 
     xhr.onprogress = () => {
@@ -402,7 +458,20 @@ export async function generateGeminiReplyStream(
     };
 
     xhr.send(JSON.stringify(requestBody));
-  });
+    });
+  } catch (error) {
+    // Fail-open: if the gateway failed before emitting any deltas, retry direct.
+    // We can't safely retry mid-stream — the listener has already received text.
+    if (isGabagoolBase(base) && deltasEmitted === 0) {
+      console.log(
+        `[AIChat] Gemini stream request #${meta.requestId} gateway failed before any deltas, retrying direct`,
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+      markGabagoolDown();
+      return await generateGeminiReplyStream(history, meta, originalOnTextDelta);
+    }
+    throw error;
+  }
 }
 
 export async function finishAIChatSpeechFlow({

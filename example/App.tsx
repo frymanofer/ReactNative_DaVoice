@@ -21,6 +21,7 @@ import {
   useWindowDimensions,
   View,
   AppState,
+  Alert,
   InputAccessoryView,
   Keyboard,
   InteractionManager,
@@ -41,7 +42,6 @@ import {
   AI_CHAT_STRIP_WAKE_WORD_PREFIX,
   AIChatHistoryMessage,
   enqueueAIChatSpeechFromDelta as enqueueAIChatSpeechFromDeltaBase,
-  finishAIChatSpeechFlow as finishAIChatSpeechFlowBase,
   GEMINI_ENABLE_STREAMING,
   GeminiChatMessage,
   generateGeminiReply,
@@ -51,6 +51,11 @@ import {
   speakNextAIChatSentence as speakNextAIChatSentenceBase,
   stripWakeWordPrefix,
 } from './src/aichat';
+import {
+  isGabagoolAvailable,
+  GABAGOOL_BASE,
+  PROVIDER as GABAGOOL_PROVIDER_LABEL,
+} from './src/aichat/gabagool-base';
 import {
   AppModeChoice,
   SV_ONBOARDING_SAMPLE_COUNT,
@@ -87,6 +92,8 @@ import {
   detachKeywordListener,
   formatWakeWord,
   initializeWakewordBootstrap,
+  DEFAULT_DAVOICE_KEYWORD_LICENSE,
+  DEFAULT_DAVOICE_SPEECH_LICENSE,
   instanceConfigs,
   prepareWakewordSpeechSession,
   shareWakewordRecordings,
@@ -94,6 +101,13 @@ import {
 
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
+const FULL_AI_CHAT_STT_OPTIONS = {
+  EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
+  EXTRA_MAX_RESULTS: 5,
+  EXTRA_PARTIAL_RESULTS: true,
+  EXTRA_PREFER_OFFLINE: false,
+  REQUEST_PERMISSIONS_AUTO: true,
+};
 let calledOnce = false;
 
 function App(): React.JSX.Element {
@@ -302,6 +316,7 @@ function App(): React.JSX.Element {
   const aiChatStreamingActiveRef = useRef(false);
   const aiChatStreamGenerationDoneRef = useRef(false);
   const aiChatStreamSpeakingRef = useRef(false);
+  const voiceDemoBootstrapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const SILENCE_TIMEOUT = 2000;
   function beginSpeechUiEpoch(): number {
@@ -343,21 +358,74 @@ function App(): React.JSX.Element {
     setIsSpeechSessionActive(active);
   }
 
-  const finishAIChatSpeechFlow = async () =>
-    finishAIChatSpeechFlowBase({
-      Speech,
-      aiChatStreamingActiveRef,
-      aiChatStreamGenerationDoneRef,
-      aiChatStreamSpeakingRef,
-      aiChatPendingSentenceBufferRef,
-      aiChatSpeechQueueRef,
-      aiChatAwaitingSpeechFinishRef,
-      lastProcessedRef,
-      aiChatInFlightRef,
-      setIsAIChatLoading,
-      resetSpeechTranscriptState,
-      setAiChatStatus,
-    });
+  async function stopFullAIChatMicrophone() {
+    if (Platform.OS === 'android') {
+      try {
+        await Speech.stop();
+      } catch (error) {
+        console.log('[AIChat] stop before chat turn failed (ignored):', error);
+      }
+      try {
+        await Speech.cancel();
+      } catch (error) {
+        console.log('[AIChat] cancel before chat turn failed (ignored):', error);
+      }
+      return;
+    }
+
+    try {
+      await Speech.pauseSpeechRecognition();
+    } catch (error) {
+      console.log('[AIChat] pauseSpeechRecognition before chat turn failed (ignored):', error);
+    }
+  }
+
+  async function restartFullAIChatMicrophone(reason: string) {
+    setSpeechSessionUIActive(true);
+    setAiChatStatus('Starting microphone...');
+    setCurrentSpeechSentence('Starting microphone...');
+    suppressAndroidPartialResultsRef.current = true;
+    resetSpeechTranscriptState();
+
+    try {
+      if (Platform.OS === 'android') {
+        console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+        await Speech.unPauseSpeechRecognition(-1);
+        console.log(`[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+      } else {
+        console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+        await Speech.unPauseSpeechRecognition(-1);
+        console.log(`[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in ${reason}`);
+      }
+
+      await sleep(300);
+      const recognizing = await Speech.isRecognizing();
+      console.log('[AIChat] microphone restart result', { reason, recognizing });
+      setAiChatStatus('Listening...');
+      setCurrentSpeechSentence('Listening...');
+    } catch (error) {
+      console.log('[AIChat] failed to restart speech recognition:', { reason, error });
+      setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
+    } finally {
+      setTimeout(() => {
+        suppressAndroidPartialResultsRef.current = false;
+      }, 400);
+    }
+  }
+
+  const finishAIChatSpeechFlow = async () => {
+    aiChatStreamingActiveRef.current = false;
+    aiChatStreamGenerationDoneRef.current = false;
+    aiChatStreamSpeakingRef.current = false;
+    aiChatPendingSentenceBufferRef.current = '';
+    aiChatSpeechQueueRef.current = [];
+    aiChatAwaitingSpeechFinishRef.current = false;
+    lastProcessedRef.current = '';
+    aiChatInFlightRef.current = false;
+    setIsAIChatLoading(false);
+    resetSpeechTranscriptState();
+    await restartFullAIChatMicrophone('finishAIChatSpeechFlow');
+  };
 
   const speakNextAIChatSentence = async () =>
     speakNextAIChatSentenceBase({
@@ -460,14 +528,14 @@ function App(): React.JSX.Element {
     const inst = myInstanceRef.current;
     if (inst) {
       try {
-        await inst.pauseDetection(false);
+        await inst.pauseDetection(true);
       } catch (e) {
         console.warn('pauseDetection before startup narration failed (ignored):', e);
       }
     }
 
     try {
-      await Speech.pauseSpeechRecognition();
+      await stopFullAIChatMicrophone();
     } catch (e) {
       console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
     }
@@ -490,7 +558,7 @@ function App(): React.JSX.Element {
     const inst = myInstanceRef.current;
     if (inst) {
       try {
-        await inst.pauseDetection(false);
+        await inst.pauseDetection(true);
       } catch (e) {
         console.warn('pauseDetection before reloading selected voice failed (ignored):', e);
       }
@@ -724,9 +792,7 @@ function App(): React.JSX.Element {
           lastProcessedRef.current = '';
           aiChatInFlightRef.current = false;
           setIsAIChatLoading(false);
-          console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
-          await Speech.unPauseSpeechRecognition(-1);
-          console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
+          await restartFullAIChatMicrophone('processAIChatTurn.finally');
         }
       }
     }
@@ -971,6 +1037,14 @@ function App(): React.JSX.Element {
       let svChoice: SVPromptChoice = 'skip';
 
       try {
+        if (voiceDemoBootstrapTimeoutRef.current) {
+          clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+        }
+        voiceDemoBootstrapTimeoutRef.current = setTimeout(() => {
+          console.warn('[Gabagool] voice demo bootstrap timed out; continuing with UI');
+          setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+        }, 10000);
+
         const { speechInitCompleted } = await initializeWakewordBootstrap({
           PlatformOS: Platform.OS,
           defaultAudioRoutingConfig,
@@ -978,10 +1052,8 @@ function App(): React.JSX.Element {
           keywordCallback,
           listenerRef,
           myInstanceRef,
-          keywordLicense:
-            'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8=',
-          speechLicense:
-            'MTc4MDI2MTIwMDAwMA==-d3EkPrSbdRWcuiei/cHMRLBhUw9T/NAlbRR3vfrcDu8=',
+          keywordLicense: DEFAULT_DAVOICE_KEYWORD_LICENSE,
+          speechLicense: DEFAULT_DAVOICE_SPEECH_LICENSE,
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,
@@ -991,6 +1063,11 @@ function App(): React.JSX.Element {
           suppressAndroidPartialResultsRef,
           speechLibraryInitializedRef,
         });
+
+        if (voiceDemoBootstrapTimeoutRef.current) {
+          clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+          voiceDemoBootstrapTimeoutRef.current = null;
+        }
 
         setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
         if (!speechInitCompleted) {
@@ -1062,6 +1139,11 @@ function App(): React.JSX.Element {
 
         // vadCBintervalID = setInterval(updateVoiceProps, 200);
       } catch (error) {
+        if (voiceDemoBootstrapTimeoutRef.current) {
+          clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+          voiceDemoBootstrapTimeoutRef.current = null;
+        }
+        setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
         console.error('Error during keyword detection initialization:', error);
       }
     };
@@ -1082,12 +1164,21 @@ function App(): React.JSX.Element {
 
   }, [isPermissionGranted, didInitSID]);
 
+  useEffect(() => {
+    return () => {
+      if (voiceDemoBootstrapTimeoutRef.current) {
+        clearTimeout(voiceDemoBootstrapTimeoutRef.current);
+        voiceDemoBootstrapTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const enterTTSTestMode = async () => {
     beginSpeechUiEpoch();
     resetSpeechTranscriptState();
     resetAIChatSession();
     clearSpeechSentenceUI();
-    setSpeechSessionUIActive(false);
+    setSpeechSessionUIActive(true);
     setIsFullAIChatMode(false);
     setIsAIChatHistoryVisible(false);
     setMessage('TTS Test Mode');
@@ -1131,7 +1222,7 @@ function App(): React.JSX.Element {
     //   timeoutRef.current = null;
     // }
     clearSpeechSentenceUI();
-    setSpeechSessionUIActive(false);
+    setSpeechSessionUIActive(true);
     setShowAppModePrompt(false);
     setShowTTSModelPrompt(false);
     setShowSVPrompt(false);
@@ -1142,30 +1233,65 @@ function App(): React.JSX.Element {
     setIsAIChatHistoryVisible(false);
     setIsFullAIChatMode(true);
     setMessage('Full AI Chat is active. Start speaking.');
-    setAiChatStatus('Listening...');
-    setCurrentSpeechSentence('Listening...');
-    try {
-      await Speech.pauseSpeechRecognition();
-    } catch (error) {
-      console.log('[AIChat] failed to pause speech recognition before chat reset:', error);
+
+    // Pause wake word detection so it releases the microphone before STT starts.
+    const inst = myInstanceRef.current;
+    if (inst) {
+      try {
+        await inst.pauseDetection(true);
+      } catch (e) {
+        console.warn('[AIChat] pauseDetection before enterFullAIChatMode failed (ignored):', e);
+      }
     }
-    // await Speech.speak("Hello, I am rich!", SPEAKER, getSelectedSpeakerSpeed());
 
     try {
-      await waitForNextInteraction();
-      resetSpeechTranscriptState();
-      console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
-      await Speech.unPauseSpeechRecognition(-1);
-      console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
-      await sleep(300);
+      await Promise.race([
+        waitForNextInteraction(),
+        sleep(250),
+      ]);
+      await restartFullAIChatMicrophone('enterFullAIChatMode');
     } catch (error) {
-      console.log('[AIChat] failed to unpause speech recognition:', error);
+      console.log('[AIChat] failed to enter Full AI Chat mode:', error);
       setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
     }
   };
 
   const leaveFullAIChatMode = async () => {
     await goBackToModeSelection();
+  };
+
+  const [isGabagoolTestRunning, setIsGabagoolTestRunning] = useState(false);
+
+  const runGabagoolSmokeTest = async () => {
+    if (isGabagoolTestRunning) return;
+    setIsGabagoolTestRunning(true);
+    const startMs = Date.now();
+    try {
+      const available = await isGabagoolAvailable();
+      const text = await generateGeminiReply(
+        [{ role: 'user', parts: [{ text: 'Reply with exactly the word "pong".' }] }],
+        { requestId: -1, userText: 'Reply with exactly the word "pong".' },
+      );
+      const elapsed = Date.now() - startMs;
+      Alert.alert(
+        'Gabagool smoke test',
+        [
+          `Health check: ${available ? 'reachable' : 'unreachable'}`,
+          `Routed via: ${available ? `Gabagool (${GABAGOOL_BASE})` : 'direct Gemini'}`,
+          `Provider: ${GABAGOOL_PROVIDER_LABEL}`,
+          `Elapsed: ${elapsed} ms`,
+          '',
+          `Reply: ${text}`,
+        ].join('\n'),
+      );
+    } catch (err) {
+      Alert.alert(
+        'Gabagool smoke test FAILED',
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setIsGabagoolTestRunning(false);
+    }
   };
 
   const speakManualTTS = async () => {
@@ -1343,6 +1469,15 @@ function App(): React.JSX.Element {
                   activeOpacity={0.7}
                   onPress={resetAIChatSession}>
                   <Text style={styles.ttsSpeakButtonText}>Reset Chat</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.ttsSpeakButton, styles.aiChatResetButton]}
+                  activeOpacity={0.7}
+                  disabled={isGabagoolTestRunning}
+                  onPress={runGabagoolSmokeTest}>
+                  <Text style={styles.ttsSpeakButtonText}>
+                    {isGabagoolTestRunning ? 'Testing…' : 'Test Gabagool'}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
@@ -1828,6 +1963,15 @@ function App(): React.JSX.Element {
                 ]}>
                 <Text style={styles.appLabel}>VOICE DEMO</Text>
                 <Text style={styles.title}>{message}</Text>
+                <TouchableOpacity
+                  style={[styles.ttsSpeakButton, { marginTop: 16, alignSelf: 'center' }]}
+                  activeOpacity={0.7}
+                  disabled={isGabagoolTestRunning}
+                  onPress={runGabagoolSmokeTest}>
+                  <Text style={styles.ttsSpeakButtonText}>
+                    {isGabagoolTestRunning ? 'Testing…' : 'Test Gabagool'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}

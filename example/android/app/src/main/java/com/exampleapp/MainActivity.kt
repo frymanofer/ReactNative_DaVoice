@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.davoice.gabagool.GabagoolService
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -40,6 +41,20 @@ class MainActivity : ReactActivity() {
 
     // Only RECORD_AUDIO is a runtime permission
     ensureRecordAudioPermission()
+
+    // Gabagool: start the local AI augmentation proxy. Fail-open — if the
+    // binary isn't bundled or fails to start, the JS aichat layer falls
+    // back to direct Gemini, so we just log and continue.
+    try {
+      val gabagoolIntent = Intent(this, GabagoolService::class.java)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        startForegroundService(gabagoolIntent)
+      } else {
+        startService(gabagoolIntent)
+      }
+    } catch (e: Exception) {
+      Log.w("MainActivity", "Gabagool service start failed: ${e.message}")
+    }
   }
 
   override fun onNewIntent(intent: Intent?) {
