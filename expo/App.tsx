@@ -460,7 +460,7 @@ function App(): React.JSX.Element {
     const inst = myInstanceRef.current;
     if (inst) {
       try {
-        await inst.pauseDetection(false);
+        await inst.pauseDetection(true);
       } catch (e) {
         console.warn('pauseDetection before startup narration failed (ignored):', e);
       }
@@ -490,7 +490,7 @@ function App(): React.JSX.Element {
     const inst = myInstanceRef.current;
     if (inst) {
       try {
-        await inst.pauseDetection(false);
+        await inst.pauseDetection(true);
       } catch (e) {
         console.warn('pauseDetection before reloading selected voice failed (ignored):', e);
       }

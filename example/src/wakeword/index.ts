@@ -193,9 +193,9 @@ export const instanceConfigs: InstanceConfig[] = [
 // Helper function to format the ONNX file name
 export const formatWakeWord = (fileName: string) => {
   return fileName
-    .replace(/(_model.*|_\d+.*)\.onnx$/, '')
+    .replace(/(_model.*|_\d+.*)(\.(onnx|dm))$/, '')  // strip _model_<version>.dm/.onnx
+    .replace(/\.(onnx|dm)$/, '')                       // strip bare extension if no version
     .replace(/_/g, ' ')
-    .replace('.onnx', '')
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
@@ -302,7 +302,7 @@ export async function startWakewordDetection({
     console.log('startKeywordDetection without SV:');
     await instance.startKeywordDetection(instanceConfigs[0].threshold, true);
   }
-  await instance.pauseDetection(false);
+  await instance.pauseDetection(true);
   await sleep(100);
   console.log('Post pauseDetection');
 }
@@ -413,7 +413,6 @@ export async function initializeWakewordBootstrap({
     speechLibraryInitializedRef.current = true;
     speechInitCompleted = true;
     console.log('After initializeSpeechLibrary');
-    await sleep(1000);
 
     try {
       await Speech.pauseSpeechRecognition();
@@ -567,7 +566,7 @@ export async function captureWakewordDetection({
     if (stopWakeWord) {
       await instance.stopKeywordDetection(/* FR add if stop microphone or */);
     } else {
-      await instance.pauseDetection(false);///* FR add if stop microphone or */);
+      await instance.pauseDetection(true);///* FR add if stop microphone or */);
     }
 
     wavFilePath = await instance.getRecordingWav();

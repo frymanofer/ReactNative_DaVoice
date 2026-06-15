@@ -2,9 +2,9 @@ import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
 import type SpeechType from 'react-native-davoice/speech';
 import type { TTSQualityChoice, TTSVoiceChoice } from '../appflow';
 
-export const waitForNextInteraction = (InteractionManager: typeof import('react-native').InteractionManager) =>
+export const waitForNextInteraction = (_InteractionManager: typeof import('react-native').InteractionManager) =>
   new Promise<void>((resolve) => {
-    InteractionManager.runAfterInteractions(() => resolve());
+    setTimeout(resolve, 0);
   });
 
 export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
@@ -79,6 +79,9 @@ export async function initializeSpeechLibrary(
   selectedTTSModel: any,
   enrollmentJsonPath?: string | null,
 ) {
+  // Suppress STT beeps during model loading by pausing before initAll starts.
+  try { await Speech.pauseSpeechRecognition(); } catch {}
+
   console.log('Calling Speech.initAll');
   if (typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
     console.log('Calling Speech.initAll with enrollmentJson:', enrollmentJsonPath);
@@ -91,6 +94,9 @@ export async function initializeSpeechLibrary(
     console.log('Calling Speech.initAll WITHOUT');
     await Speech.initAll({ locale: 'en-US', model: selectedTTSModel });
   }
+
+  // Pause again in case initAll restarted STT internally.
+  try { await Speech.pauseSpeechRecognition(); } catch {}
 }
 
 export async function promptForTTSModelChoice({
