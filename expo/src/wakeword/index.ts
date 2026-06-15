@@ -301,7 +301,7 @@ export async function startWakewordDetection({
     console.log('startKeywordDetection without SV:');
     await instance.startKeywordDetection(instanceConfigs[0].threshold, true);
   }
-  await instance.pauseDetection(false);
+  await instance.pauseDetection(true);
   await sleep(100);
   console.log('Post pauseDetection');
 }
@@ -562,7 +562,7 @@ export async function captureWakewordDetection({
     if (stopWakeWord) {
       await instance.stopKeywordDetection(/* FR add if stop microphone or */);
     } else {
-      await instance.pauseDetection(false);///* FR add if stop microphone or */);
+      await instance.pauseDetection(true);///* FR add if stop microphone or */);
     }
 
     wavFilePath = await instance.getRecordingWav();
