@@ -57,6 +57,10 @@ import {
   PROVIDER as GABAGOOL_PROVIDER_LABEL,
 } from './src/aichat/gabagool-base';
 import {
+  downloadModelIfNeeded,
+  initOnDeviceLLM,
+} from './src/aichat/on-device-llm';
+import {
   AppModeChoice,
   SV_ONBOARDING_SAMPLE_COUNT,
   SVPromptChoice,
@@ -137,6 +141,7 @@ function App(): React.JSX.Element {
   const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('lite');
   const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Rich');
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('tts_test');
+  const [modelDownloadProgress, setModelDownloadProgress] = useState<number | null>(null);
   const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Rich');
   const selectedTTSModelRef = useRef(ttsModelRichFast);
   const selectedAppModeRef = useRef<AppModeChoice>('tts_test');
@@ -1234,6 +1239,25 @@ function App(): React.JSX.Element {
     setIsFullAIChatMode(true);
     setMessage('Full AI Chat is active. Start speaking.');
 
+    // Download and initialise the on-device LLM (no-op if already done).
+    try {
+      setModelDownloadProgress(0);
+      await downloadModelIfNeeded((progress) => {
+        setModelDownloadProgress(progress);
+        if (progress < 1) {
+          setMessage(`Downloading on-device model: ${Math.round(progress * 100)}%`);
+        }
+      });
+      setMessage('Loading on-device model...');
+      await initOnDeviceLLM();
+      setModelDownloadProgress(null);
+      setMessage('Full AI Chat is active. Start speaking.');
+    } catch (llmError) {
+      setModelDownloadProgress(null);
+      console.log('[AIChat] on-device LLM setup failed, will use cloud fallback:', llmError);
+      setMessage('Full AI Chat is active. Using cloud AI.');
+    }
+
     // Pause wake word detection so it releases the microphone before STT starts.
     const inst = myInstanceRef.current;
     if (inst) {
@@ -1449,6 +1473,17 @@ function App(): React.JSX.Element {
                   {isAIChatLoading ? 'Working...' : aiChatStatus}
                 </Text>
               </View>
+              {modelDownloadProgress !== null && modelDownloadProgress < 1 && (
+                <View style={styles.speechSummaryBlock}>
+                  <Text style={styles.speechSentenceLabel}>Model Download</Text>
+                  <View style={{ height: 6, backgroundColor: '#333', borderRadius: 3, marginTop: 6 }}>
+                    <View style={{ height: 6, width: `${Math.round(modelDownloadProgress * 100)}%` as any, backgroundColor: '#4CAF50', borderRadius: 3 }} />
+                  </View>
+                  <Text style={[styles.speechSentenceText, { marginTop: 4 }]}>
+                    {`${Math.round(modelDownloadProgress * 100)}% — downloading on-device model (~550 MB)`}
+                  </Text>
+                </View>
+              )}
               <View style={styles.speechSummaryBlock}>
                 <Text style={styles.speechSentenceLabel}>Transcript</Text>
                 <Text style={styles.aiChatLiveTranscriptText}>

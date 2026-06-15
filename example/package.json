@@ -13,6 +13,7 @@
   "dependencies": {
     "@react-native-community/cli": "^20.0.2",
     "jetifier": "^2.0.0",
+    "llama.rn": "^0.12.4",
     "react": "19.1.1",
     "react-native": "0.82.0",
     "react-native-davoice": "1.0.36",

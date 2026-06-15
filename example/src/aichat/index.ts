@@ -6,6 +6,11 @@ import {
   markGabagoolDown,
   DIRECT_GEMINI_BASE,
 } from './gabagool-base';
+import {
+  isOnDeviceLLMReady,
+  generateOnDeviceReply,
+} from './on-device-llm';
+import { isTimeSensitiveQuery } from './query-classifier';
 
 export type GeminiChatMessage = {
   role: 'user' | 'model';
@@ -36,7 +41,7 @@ export const GEMINI_STREAM_API_PATH = `/v1beta/models/${GEMINI_MODEL}:streamGene
 export const GEMINI_API_URL = `${DIRECT_GEMINI_BASE}${GEMINI_API_PATH}`;
 export const GEMINI_STREAM_API_URL = `${DIRECT_GEMINI_BASE}${GEMINI_STREAM_API_PATH}`;
 export const GEMINI_SYSTEM_PROMPT =
-  'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. For time-sensitive facts like current leaders, dates, news, prices, or recent events, answer cautiously and say when you may be unsure rather than asserting a stale fact.';
+  'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. You have no access to the internet or live data. If asked about current events, prices, or recent news, say you may not have up-to-date information.';
 export const GEMINI_MAX_OUTPUT_TOKENS = 512;
 export const GEMINI_THINKING_BUDGET = 256;
 export const AI_CHAT_MIN_REQUEST_GAP_MS = 4000;
@@ -162,6 +167,23 @@ export async function generateGeminiReply(
 ): Promise<string> {
   const transcriptPreview =
     meta.userText.length > 120 ? `${meta.userText.slice(0, 120)}...` : meta.userText;
+
+  // Tier 1: on-device LLM (skip for time-sensitive queries that need live data)
+  if (isOnDeviceLLMReady() && !isTimeSensitiveQuery(meta.userText)) {
+    try {
+      console.log(`[AIChat] request #${meta.requestId} routing to on-device LLM`);
+      const { text, elapsed_ms } = await generateOnDeviceReply(history, GEMINI_SYSTEM_PROMPT);
+      if (text) {
+        console.log(`[AIChat] request #${meta.requestId} on-device success`, { elapsed_ms, responseLength: text.length });
+        return text;
+      }
+    } catch (onDeviceError) {
+      console.log(`[AIChat] request #${meta.requestId} on-device failed, falling back to cloud`, {
+        error: onDeviceError instanceof Error ? onDeviceError.message : String(onDeviceError),
+      });
+    }
+  }
+
   console.log(
     `[AIChat] Gemini request #${meta.requestId} start`,
     {
