@@ -25,7 +25,7 @@ export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast_da
 // const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
 // const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
 export const ttsModelRichFast = require('../../assets/models/model_ex_rich_fast_davoice_phoneme.dm');
-export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_fast.dm');
+export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
 // const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
 // const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
 
