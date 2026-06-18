@@ -179,6 +179,16 @@ export interface InstanceConfig {
   sticky: boolean;
   msBetweenCallbacks: number;
 }
+// export const modelName = 'ayuda_model_28_05022026.dm';
+// //const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
+// //const modelName = 'ayuda_model_28_05022026' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
+// // Create an array of instance configurations
+// export const instanceConfigs: InstanceConfig[] = [
+//   { id: 'multi_model_instance', modelName, threshold: 0.9, bufferCnt: 2, sticky: false, msBetweenCallbacks: 1000 },
+//   // Ayuda:
+//   //   { id: 'multi_model_instance', modelName, threshold: 0.95, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
+// ];
+
 
 export const modelName = 'hey_coach_model_28_22012026b.dm';
 //const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
@@ -290,6 +300,10 @@ export async function startWakewordDetection({
   // await enableDucking();
   // await inst.startKeywordDetection(instanceConfigs[0].threshold, false);
   */
+
+  try {
+    await instance.stopKeywordDetection();
+  } catch {}
 
   if (svChoice !== 'skip' && typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
     console.log('startKeywordDetection with SV:', enrollmentJsonPath);
@@ -501,7 +515,6 @@ export async function prepareWakewordSpeechSession({
   appModeChoiceResolverRef,
   selectedAppModeRef,
   waitForNextInteraction,
-  setMessage,
   setCurrentSpeechSentence,
   setIsSpeakerIdentificationActive,
   speechLibraryInitializedRef,
@@ -518,7 +531,7 @@ export async function prepareWakewordSpeechSession({
     }
   }
   if (isFirstCall) {
-    setAppModeChoice('tts_test');
+    setAppModeChoice('combined');
     setSpeechSessionUIActive(false);
     clearSpeechSentenceUI();
     try {
@@ -538,12 +551,10 @@ export async function prepareWakewordSpeechSession({
     await waitForNextInteraction();
   }
 
-  setMessage('Preparing wake word and speech engine...');
-
   // await Speech.destroyAll();
   // await sleep(300);
 
-  setSpeechSessionUIActive(true);
+  setSpeechSessionUIActive(false);
   setCurrentSpeechSentence('');
   enrollmentJson = enrollmentJsonRef.current ?? enrollmentJson;
   setIsSpeakerIdentificationActive(typeof enrollmentJson === 'string' && enrollmentJson.length > 0);

@@ -102,6 +102,11 @@ export function registerSpeechHandlers({
   suppressAndroidPartialResultsRef,
   showAppModePrompt,
   isTTSTestMode,
+  isSpeakerVerificationActive,
+  isAwaitingWakeWord,
+  isSpeechResultsAllowed,
+  isSTTOnlyMode,
+  setLastSentSentence,
   aiChatInFlightRef,
   speechSessionUIAllowedRef,
   setIsSpeechSessionActive,
@@ -158,7 +163,7 @@ export function registerSpeechHandlers({
       return;
     }
 
-    if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) return;
+    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord || aiChatInFlightRef.current) return;
     const curr = e.value?.[0];
     if (Platform.OS === 'ios') {
       if (curr && curr !== lastTranscriptRef.current) {
@@ -188,6 +193,13 @@ export function registerSpeechHandlers({
         return;
       }
 
+      if (isSTTOnlyMode) {
+        setLastSentSentence(newText);
+        resetSpeechTranscriptState();
+        clearSpeechSentenceUI();
+        return;
+      }
+
       const speechUiEpoch = beginSpeechUiEpoch();
       console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
       console.log('🗣️ Speaking:', newText);
@@ -214,7 +226,7 @@ export function registerSpeechHandlers({
   Speech.onSpeechResults = async (e: any) => {
     console.log('onSpeechResults: 1 ');
 
-    if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) {
+    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord || aiChatInFlightRef.current) {
       console.log('onSpeechResults: leaving?????? ');
       return;
     }
@@ -238,6 +250,12 @@ export function registerSpeechHandlers({
           if (newText === lastProcessedRef.current) return;
           console.log('[AIChat] silence timeout reached, sending:', newText);
           await processAIChatTurn(newText);
+          return;
+        }
+        if (isSTTOnlyMode) {
+          setLastSentSentence(newText);
+          resetSpeechTranscriptState();
+          clearSpeechSentenceUI();
           return;
         }
         await Speech.speak(newText, SPEAKER, getSelectedSpeakerSpeed());

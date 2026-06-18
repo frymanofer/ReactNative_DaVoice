@@ -91,6 +91,7 @@ import {
   instanceConfigs,
   prepareWakewordSpeechSession,
   shareWakewordRecordings,
+  startWakewordDetection,
 } from './src/wakeword';
 
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
@@ -129,11 +130,11 @@ function App(): React.JSX.Element {
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
   const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('lite');
-  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Rich');
-  const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('tts_test');
-  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Rich');
-  const selectedTTSModelRef = useRef(ttsModelRichFast);
-  const selectedAppModeRef = useRef<AppModeChoice>('tts_test');
+  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Ariana');
+  const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
+  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Ariana');
+  const selectedTTSModelRef = useRef(ttsModelFast);
+  const selectedAppModeRef = useRef<AppModeChoice>('combined');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
   const [lastSVScore, setLastSVScore] = useState<{ score: number; isMatch: boolean } | null>(null);
@@ -266,13 +267,18 @@ function App(): React.JSX.Element {
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
-  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>('Rich');
+  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>('Ariana');
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
   const [isFullAIChatMode, setIsFullAIChatMode] = useState(false);
   const [ttsInputText, setTtsInputText] = useState('');
   const [isManualTTSSpeaking, setIsManualTTSSpeaking] = useState(false);
+  const [isSTTOnlyMode, setIsSTTOnlyMode] = useState(false);
+  const [isCombinedMode, setIsCombinedMode] = useState(false);
+  const [lastSentSentence, setLastSentSentence] = useState('');
+  const skipNarrationRef = useRef(false);
+  const [skipNarration, setSkipNarration] = useState(false);
   const [aiChatLiveTranscript, setAiChatLiveTranscript] = useState('');
   const [aiChatTranscript, setAiChatTranscript] = useState('');
   const [aiChatResponse, setAiChatResponse] = useState('');
@@ -282,7 +288,6 @@ function App(): React.JSX.Element {
   const [isAIChatLoading, setIsAIChatLoading] = useState(false);
   const [isAIChatHelpVisible, setIsAIChatHelpVisible] = useState(false);
   const [isTTSTestHelpVisible, setIsTTSTestHelpVisible] = useState(false);
-  const [isAppModeHelpVisible, setIsAppModeHelpVisible] = useState(false);
   const [isAndroidKeyboardVisible, setIsAndroidKeyboardVisible] = useState(false);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -290,6 +295,8 @@ function App(): React.JSX.Element {
   const lastPartialTimeRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const speechSessionUIAllowedRef = useRef(false);
+  const isGoingBackRef = useRef(false);
+  const modeAlreadyEnteredRef = useRef(false);
   let vadCBintervalID: any = null;
   const silenceThresholdMsRef = useRef(2000);
   const lastTranscriptRef = useRef('');
@@ -536,7 +543,10 @@ function App(): React.JSX.Element {
     });
   }
 
-  async function speakStartupNarration(lines: string[]) {
+  async function speakStartupNarration(
+    lines: string[],
+    { keepDetectionPaused = false }: { keepDetectionPaused?: boolean } = {},
+  ) {
     const inst = myInstanceRef.current;
     if (inst) {
       try {
@@ -552,18 +562,33 @@ function App(): React.JSX.Element {
       console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
     }
 
-    for (const line of lines) {
-      setMessage(line);
-      await Speech.speak(line, SPEAKER, getSelectedSpeakerSpeed());
+    if (!skipNarrationRef.current) {
+      for (const line of lines) {
+        if (skipNarrationRef.current) break;
+        setMessage(line);
+        try {
+          await Speech.speak(line, SPEAKER, getSelectedSpeakerSpeed());
+        } catch {}
+        if (skipNarrationRef.current) break;
+      }
     }
 
-    if (inst) {
+    // Wake word detection stays paused when the caller is about to move straight into
+    // another mic-exclusive flow (e.g. speaker verification) — resuming it here would let
+    // a false wake-word trigger during that flow steal the mic and unpause STT.
+    if (inst && !keepDetectionPaused) {
       try {
         await inst.unPauseDetection();
       } catch (e) {
         console.warn('unPauseDetection after startup narration failed (ignored):', e);
       }
     }
+  }
+
+  async function handleSkipNarration() {
+    skipNarrationRef.current = true;
+    setSkipNarration(true);
+    try { await Speech.stopSpeaking(); } catch {}
   }
 
   async function reloadSpeechLibraryForSelectedVoice(enrollmentJsonPath?: string | null) {
@@ -578,7 +603,7 @@ function App(): React.JSX.Element {
 
     try {
       suppressAndroidPartialResultsRef.current = true;
-      setMessage(`Loading ${selectedTTSVoiceRef.current}...`);
+      setMessage('Loading selected preferences...');
       try {
         await Speech.stopSpeaking();
       } catch {}
@@ -818,11 +843,17 @@ function App(): React.JSX.Element {
 
   const getSelectedSpeakerSpeed = (): number =>
     selectedTTSVoiceRef.current === 'Rich' ? RICH_SPEAKER_SPEED : ARIANA_SPEAKER_SPEED;
+  const isFirstKeywordCallbackRef = useRef(true);
   registerSpeechHandlers({
     Speech,
     suppressAndroidPartialResultsRef,
     showAppModePrompt,
     isTTSTestMode,
+    isSpeakerVerificationActive: showSVPrompt || showSVStatusScreen || svStatusPhase !== 'idle',
+    isAwaitingWakeWord: isFirstKeywordCallbackRef.current,
+    isSpeechResultsAllowed: isCombinedMode || isSTTOnlyMode || isFullAIChatMode,
+    isSTTOnlyMode,
+    setLastSentSentence,
     aiChatInFlightRef,
     speechSessionUIAllowedRef,
     setIsSpeechSessionActive,
@@ -845,7 +876,6 @@ function App(): React.JSX.Element {
     setAiChatTranscript,
   });
   let callbackTimes = 0;
-  const isFirstKeywordCallbackRef = useRef(true);
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -927,14 +957,14 @@ function App(): React.JSX.Element {
           appModeChoiceResolverRef,
           selectedAppModeRef,
           waitForNextInteraction,
-          setMessage,
           setCurrentSpeechSentence,
           setIsSpeakerIdentificationActive,
           speechLibraryInitializedRef,
           speakModeSelectionNarration: async () => {
+            await speakStartupNarration([`${cleanWakeWord} detected.`], { keepDetectionPaused: true });
+            setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
-              'Wake word, hey coach, detected.',
-              'Now there are two options. You can test the app with the Gemini API. Or you can simply test out speech to text and text to speech.',
+              'Now there are four options. Full AI Chat, Or several options to test Speech to Text and Text to Speech.',
             ]);
           },
         });
@@ -977,6 +1007,14 @@ function App(): React.JSX.Element {
       /**** END: You can play what activated the wake word ****/
 
       // await Speech.playWav(moonRocksSound, false);
+
+      // onPress already entered the mode immediately (flash-free path) — skip intro speech
+      // and auto-dispatch so we don't double-enter or interfere with the active mode's STT.
+      if (modeAlreadyEnteredRef.current) {
+        modeAlreadyEnteredRef.current = false;
+        return;
+      }
+
       if (selectedAppModeRef.current === 'full_ai_chat') {
         setAiChatStatus('Preparing chat mode...');
         setAiChatTranscript('');
@@ -1002,6 +1040,12 @@ function App(): React.JSX.Element {
         sleep,
         clearSpeechSentenceUI,
       });
+
+      // Auto-dispatch into the selected mode — only reached on subsequent wake word detections.
+      const mode = selectedAppModeRef.current;
+      if (mode === 'stt_only') { await enterSTTOnlyMode(); return; }
+      if (mode === 'type_to_tts') { await enterTTSTestMode(); return; }
+      await enterCombinedMode();
 
       /*
       setTimeout(async () => {
@@ -1061,7 +1105,7 @@ function App(): React.JSX.Element {
           }
           voiceDemoBootstrapTimeoutRef.current = setTimeout(() => {
             console.warn('[Demo] voice demo bootstrap timed out; continuing with UI');
-            setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+            setMessage(`Say the wake word "${wakeWords}" to continue.`);
           }, 10000);
         }
 
@@ -1093,23 +1137,35 @@ function App(): React.JSX.Element {
           }
         }
 
-        setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
         if (!speechInitCompleted) {
+          setMessage(`Say the wake word "${wakeWords}" to continue.`);
           return;
         }
 
         await speakStartupNarration([
-//          'Hey there! My name is Rich. My voice which was cloned for my application, which is called Lunafit App, is now being used to walk you through this demonstration, step by step.',
-          'Hey there! My name is Rich. In this application, we will use my cloned voice, to walk you through this demonstration, step by step.',
-          'First, please choose which voice you want to use. You can stay with me, Rich, or switch to the Amazing Ariana.',
-        ]);
+//          'Hey there! My name is Ariana. My voice which was cloned for my application, which is called Lunafit App, is now being used to walk you through this demonstration, step by step.',
+          'Hey there! My name is Ariana. In this application we will use my cloned voice to walk you through this demonstration step by step.',
+          'First, please choose which voice you want to use? You can stay with me, Ariana, or switch to Rich.',
+        ], { keepDetectionPaused: true });
 
+        const narratorVoice = selectedTTSVoiceRef.current;
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          `Awsome! You chose ${selectedTTSVoiceRef.current}.`,
-          'Next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
-        ]);
+          selectedTTSVoiceRef.current === narratorVoice
+            ? 'Awesome! Thanks for choosing to stay with me.'
+            : `Awesome! You chose ${selectedTTSVoiceRef.current}.`,
+          'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
+        ], { keepDetectionPaused: true });
+
+        // Belt-and-suspenders: speakStartupNarration above already paused STT, but make sure
+        // it's still paused right before speaker verification starts — nothing should unpause
+        // it between here and the end of the SV flow (wake word stays paused too, see above).
+        try {
+          await Speech.pauseSpeechRecognition();
+        } catch (e) {
+          console.warn('pauseSpeechRecognition before speaker verification failed (ignored):', e);
+        }
 
         const startupFlow = await runSpeakerVerificationStartupFlow({
           setMessage,
@@ -1135,7 +1191,7 @@ function App(): React.JSX.Element {
 
         const needsSpeechReload =
           svChoice !== 'skip' ||
-          selectedTTSVoiceRef.current !== 'Rich' ||
+          selectedTTSVoiceRef.current !== 'Ariana' ||
           ttsQualityChoice !== 'lite';
 
         if (needsSpeechReload) {
@@ -1145,30 +1201,33 @@ function App(): React.JSX.Element {
               : null,
           );
         }
-        await speakStartupNarration([
-          'Speaker verification is ready.',
-          'Now please say the wake word, hey coach, to continue.',
-        ]);
-        setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
 
-        //await disableDucking();
-
-        let ms = 5000;
-        while (ms <= 10000) {
-          setTimeout(async () => {
-            // await Speech.speak('Hey, Look deep', 0);
-          }, ms);
-          ms += 2000;
+        // Restart wake word detection with SV enrollment so it only triggers for the enrolled voice.
+        // reloadSpeechLibraryForSelectedVoice only reloads the STT side — the wake word detector
+        // was started at bootstrap with svChoice='skip', so we must restart it here with enrollment.
+        if (svChoice !== 'skip' && myInstanceRef.current && enrollmentJsonPathRef.current) {
+          await attachKeywordListenerOnce(listenerRef, myInstanceRef.current, formatWakeWord, keywordCallback);
+          await startWakewordDetection({
+            instance: myInstanceRef.current,
+            svChoice,
+            enrollmentJsonPath: enrollmentJsonPathRef.current,
+            sleep,
+          });
         }
 
-        // vadCBintervalID = setInterval(updateVoiceProps, 200);
+        await speakStartupNarration([
+          svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
+          `Now please say the wake word, ${wakeWords}, to continue.`,
+        ]);
+        setMessage(`Say the wake word "${wakeWords}" to continue.`);
+
       } catch (error) {
         if (Platform.OS === 'android') {
           if (voiceDemoBootstrapTimeoutRef.current) {
             clearTimeout(voiceDemoBootstrapTimeoutRef.current);
             voiceDemoBootstrapTimeoutRef.current = null;
           }
-          setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+          setMessage(`Say the wake word "${wakeWords}" to continue.`);
         }
         console.error('Error during keyword detection initialization:', error);
       }
@@ -1204,38 +1263,78 @@ function App(): React.JSX.Element {
     resetSpeechTranscriptState();
     resetAIChatSession();
     clearSpeechSentenceUI();
-    setSpeechSessionUIActive(Platform.OS === 'android' ? true : false);
+    setSpeechSessionUIActive(false);
     setIsFullAIChatMode(false);
     setIsAIChatHistoryVisible(false);
-    setMessage('TTS Test Mode');
+    setIsSTTOnlyMode(false);
+    setIsCombinedMode(false);
+    setMessage('Type to TTS');
     setIsTTSTestMode(true);
   };
 
-  const goBackToModeSelection = async () => {
+  const enterSTTOnlyMode = async () => {
     beginSpeechUiEpoch();
     resetSpeechTranscriptState();
     resetAIChatSession();
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    Keyboard.dismiss();
     clearSpeechSentenceUI();
-    setSpeechSessionUIActive(false);
-    setIsSpeakerIdentificationActive(false);
-    setIsIntroSpeaking(false);
-    setIntroScript('');
-    setIsManualTTSSpeaking(false);
+    setLastSentSentence('');
+    setSpeechSessionUIActive(true);
     setIsFullAIChatMode(false);
     setIsAIChatHistoryVisible(false);
     setIsTTSTestMode(false);
-    setTtsInputText('');
-    setAppModeChoice(selectedAppModeRef.current);
-    setMessage('Choose what you want to test next.');
-    setShowAppModePrompt(true);
+    setIsCombinedMode(false);
+    setIsSTTOnlyMode(true);
+    try { await Speech.unPauseSpeechRecognition(-1); } catch {}
+  };
+
+  const enterCombinedMode = async () => {
+    beginSpeechUiEpoch();
+    resetSpeechTranscriptState();
+    resetAIChatSession();
+    clearSpeechSentenceUI();
+    setSpeechSessionUIActive(true);
+    setIsFullAIChatMode(false);
+    setIsAIChatHistoryVisible(false);
+    setIsTTSTestMode(false);
+    setIsSTTOnlyMode(false);
+    setIsCombinedMode(true);
+    try { await Speech.unPauseSpeechRecognition(-1); } catch {}
+  };
+
+  const goBackToModeSelection = async () => {
+    if (isGoingBackRef.current) return;
+    isGoingBackRef.current = true;
     try {
-      await Speech.pauseSpeechRecognition();
-    } catch {
+      beginSpeechUiEpoch();
+      resetSpeechTranscriptState();
+      resetAIChatSession();
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      Keyboard.dismiss();
+      clearSpeechSentenceUI();
+      try { await Speech.stopSpeaking(); } catch {}
+      setSpeechSessionUIActive(false);
+      setIsSpeakerIdentificationActive(false);
+      setIsIntroSpeaking(false);
+      setIntroScript('');
+      setIsManualTTSSpeaking(false);
+      setIsFullAIChatMode(false);
+      setIsAIChatHistoryVisible(false);
+      setIsTTSTestMode(false);
+      setIsSTTOnlyMode(false);
+      setIsCombinedMode(false);
+      setLastSentSentence('');
+      setTtsInputText('');
+      setAppModeChoice(selectedAppModeRef.current);
+      setMessage('Choose what you want to test next.');
+      setShowAppModePrompt(true);
+      try {
+        await Speech.pauseSpeechRecognition();
+      } catch {}
+    } finally {
+      isGoingBackRef.current = false;
     }
   };
 
@@ -1426,7 +1525,7 @@ function App(): React.JSX.Element {
     );
   };
 
-  const aiChatTitle = 'Limited Gemini 3.1 Flash Lite Chat';
+  const aiChatTitle = '*Limited* **Gemini 3.1** Flash Lite Chat';
 
   if (shouldShowFullAIChatScreen) {
     return (
@@ -1610,7 +1709,7 @@ function App(): React.JSX.Element {
                   setShowSVStatusScreen(false);
                   setSvStatusCanContinue(false);
                   setSvRunning(false);
-                  setMessage(`Full end-to-end voice demo app.\nSay the wake word "${wakeWords}" to continue.`);
+                  setMessage(`Say the wake word "${wakeWords}" to continue.`);
                   svContinueResolverRef.current?.();
                   svContinueResolverRef.current = null;
                 }}>
@@ -1692,74 +1791,53 @@ function App(): React.JSX.Element {
   if (showAppModePrompt) {
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
-            <View style={styles.helpHeaderRow}>
-              <View style={styles.helpHeaderTitleWrap}>
-                <Text style={styles.svPromptTitle}>Choose Next Area</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.helpIconButton}
-                activeOpacity={0.7}
-                onPress={() => setIsAppModeHelpVisible((prev) => !prev)}>
-                <Text style={styles.helpIconText}>?</Text>
-              </TouchableOpacity>
-            </View>
-            {isAppModeHelpVisible && (
-              <Text style={styles.svPromptSubtitle}>
-                After voice selection, choose what you want to test next. Gemini is optional, and manual TTS stays available as a separate path.
-              </Text>
-            )}
-            <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>Mode</Text>
-              <View style={styles.appModeStack}>
+            <Text style={styles.svPromptTitle}>Choose Mode</Text>
+            <View style={styles.appModeStack}>
+              {(
+                [
+                  { key: 'full_ai_chat',  label: 'Full AI Chat',         desc: 'STT → Gemini → TTS' },
+                  { key: 'combined',      label: 'Combined STT + TTS',   desc: 'Speak → hear it back' },
+                  { key: 'stt_only',      label: 'STT Only',             desc: 'Show transcript, no playback' },
+                  { key: 'type_to_tts',   label: 'Type to TTS',          desc: 'Type text → hear it spoken' },
+                ] as const
+              ).map(({ key, label, desc }) => (
                 <TouchableOpacity
-                  style={[
-                    styles.appModeButton,
-                    appModeChoice === 'full_ai_chat' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
+                  key={key}
+                  style={[styles.appModeButton, appModeChoice === key ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle]}
                   activeOpacity={0.7}
-                  onPress={() => setAppModeChoice('full_ai_chat')}>
-                  <Text style={styles.svButtonText}>Full AI Chat</Text>
-                  <Text style={styles.appModeDescription}>
-                    Use STT text as the Gemini prompt, then speak Gemini&apos;s reply with the selected TTS voice.
-                  </Text>
+                  onPress={async () => {
+                    setAppModeChoice(key);
+                    if (appModeChoiceResolverRef.current) {
+                      appModeChoiceResolverRef.current(key);
+                      appModeChoiceResolverRef.current = null;
+                      // Enter the mode immediately so setShowAppModePrompt(false) and
+                      // the mode flag batch into one render — no home-screen flash.
+                      selectedAppModeRef.current = key;
+                      modeAlreadyEnteredRef.current = true;
+                      setShowAppModePrompt(false);
+                      if (key === 'full_ai_chat') {
+                        setAiChatStatus('Preparing chat mode...');
+                        setAiChatTranscript('');
+                        setAiChatResponse('');
+                        await enterFullAIChatMode();
+                        return;
+                      }
+                      if (key === 'stt_only') { await enterSTTOnlyMode(); return; }
+                      if (key === 'type_to_tts') { await enterTTSTestMode(); return; }
+                      await enterCombinedMode();
+                      return;
+                    }
+                    selectedAppModeRef.current = key;
+                    setShowAppModePrompt(false);
+                    if (key === 'full_ai_chat') { await enterFullAIChatMode(); return; }
+                    if (key === 'stt_only') { await enterSTTOnlyMode(); return; }
+                    if (key === 'type_to_tts') { await enterTTSTestMode(); return; }
+                    await enterCombinedMode();
+                  }}>
+                  <Text style={styles.svButtonText}>{label}</Text>
+                  <Text style={styles.appModeDescription}>{desc}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.appModeButton,
-                    appModeChoice === 'tts_test' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setAppModeChoice('tts_test')}>
-                  <Text style={styles.svButtonText}>Manual TTS Test</Text>
-                  <Text style={styles.appModeDescription}>
-                    Skip Gemini and keep the current text-to-speech playground.
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            <View style={styles.svButtonRow}>
-              <TouchableOpacity
-                style={[styles.svButton, styles.ttsContinueButton]}
-                activeOpacity={0.7}
-                onPress={async () => {
-                  if (appModeChoiceResolverRef.current) {
-                    appModeChoiceResolverRef.current?.(appModeChoice);
-                    appModeChoiceResolverRef.current = null;
-                    return;
-                  }
-
-                  selectedAppModeRef.current = appModeChoice;
-                  setShowAppModePrompt(false);
-
-                  if (appModeChoice === 'full_ai_chat') {
-                    await enterFullAIChatMode();
-                    return;
-                  }
-
-                  await enterTTSTestMode();
-                }}>
-                <Text style={styles.svButtonText}>Continue</Text>
-              </TouchableOpacity>
+              ))}
             </View>
       </View>
     );
@@ -1920,6 +1998,66 @@ function App(): React.JSX.Element {
     );
   }
 
+  if (isSTTOnlyMode) {
+    return (
+      <View style={styles.linearGradient}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={[styles.screenScrollContent, { paddingTop: contentTopPadding }]}>
+          {renderScreenLogo()}
+          <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
+            <Text style={styles.svPromptTitle}>STT Only</Text>
+            <View style={styles.speechSummaryBlock}>
+              <Text style={styles.speechSentenceLabel}>Building</Text>
+              <Text style={styles.speechSentenceText}>{currentSpeechSentence || 'Listening...'}</Text>
+            </View>
+            <View style={styles.speechSummaryBlock}>
+              <Text style={styles.speechSentenceLabel}>Last sent</Text>
+              <Text style={styles.speechSentenceText}>{lastSentSentence || '–'}</Text>
+            </View>
+            <View style={styles.ttsTestActionRow}>
+              <TouchableOpacity
+                style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
+                activeOpacity={0.7}
+                onPress={goBackToModeSelection}>
+                <Text style={styles.svButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (isCombinedMode) {
+    return (
+      <View style={styles.linearGradient}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <ScrollView
+          style={styles.screenScroll}
+          contentContainerStyle={[styles.screenScrollContent, { paddingTop: contentTopPadding }]}>
+          {renderScreenLogo()}
+          <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
+            <Text style={styles.svPromptTitle}>Combined STT + TTS</Text>
+            <View style={styles.speechSummaryBlock}>
+              <Text style={styles.speechSentenceLabel}>Current sentence</Text>
+              <Text style={styles.speechSentenceText}>{currentSpeechSentence || 'Listening...'}</Text>
+            </View>
+            <View style={styles.ttsTestActionRow}>
+              <TouchableOpacity
+                style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
+                activeOpacity={0.7}
+                onPress={goBackToModeSelection}>
+                <Text style={styles.svButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   const shouldShowSpeechSessionCard = isSpeechSessionActive;
   const displayedSpeakerName: TTSVoiceChoice =
     isIntroSpeaking ? introSpeakerName : selectedTTSVoiceRef.current;
@@ -1969,6 +2107,14 @@ function App(): React.JSX.Element {
                 ]}>
                 <Text style={styles.appLabel}>VOICE DEMO</Text>
                 <Text style={styles.title}>{message}</Text>
+                {!skipNarration && (
+                  <TouchableOpacity
+                    style={styles.skipNarrationButton}
+                    activeOpacity={0.7}
+                    onPress={handleSkipNarration}>
+                    <Text style={styles.skipNarrationButtonText}>Skip Narration</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           )}
@@ -1977,8 +2123,16 @@ function App(): React.JSX.Element {
             <View style={styles.ttsPromptWrapper}>
               <View style={styles.svPromptCard}>
                 <Text style={styles.svPromptTitle}>
-                  {isIntroSpeaking ? `${displayedSpeakerName} is speaking...` : 'Manual TTS Test'}
+                  {isIntroSpeaking ? `${displayedSpeakerName} is speaking...` : 'Ready'}
                 </Text>
+                {isIntroSpeaking && !skipNarration && (
+                  <TouchableOpacity
+                    style={styles.skipNarrationButton}
+                    activeOpacity={0.7}
+                    onPress={handleSkipNarration}>
+                    <Text style={styles.skipNarrationButtonText}>Skip Narration</Text>
+                  </TouchableOpacity>
+                )}
                 <View style={styles.speechSummaryBlock}>
                   <Text style={styles.speechSentenceLabel}>Speaker</Text>
                   <Text style={styles.speechSentenceText}>{displayedSpeakerName}</Text>
@@ -2000,14 +2154,14 @@ function App(): React.JSX.Element {
                     <TouchableOpacity
                       style={[styles.svButton, styles.ttsContinueButton]}
                       activeOpacity={0.7}
-                      onPress={
-                        selectedAppModeRef.current === 'full_ai_chat'
-                          ? enterFullAIChatMode
-                          : enterTTSTestMode
-                      }>
-                      <Text style={styles.svButtonText}>
-                        {selectedAppModeRef.current === 'full_ai_chat' ? 'Open Full AI Chat' : 'Continue'}
-                      </Text>
+                      onPress={async () => {
+                        const mode = selectedAppModeRef.current;
+                        if (mode === 'full_ai_chat') { await enterFullAIChatMode(); return; }
+                        if (mode === 'stt_only') { await enterSTTOnlyMode(); return; }
+                        if (mode === 'type_to_tts') { await enterTTSTestMode(); return; }
+                        await enterCombinedMode();
+                      }}>
+                      <Text style={styles.svButtonText}>Continue</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
@@ -2840,6 +2994,22 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  skipNarrationButton: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  skipNarrationButtonText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

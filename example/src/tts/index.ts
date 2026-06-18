@@ -61,20 +61,20 @@ export async function playWakewordIntroSpeech({
     selectedSpeakerName === 'Rich'
       ? 'My name is Rich, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.'
       : 'My name is Ariana, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.';
-  setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
-  setIntroSpeakerName(selectedSpeakerName);
-  setIntroScript(introLine);
-  setCurrentSpeechSentenceGuarded(speechUiEpoch, "Into Message: " + introLine);
-  setIntroSpeakingGuarded(speechUiEpoch, true);
+  // setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
+  // setIntroSpeakerName(selectedSpeakerName);
+  // setIntroScript(introLine);
+  // setCurrentSpeechSentenceGuarded(speechUiEpoch, "Into Message: " + introLine);
+  // setIntroSpeakingGuarded(speechUiEpoch, true);
 
-  try {
-    await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
-  } finally {
-    setIntroSpeakingGuarded(speechUiEpoch, false);
-  }
-  console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after intro speech');
-  await Speech.unPauseSpeechRecognition(-1);
-  console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after intro speech');
+  // try {
+  //   await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
+  // } finally {
+  //   setIntroSpeakingGuarded(speechUiEpoch, false);
+  // }
+  // console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after intro speech');
+  // await Speech.unPauseSpeechRecognition(-1);
+  // console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after intro speech');
 
   // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
   // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
