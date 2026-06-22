@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { DeviceEventEmitter, Platform } from 'react-native';
 
 // === minimal coalescer that PRESERVES punctuation ===
 
@@ -95,11 +95,18 @@ export function getAdjustedSpeed(text: string, baseSpeed: number): number {
   return baseSpeed;
 }
 
+let _androidSttSubs: any[] = [];
+
 export function registerSpeechHandlers({
   Speech,
   suppressAndroidPartialResultsRef,
   showAppModePrompt,
   isTTSTestMode,
+  isSpeakerVerificationActive,
+  isAwaitingWakeWord,
+  isSpeechResultsAllowed,
+  isSTTOnlyMode,
+  setLastSentSentence,
   aiChatInFlightRef,
   speechSessionUIAllowedRef,
   setIsSpeechSessionActive,
@@ -156,7 +163,7 @@ export function registerSpeechHandlers({
       return;
     }
 
-    if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) return;
+    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord || aiChatInFlightRef.current) return;
     const curr = e.value?.[0];
     if (Platform.OS === 'ios') {
       if (curr && curr !== lastTranscriptRef.current) {
@@ -186,6 +193,13 @@ export function registerSpeechHandlers({
         return;
       }
 
+      if (isSTTOnlyMode) {
+        setLastSentSentence(newText);
+        resetSpeechTranscriptState();
+        clearSpeechSentenceUI();
+        return;
+      }
+
       const speechUiEpoch = beginSpeechUiEpoch();
       console.log('⏳ Silence timeout reached, speaking:', lastTranscriptRef.current);
       console.log('🗣️ Speaking:', newText);
@@ -212,7 +226,7 @@ export function registerSpeechHandlers({
   Speech.onSpeechResults = async (e: any) => {
     console.log('onSpeechResults: 1 ');
 
-    if (showAppModePrompt || isTTSTestMode || aiChatInFlightRef.current) {
+    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord || aiChatInFlightRef.current) {
       console.log('onSpeechResults: leaving?????? ');
       return;
     }
@@ -236,6 +250,12 @@ export function registerSpeechHandlers({
           if (newText === lastProcessedRef.current) return;
           console.log('[AIChat] silence timeout reached, sending:', newText);
           await processAIChatTurn(newText);
+          return;
+        }
+        if (isSTTOnlyMode) {
+          setLastSentSentence(newText);
+          resetSpeechTranscriptState();
+          clearSpeechSentenceUI();
           return;
         }
         await Speech.speak(newText, SPEAKER, getSelectedSpeakerSpeed());
@@ -276,4 +296,19 @@ export function registerSpeechHandlers({
       clearSpeechSentenceUI(speechUiEpoch);
     }, silenceThresholdMsRef.current);
   };
+
+  // Android: DaVoice STT emits events via DeviceEventEmitter, not NativeEventEmitter.
+  // Subscribe here as a fallback so speech events always reach JS regardless of emitter path.
+  if (Platform.OS === 'android') {
+    _androidSttSubs.forEach(sub => { try { sub.remove(); } catch {} });
+    _androidSttSubs = [];
+    const sttEventNames = ['onSpeechStart', 'onSpeechEnd', 'onSpeechError', 'onSpeechResults', 'onSpeechPartialResults'] as const;
+    sttEventNames.forEach(name => {
+      const sub = DeviceEventEmitter.addListener(name, (e: any) => {
+        const handler = (Speech as any).handlers?.[name];
+        if (typeof handler === 'function') handler(e);
+      });
+      _androidSttSubs.push(sub);
+    });
+  }
 }

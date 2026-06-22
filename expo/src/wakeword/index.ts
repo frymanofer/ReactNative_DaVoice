@@ -179,23 +179,34 @@ export interface InstanceConfig {
   sticky: boolean;
   msBetweenCallbacks: number;
 }
+// export const modelName = 'ayuda_model_28_05022026.dm';
+// //const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
+// //const modelName = 'ayuda_model_28_05022026' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
+// // Create an array of instance configurations
+// export const instanceConfigs: InstanceConfig[] = [
+//   { id: 'multi_model_instance', modelName, threshold: 0.9, bufferCnt: 2, sticky: false, msBetweenCallbacks: 1000 },
+//   // Ayuda:
+//   //   { id: 'multi_model_instance', modelName, threshold: 0.95, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
+// ];
+
 
 export const modelName = 'hey_coach_model_28_22012026b.dm';
-export const modelNameLookDeep = 'hey_lookdeep.dm';
+//const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
 //const modelName = 'ayuda_model_28_05022026' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
 // Create an array of instance configurations
 export const instanceConfigs: InstanceConfig[] = [
   { id: 'multi_model_instance', modelName, threshold: 0.999, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
+  // Ayuda:
   //   { id: 'multi_model_instance', modelName, threshold: 0.95, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
 ];
 
 // Helper function to format the ONNX file name
 export const formatWakeWord = (fileName: string) => {
-  return fileName
-    .replace(/(_model.*|_\d+.*)\.onnx$/, '')
-    .replace(/_/g, ' ')
-    .replace('.onnx', '')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    return fileName
+      .replace(/(_model.*|_\d+.*)(\.(onnx|dm))$/, '')
+      .replace(/\.(onnx|dm)$/, '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 export const AudioPermissionComponent = async () => {
@@ -290,6 +301,10 @@ export async function startWakewordDetection({
   // await inst.startKeywordDetection(instanceConfigs[0].threshold, false);
   */
 
+  try {
+    await instance.stopKeywordDetection();
+  } catch {}
+
   if (svChoice !== 'skip' && typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
     console.log('startKeywordDetection with SV:', enrollmentJsonPath);
     await instance.startKeywordDetection(
@@ -301,7 +316,7 @@ export async function startWakewordDetection({
     console.log('startKeywordDetection without SV:');
     await instance.startKeywordDetection(instanceConfigs[0].threshold, true);
   }
-  await instance.pauseDetection(false);
+  await instance.pauseDetection(Platform.OS === 'android' ? true : false);
   await sleep(100);
   console.log('Post pauseDetection');
 }
@@ -412,7 +427,9 @@ export async function initializeWakewordBootstrap({
     speechLibraryInitializedRef.current = true;
     speechInitCompleted = true;
     console.log('After initializeSpeechLibrary');
-    await sleep(1000);
+    if (Platform.OS !== 'android') {
+      await sleep(1000);
+    }
 
     try {
       await Speech.pauseSpeechRecognition();
@@ -498,10 +515,10 @@ export async function prepareWakewordSpeechSession({
   appModeChoiceResolverRef,
   selectedAppModeRef,
   waitForNextInteraction,
-  setMessage,
   setCurrentSpeechSentence,
   setIsSpeakerIdentificationActive,
   speechLibraryInitializedRef,
+  speakModeSelectionNarration,
 }: any) {
   let enrollmentJson = enrollmentJsonRef.current;
   {
@@ -514,13 +531,16 @@ export async function prepareWakewordSpeechSession({
     }
   }
   if (isFirstCall) {
-    setAppModeChoice('tts_test');
+    setAppModeChoice('combined');
     setSpeechSessionUIActive(false);
     clearSpeechSentenceUI();
     try {
       await Speech.pauseSpeechRecognition();
     } catch (error) {
       console.log('[AppMode] failed to pause speech recognition before mode prompt:', error);
+    }
+    if (typeof speakModeSelectionNarration === 'function') {
+      await speakModeSelectionNarration();
     }
     setShowAppModePrompt(true);
     const selectedModeChoice = await new Promise<AppModeChoice>((resolve) => {
@@ -531,12 +551,10 @@ export async function prepareWakewordSpeechSession({
     await waitForNextInteraction();
   }
 
-  setMessage('Preparing wake word and speech engine...');
-
   // await Speech.destroyAll();
   // await sleep(300);
 
-  setSpeechSessionUIActive(true);
+  setSpeechSessionUIActive(false);
   setCurrentSpeechSentence('');
   enrollmentJson = enrollmentJsonRef.current ?? enrollmentJson;
   setIsSpeakerIdentificationActive(typeof enrollmentJson === 'string' && enrollmentJson.length > 0);
@@ -562,7 +580,7 @@ export async function captureWakewordDetection({
     if (stopWakeWord) {
       await instance.stopKeywordDetection(/* FR add if stop microphone or */);
     } else {
-      await instance.pauseDetection(false);///* FR add if stop microphone or */);
+      await instance.pauseDetection(Platform.OS === 'android' ? true : false);
     }
 
     wavFilePath = await instance.getRecordingWav();

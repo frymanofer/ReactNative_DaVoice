@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 
 export type TTSVoiceChoice = 'Ariana' | 'Rich';
 export type TTSQualityChoice = 'lite' | 'heavy';
-export type AppModeChoice = 'tts_test' | 'full_ai_chat';
+export type AppModeChoice = 'full_ai_chat' | 'type_to_tts' | 'stt_only' | 'combined';
 export type SVPromptChoice = 'use_existing' | 'redo_onboarding' | 'skip';
 
 export const SV_ONBOARDING_SAMPLE_COUNT = 5;

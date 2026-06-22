@@ -6,7 +6,7 @@ export const RICH = 1;
 
 export const SPEAKER = 0;
 
-export const RICH_SPEAKER_SPEED = 1.06;
+export const RICH_SPEAKER_SPEED = 1.1;
 export const ARIANA_SPEAKER_SPEED = 0.88; //0.75;
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
 //const SPEAKER_SPEED = 0.75;
@@ -24,7 +24,7 @@ export const ttsModelSlow = 'model_ex_ariana_fast_davoice_phoneme.dm';
 // const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
 // const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
 export const ttsModelRichFast = 'model_ex_rich_fast_davoice_phoneme.dm';
-export const ttsModelRichSlow = 'model_ex_rich_fast_davoice_phoneme.dm';
+export const ttsModelRichSlow = 'model_ex_rich_heavy_davoice_ph.dm';
 // const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
 // const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
 
@@ -58,27 +58,27 @@ export async function playWakewordIntroSpeech({
   await Speech.pauseSpeechRecognition();
   const introLine =
     selectedSpeakerName === 'Rich'
-      ? 'My name is Rich, and I am one of the coaches in this demo app. I love helping people reach their fitness goals.'
-      : 'My name is Ariana, and I am one of the coaches in this demo app. I love helping people reach their fitness goals.';
-  setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
-  setIntroSpeakerName(selectedSpeakerName);
-  setIntroScript(introLine);
-  setCurrentSpeechSentenceGuarded(speechUiEpoch, "Into Message: " + introLine);
-  setIntroSpeakingGuarded(speechUiEpoch, true);
+      ? 'My name is Rich, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.'
+      : 'My name is Ariana, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.';
+  // setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
+  // setIntroSpeakerName(selectedSpeakerName);
+  // setIntroScript(introLine);
+  // setCurrentSpeechSentenceGuarded(speechUiEpoch, "Into Message: " + introLine);
+  // setIntroSpeakingGuarded(speechUiEpoch, true);
 
-  try {
-    await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
-  } finally {
-    setIntroSpeakingGuarded(speechUiEpoch, false);
-  }
-  console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after intro speech');
-  await Speech.unPauseSpeechRecognition(-1);
-  console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after intro speech');
+  // try {
+  //   await Speech.speak(introLine, SPEAKER, getSelectedSpeakerSpeed());
+  // } finally {
+  //   setIntroSpeakingGuarded(speechUiEpoch, false);
+  // }
+  // console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after intro speech');
+  // await Speech.unPauseSpeechRecognition(-1);
+  // console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after intro speech');
 
-  // Hi! Welcome to the demo app! My name is Ariana. Besides tracking, this app can also demonstrate personalized plans and voice interactions.
-  // Hi, welcome to the demo app. My name is Ariana. Besides tracking, this app can also demonstrate personalized plans and voice interactions.
+  // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
+  // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
   /*
-  await Speech.speak("Hi, welcome to the demo app. My name is Ariana. Besides tracking, this app can also demonstrate personalized plans and voice interactions.");
+  await Speech.speak("Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!");
   await Speech.speak("Hello, as an AI , I don't have feelings , but I'm here and ready to help you with anything you need. Today, how can I assist you?", SPEAKER, SPEAKER_SPEED);
   await Speech.speak("let me demonstrate. Are you ready.", SPEAKER, SPEAKER_SPEED);
   await Speech.speak("Hey, how are you?", SPEAKER, SPEAKER_SPEED);
