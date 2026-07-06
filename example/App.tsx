@@ -94,6 +94,8 @@ import {
   startWakewordDetection,
 } from './src/wakeword';
 
+const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
+const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'heavy';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
 const FULL_AI_CHAT_STT_OPTIONS = {
@@ -129,11 +131,15 @@ function App(): React.JSX.Element {
     null | ((choice: { quality: TTSQualityChoice; voice: TTSVoiceChoice }) => void)
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
-  const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('lite');
-  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Ariana');
+  const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>(DEFAULT_TTS_QUALITY);
+  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
-  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Ariana');
-  const selectedTTSModelRef = useRef(ttsModelFast);
+  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
+  const selectedTTSModelRef = useRef(
+    DEFAULT_TTS_VOICE === 'Rich'
+      ? (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelRichFast : ttsModelRichSlow)
+      : (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelFast : ttsModelSlow),
+  );
   const selectedAppModeRef = useRef<AppModeChoice>('combined');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
@@ -267,7 +273,7 @@ function App(): React.JSX.Element {
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
-  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>('Ariana');
+  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>(DEFAULT_TTS_VOICE);
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
@@ -1142,13 +1148,13 @@ function App(): React.JSX.Element {
           return;
         }
 
+        const narratorVoice = selectedTTSVoiceRef.current;
+        const alternativeVoice: TTSVoiceChoice = narratorVoice === 'Rich' ? 'Ariana' : 'Rich';
         await speakStartupNarration([
-//          'Hey there! My name is Ariana. My voice which was cloned for my application, which is called Lunafit App, is now being used to walk you through this demonstration, step by step.',
-          'Hey there! My name is Ariana. In this application we will use my cloned voice to walk you through this demonstration step by step.',
-          'First, please choose which voice you want to use? You can stay with me, Ariana, or switch to Rich.',
+          `Hey there! My name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
+          `First, please choose which voice you want to use? You can stay with me, ${narratorVoice}, or switch to ${alternativeVoice}.`,
         ], { keepDetectionPaused: true });
 
-        const narratorVoice = selectedTTSVoiceRef.current;
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
@@ -1191,8 +1197,8 @@ function App(): React.JSX.Element {
 
         const needsSpeechReload =
           svChoice !== 'skip' ||
-          selectedTTSVoiceRef.current !== 'Ariana' ||
-          ttsQualityChoice !== 'lite';
+          selectedTTSVoiceRef.current !== DEFAULT_TTS_VOICE ||
+          ttsQualityChoice !== DEFAULT_TTS_QUALITY;
 
         if (needsSpeechReload) {
           await reloadSpeechLibraryForSelectedVoice(

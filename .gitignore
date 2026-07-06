@@ -38,6 +38,15 @@ npm-debug.log
 yarn-error.log
 .env
 example/local.config.ts
+expo/local.config.ts
+expo/local.expo.config.js
+expo/ios/
+expo/android/
+expo/node_modules/
+expo/.expo/
+expo/x
+expo/.pnp.cjs
+expo/.pnp.loader.mjs
 
 # BUCK
 buck-out/
@@ -52,9 +61,29 @@ buck-out/
 node_modules/
 
 ios/Podfile.lock
-# Expo
 
 example**/android/app/.cxx/*
 example/.yarn/*
 example**/.yarn/*
 .gradle-local/**
+
+# Expo
+expo/.yarn/*
+expo**/.yarn/*
+
+# Expo example local-only config
+expo/local.config.ts
+expo/local.expo.config.js
+
+# Expo generated native projects
+expo/ios/
+expo/android/
+
+# Expo local state
+expo/.expo/
+
+# Expo dependencies / local artifacts
+expo/node_modules/
+expo/x
+expo/.pnp.cjs
+expo/.pnp.loader.mjs
