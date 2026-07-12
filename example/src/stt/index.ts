@@ -99,6 +99,7 @@ let _androidSttSubs: any[] = [];
 
 export function registerSpeechHandlers({
   Speech,
+  speakText,
   suppressAndroidPartialResultsRef,
   showAppModePrompt,
   isTTSTestMode,
@@ -128,6 +129,7 @@ export function registerSpeechHandlers({
   silenceThresholdMsRef,
   setAiChatTranscript,
 }: any) {
+  const speak = speakText ?? Speech.speak.bind(Speech);
   // Speech handlers (kept)
   Speech.onSpeechError = async (e: any) => {
     console.log('onSpeechError error ignored: ', e);
@@ -206,7 +208,7 @@ export function registerSpeechHandlers({
       setCurrentSpeechSentenceGuarded(speechUiEpoch, "Speaking now:" + newText);
       await Speech.pauseSpeechRecognition();
       const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
-      await Speech.speak(newText, SPEAKER, adjustedSpeed);
+      await speak(newText, SPEAKER, adjustedSpeed);
       resetSpeechTranscriptState();
       console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in onSpeechPartialResults silence timeout');
       await Speech.unPauseSpeechRecognition(-1);
@@ -258,7 +260,7 @@ export function registerSpeechHandlers({
           clearSpeechSentenceUI();
           return;
         }
-        await Speech.speak(newText, SPEAKER, getSelectedSpeakerSpeed());
+        await speak(newText, SPEAKER, getSelectedSpeakerSpeed());
       }, silenceThresholdMsRef.current);
       return;
     }
@@ -287,7 +289,7 @@ export function registerSpeechHandlers({
       setCurrentSpeechSentenceGuarded(speechUiEpoch, 'Speaking now:' + newText);
       await Speech.pauseSpeechRecognition();
       const adjustedSpeed = getAdjustedSpeed(newText, getSelectedSpeakerSpeed());
-      await Speech.speak(newText, SPEAKER, adjustedSpeed);
+      await speak(newText, SPEAKER, adjustedSpeed);
       resetSpeechTranscriptState();
       console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in onSpeechResults silence timeout');
       await Speech.unPauseSpeechRecognition(-1);

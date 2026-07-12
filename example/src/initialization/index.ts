@@ -109,6 +109,8 @@ export async function promptForTTSModelChoice({
   selectedTTSModelRef,
   ttsModelRichFast,
   ttsModelRichSlow,
+  ttsModelFastHanna,
+  ttsModelSlowHanna,
   ttsModelFast,
   ttsModelSlow,
   waitForNextInteraction,
@@ -121,6 +123,8 @@ export async function promptForTTSModelChoice({
   selectedTTSModelRef: { current: any };
   ttsModelRichFast: any;
   ttsModelRichSlow: any;
+  ttsModelFastHanna: any;
+  ttsModelSlowHanna: any;
   ttsModelFast: any;
   ttsModelSlow: any;
   waitForNextInteraction: () => Promise<void>;
@@ -137,6 +141,9 @@ export async function promptForTTSModelChoice({
   if (selectedModelChoice.voice === 'Rich') {
     selectedTTSModelRef.current =
       selectedModelChoice.quality === 'lite' ? ttsModelRichFast : ttsModelRichSlow;
+  } else if (selectedModelChoice.voice === 'Hanna') {
+    selectedTTSModelRef.current =
+      selectedModelChoice.quality === 'lite' ? ttsModelFastHanna : ttsModelSlowHanna;
   } else {
     selectedTTSModelRef.current =
       selectedModelChoice.quality === 'lite' ? ttsModelFast : ttsModelSlow;

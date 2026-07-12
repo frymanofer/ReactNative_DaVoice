@@ -71,12 +71,15 @@ import {
 } from './src/speaker_verification/onboarding';
 import {
   ARIANA_SPEAKER_SPEED,
+  HANNA_SPEAKER_SPEED,
   playWakewordIntroSpeech,
   RICH_SPEAKER_SPEED,
   SPEAKER,
   ttsModelFast,
+  ttsModelFastHanna,
   ttsModelRichFast,
   ttsModelRichSlow,
+  ttsModelSlowHanna,
   ttsModelSlow,
 } from './src/tts';
 import {
@@ -94,7 +97,7 @@ import {
   startWakewordDetection,
 } from './src/wakeword';
 
-const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
+const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Hanna';
 const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'heavy';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
@@ -138,8 +141,11 @@ function App(): React.JSX.Element {
   const selectedTTSModelRef = useRef(
     DEFAULT_TTS_VOICE === 'Rich'
       ? (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelRichFast : ttsModelRichSlow)
+      : DEFAULT_TTS_VOICE === 'Hanna'
+        ? (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelFastHanna : ttsModelSlowHanna)
       : (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelFast : ttsModelSlow),
   );
+  const useDoubleCommasForTTSRef = useRef(false);
   const selectedAppModeRef = useRef<AppModeChoice>('combined');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
@@ -155,6 +161,17 @@ function App(): React.JSX.Element {
   const [didInitSID, setDidInitSID] = useState(false);
 
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+  useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
+
+  const applyTTSCommaPolicy = (text: string): string => {
+    if (!useDoubleCommasForTTSRef.current) return text;
+    return text;
+    return text.replace(/(^|[^,]),(?!,)/g, '$1,,');
+  };
+
+  const speakText = (text: string, speaker: number = SPEAKER, speed?: number) =>
+    Speech.speak(applyTTSCommaPolicy(text), speaker, speed);
+
   const svOnboardingProgress = Math.max(
     0,
     Math.min(1, svOnboardingTarget > 0 ? svOnboardingCollected / svOnboardingTarget : 0),
@@ -273,7 +290,7 @@ function App(): React.JSX.Element {
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
-  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>(DEFAULT_TTS_VOICE);
+  const [introSpeakerName, setIntroSpeakerName] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
@@ -455,6 +472,7 @@ function App(): React.JSX.Element {
   const speakNextAIChatSentence = async () =>
     speakNextAIChatSentenceBase({
       Speech,
+      speakText,
       aiChatStreamSpeakingRef,
       aiChatSpeechQueueRef,
       setCurrentSpeechSentence,
@@ -513,6 +531,7 @@ function App(): React.JSX.Element {
   };
 
   async function initializeSpeechLibrary(enrollmentJsonPath?: string | null) {
+    useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
     await initializeSpeechLibraryBase(
       Speech,
       selectedTTSModelRef.current,
@@ -534,7 +553,7 @@ function App(): React.JSX.Element {
   }
 
   async function promptForTTSModelChoice() {
-    return promptForTTSModelChoiceBase({
+    const selectedModelChoice = await promptForTTSModelChoiceBase({
       setShowTTSModelPrompt,
       ttsModelChoiceResolverRef,
       setTtsQualityChoice,
@@ -543,10 +562,14 @@ function App(): React.JSX.Element {
       selectedTTSModelRef,
       ttsModelRichFast,
       ttsModelRichSlow,
+      ttsModelFastHanna,
+      ttsModelSlowHanna,
       ttsModelFast,
       ttsModelSlow,
       waitForNextInteraction,
     });
+    useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
+    return selectedModelChoice;
   }
 
   async function speakStartupNarration(
@@ -573,7 +596,7 @@ function App(): React.JSX.Element {
         if (skipNarrationRef.current) break;
         setMessage(line);
         try {
-          await Speech.speak(line, SPEAKER, getSelectedSpeakerSpeed());
+          await speakText(line, SPEAKER, getSelectedSpeakerSpeed());
         } catch {}
         if (skipNarrationRef.current) break;
       }
@@ -793,7 +816,7 @@ function App(): React.JSX.Element {
         setCurrentSpeechSentence(`Gemini: ${aiReply}`);
         setAiChatStatus('Speaking Gemini reply...');
         aiChatAwaitingSpeechFinishRef.current = true;
-        await Speech.speak(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
+        await speakText(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
       }
     } catch (error) {
       const message = String((error as any)?.message ?? error);
@@ -819,7 +842,7 @@ function App(): React.JSX.Element {
       setAiChatStatus('Speaking demo status update...');
       aiChatAwaitingSpeechFinishRef.current = true;
       try {
-        await Speech.speak(
+        await speakText(
           normalizeTextForSpeech(friendlyMessage),
           SPEAKER,
           getSelectedSpeakerSpeed(),
@@ -848,10 +871,15 @@ function App(): React.JSX.Element {
   };
 
   const getSelectedSpeakerSpeed = (): number =>
-    selectedTTSVoiceRef.current === 'Rich' ? RICH_SPEAKER_SPEED : ARIANA_SPEAKER_SPEED;
+    selectedTTSVoiceRef.current === 'Rich'
+      ? RICH_SPEAKER_SPEED
+      : selectedTTSVoiceRef.current === 'Hanna'
+        ? HANNA_SPEAKER_SPEED
+        : ARIANA_SPEAKER_SPEED;
   const isFirstKeywordCallbackRef = useRef(true);
   registerSpeechHandlers({
     Speech,
+    speakText,
     suppressAndroidPartialResultsRef,
     showAppModePrompt,
     isTTSTestMode,
@@ -970,7 +998,7 @@ function App(): React.JSX.Element {
             await speakStartupNarration([`${cleanWakeWord} detected.`], { keepDetectionPaused: true });
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
-              'Now there are four options. Full AI Chat, Or several options to test Speech to Text and Text to Speech.',
+              'Now you can choose from four options, a full AI Chat option, testing Speech to Text individually, testing Text to Speech individually, or a combination of both Speech to Text and Text to Speech.',
             ]);
           },
         });
@@ -1029,9 +1057,10 @@ function App(): React.JSX.Element {
         return;
       }
 
-      const selectedSpeakerName: 'Rich' | 'Ariana' = selectedTTSVoiceRef.current;
+      const selectedSpeakerName: TTSVoiceChoice = selectedTTSVoiceRef.current;
       await playWakewordIntroSpeech({
         Speech,
+        speakText,
         beginSpeechUiEpoch,
         setMessageGuarded,
         setIntroSpeakerName,
@@ -1056,7 +1085,7 @@ function App(): React.JSX.Element {
       /*
       setTimeout(async () => {
         await Speech.pauseSpeechRecognition();
-         await Speech.speak(introLine, SPEAKER, SPEAKER_SPEED);
+         await speakText(introLine, SPEAKER, SPEAKER_SPEED);
         await Speech.unPauseSpeechRecognition(-1);
 //      }, 45000);
       }, 20000);
@@ -1149,18 +1178,31 @@ function App(): React.JSX.Element {
         }
 
         const narratorVoice = selectedTTSVoiceRef.current;
-        const alternativeVoice: TTSVoiceChoice = narratorVoice === 'Rich' ? 'Ariana' : 'Rich';
+        const otherVoices = (['Hanna', 'Rich', 'Ariana'] as TTSVoiceChoice[])
+          .filter((voice) => voice !== narratorVoice)
+          .join(' or ');
         await speakStartupNarration([
-          `Hey there! My name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
-          `First, please choose which voice you want to use? You can stay with me, ${narratorVoice}, or switch to ${alternativeVoice}.`,
+          `Hey there, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
+          `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+        ], { keepDetectionPaused: true });
+/*
+        await speakStartupNarration([
+          `Hey there,, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
+          `First,, please choose which voice you want to use? You can stay with me,, ${narratorVoice},, or switch to ${alternativeVoice}?`,
         ], { keepDetectionPaused: true });
 
+        await speakStartupNarration([
+          `Hey there! My name is ${narratorVoice}! In this application we will use my cloned voice to walk you through this demonstration step by step.`,
+          `First, please choose which voice you want to use? You can stay with me, ${narratorVoice}, or switch to ${alternativeVoice}?`,
+        ], { keepDetectionPaused: true });
+
+*/
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
           selectedTTSVoiceRef.current === narratorVoice
-            ? 'Awesome! Thanks for choosing to stay with me.'
-            : `Awesome! You chose ${selectedTTSVoiceRef.current}.`,
+            ? 'Awesome, Thanks for choosing to stay with me.'
+            : `Awesome, You chose ${selectedTTSVoiceRef.current}.`,
           'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
         ], { keepDetectionPaused: true });
 
@@ -1223,7 +1265,7 @@ function App(): React.JSX.Element {
 
         await speakStartupNarration([
           svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
-          `Now please say the wake word, ${wakeWords}, to continue.`,
+          `Now please say the wake word ${wakeWords} to continue.`,
         ]);
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
 
@@ -1421,7 +1463,7 @@ function App(): React.JSX.Element {
     setIsManualTTSSpeaking(true);
     setCurrentSpeechSentenceGuarded(speechUiEpoch, `Speaking now: ${text}`);
     try {
-      await Speech.speak(text, SPEAKER, getSelectedSpeakerSpeed());
+      await speakText(text, SPEAKER, getSelectedSpeakerSpeed());
       clearSpeechSentenceUI(speechUiEpoch);
     } finally {
       setIsManualTTSSpeaking(false);
@@ -1759,6 +1801,7 @@ function App(): React.JSX.Element {
                 <TouchableOpacity
                   style={[
                     styles.svButton,
+                    styles.ttsVoiceButton,
                     ttsVoiceChoice === 'Ariana' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
                   ]}
                   activeOpacity={0.7}
@@ -1768,11 +1811,22 @@ function App(): React.JSX.Element {
                 <TouchableOpacity
                   style={[
                     styles.svButton,
+                    styles.ttsVoiceButton,
                     ttsVoiceChoice === 'Rich' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
                   ]}
                   activeOpacity={0.7}
                   onPress={() => setTtsVoiceChoice('Rich')}>
                   <Text style={styles.svButtonText}>Rich</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.svButton,
+                    styles.ttsVoiceButton,
+                    ttsVoiceChoice === 'Hanna' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => setTtsVoiceChoice('Hanna')}>
+                  <Text style={styles.svButtonText}>Hanna</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2810,6 +2864,10 @@ const styles = StyleSheet.create({
   ttsOptionSection: {
     width: '100%',
     marginBottom: 14,
+  },
+  ttsVoiceButton: {
+    flex: 1,
+    paddingHorizontal: 12,
   },
   appModeStack: {
     width: '100%',

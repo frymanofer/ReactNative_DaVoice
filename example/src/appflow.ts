@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-export type TTSVoiceChoice = 'Ariana' | 'Rich';
+export type TTSVoiceChoice = 'Ariana' | 'Rich' | 'Hanna';
 export type TTSQualityChoice = 'lite' | 'heavy';
 export type AppModeChoice = 'full_ai_chat' | 'type_to_tts' | 'stt_only' | 'combined';
 export type SVPromptChoice = 'use_existing' | 'redo_onboarding' | 'skip';

@@ -437,6 +437,7 @@ export async function finishAIChatSpeechFlow({
 
 export async function speakNextAIChatSentence({
   Speech,
+  speakText,
   aiChatStreamSpeakingRef,
   aiChatSpeechQueueRef,
   setCurrentSpeechSentence,
@@ -447,6 +448,7 @@ export async function speakNextAIChatSentence({
   SPEAKER,
   finishAIChatSpeechFlow,
 }: any) {
+  const speak = speakText ?? Speech.speak.bind(Speech);
   if (aiChatStreamSpeakingRef.current) return;
 
   const nextSentence = aiChatSpeechQueueRef.current.shift();
@@ -454,7 +456,7 @@ export async function speakNextAIChatSentence({
     aiChatStreamSpeakingRef.current = true;
     setCurrentSpeechSentence(`Gemini: ${nextSentence}`);
     setAiChatStatus('Speaking Gemini reply...');
-    await Speech.speak(normalizeTextForSpeech(nextSentence), SPEAKER, getSelectedSpeakerSpeed());
+    await speak(normalizeTextForSpeech(nextSentence), SPEAKER, getSelectedSpeakerSpeed());
     return;
   }
 
@@ -465,7 +467,7 @@ export async function speakNextAIChatSentence({
       aiChatStreamSpeakingRef.current = true;
       setCurrentSpeechSentence(`Gemini: ${trailing}`);
       setAiChatStatus('Speaking Gemini reply...');
-      await Speech.speak(trailing, SPEAKER, getSelectedSpeakerSpeed());
+      await speak(trailing, SPEAKER, getSelectedSpeakerSpeed());
       return;
     }
     await finishAIChatSpeechFlow();
