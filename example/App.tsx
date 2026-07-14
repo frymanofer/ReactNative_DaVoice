@@ -163,14 +163,15 @@ function App(): React.JSX.Element {
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
   useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
 
-  const applyTTSCommaPolicy = (text: string): string => {
-    if (!useDoubleCommasForTTSRef.current) return text;
-    return text;
-    return text.replace(/(^|[^,]),(?!,)/g, '$1,,');
+  const applyTTSTextPolicy = (text: string): string => {
+    let ttsText = text.replace(/\bDaVoice's\b/g, 'the voice').replace(/\bDaVoice\b/g, 'The Voice');
+    if (!useDoubleCommasForTTSRef.current) return ttsText;
+    return ttsText;
+    return ttsText.replace(/(^|[^,]),(?!,)/g, '$1,,');
   };
 
   const speakText = (text: string, speaker: number = SPEAKER, speed?: number) =>
-    Speech.speak(applyTTSCommaPolicy(text), speaker, speed);
+    Speech.speak(applyTTSTextPolicy(text), speaker, speed);
 
   const svOnboardingProgress = Math.max(
     0,
@@ -1182,7 +1183,7 @@ function App(): React.JSX.Element {
           .filter((voice) => voice !== narratorVoice)
           .join(' or ');
         await speakStartupNarration([
-          `Hey there, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
+          `Hey there, my name is ${narratorVoice}. In this application we will use my cloned voice to showcase our voice AI agent capabilities. Don't worry, I will be your personal guide to walk you through this demonstration step by step.`,
           `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
         ], { keepDetectionPaused: true });
 /*
