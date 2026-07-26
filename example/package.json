@@ -17,7 +17,7 @@
     "react-native": "0.82.0",
     "react-native-davoice": "1.0.45",
     "react-native-fs": "^2.20.0",
-    "react-native-wakeword": "1.1.119"
+    "react-native-wakeword": "1.1.122"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
