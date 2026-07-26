@@ -1,6 +1,7 @@
 import RNFS from 'react-native-fs';
 import { Alert, NativeModules, Platform, Share } from 'react-native';
 import type SpeechType from 'react-native-davoice/speech';
+import type { AudioRoutingConfig as SpeechAudioRoutingConfig } from 'react-native-davoice/speech';
 import { disableDucking, enableDucking, createKeyWordRNBridgeInstance, setWakewordAudioRoutingConfig } from 'react-native-wakeword';
 import type { AudioRoutingConfig, KeyWordRNBridgeInstance } from 'react-native-wakeword';
 import type { AppModeChoice } from '../appflow';
@@ -72,7 +73,9 @@ export const enableDuckingAndClearUnDucking = async () => {
 // Set Audio session for IOS!!!!
 //
 //
-export const defaultAudioRoutingConfig: AudioRoutingConfig = {
+type AppAudioRoutingConfig = AudioRoutingConfig & SpeechAudioRoutingConfig;
+
+export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
   // Fallback when no special port match
   default: {
     category: 'playAndRecord',
@@ -167,6 +170,37 @@ export const defaultAudioRoutingConfig: AudioRoutingConfig = {
         'allowAirPlay',
       ],
       preferredInput: 'none',
+    },
+  },
+  WhenPlayingAudio: {
+    // Temporarily lower audio from Spotify/other apps while DaVoice plays TTS or WAV audio.
+    onPlay: {
+      category: 'playAndRecord',
+      mode: 'default',
+      options: [
+        'duckOthers',
+        'mixWithOthers',
+        'allowBluetooth',
+        'allowBluetoothA2DP',
+        'allowAirPlay',
+        'defaultToSpeaker',
+      ],
+      preferredInput: 'none',
+    },
+
+    // Native code uses notifyOthers, then restores the regular default/byOutputPort route.
+    onFinishPlaying: {
+      category: 'playAndRecord',
+      mode: 'default',
+      options: [
+        'mixWithOthers',
+        'allowBluetooth',
+        'allowBluetoothA2DP',
+        'allowAirPlay',
+        'defaultToSpeaker',
+      ],
+      preferredInput: 'none',
+      notifyOthers: true,
     },
   },
 };
@@ -350,7 +384,7 @@ export async function initializeWakewordBootstrap({
   speechLibraryInitializedRef,
 }: {
   PlatformOS: string;
-  defaultAudioRoutingConfig: AudioRoutingConfig;
+  defaultAudioRoutingConfig: AppAudioRoutingConfig;
   setMessage: (value: string) => void;
   keywordCallback: (phrase: string) => void;
   listenerRef: { current: any };
@@ -372,6 +406,12 @@ export async function initializeWakewordBootstrap({
       await setWakewordAudioRoutingConfig(defaultAudioRoutingConfig);
     } catch (e) {
       console.warn('setWakewordAudioRoutingConfig failed (ignored):', e);
+    }
+    try {
+      // Set the same routing config directly on STT/TTS before Speech.initAll().
+      await Speech.setAudioRoutingConfig(defaultAudioRoutingConfig);
+    } catch (e) {
+      console.warn('Speech.setAudioRoutingConfig failed (wakeword fallback will be tried):', e);
     }
   }
 
