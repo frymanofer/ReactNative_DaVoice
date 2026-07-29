@@ -18,23 +18,33 @@ Welcome to **Davoice WakeWord / Keywords Detection** – Wake words and keyword 
 - **Create wake word mode:**
     Contact us at info@davoice.io with a list of your desired **"custom wake words"**.
 
-    We will send you corresponding models typically your **wake word phrase .onnx** for example:
+    We will send you the corresponding model files for your wake-word phrases. The file may be `.dm`, `.onnx`, or another model suffix. The integration steps are the same regardless of the suffix.
 
-    A wake word ***"hey sky"** will correspond to **hey_sky.onnx**.
+    For example, a wake word ***"hey sky"** may correspond to **hey_sky.dm** or **hey_sky.onnx**.
 
 - **Add wake words to Android:**
-    Simply copy the new onnx files to:
+    Simply copy the new model files to:
 
-    android/app/src/main/assets/*.onnx
+    android/app/src/main/assets/
+
+    For example:
+
+    android/app/src/main/assets/hey_sky.dm
+
+    or:
+
+    android/app/src/main/assets/hey_sky.onnx
 
 - **Add Wake word to IOS**
     Copy new models somewhere under ios/YourProjectName.
 
     You can create a folder ios/YourProjectName/models/ and copy there there.
 
-    Now add each onnx file to xcode making sure you opt-in “copy if needed”.
+    Now add each model file to Xcode, making sure you opt in to “copy if needed”.
 
-- **In React/JS code add the new onnx files to your configuration**
+- **In React/JS code add the new model files to your configuration**
+
+    Use the exact model filename you copied. The code is the same for `.dm`, `.onnx`, or any other supported model suffix.
   
     Change:
 
@@ -55,7 +65,7 @@ To:
   
     const instanceConfigs:instanceConfig[] = [
   
-      { id: 'my_wake_word', modelName: 'my_wake_word.onnx', threshold: 0.9999, bufferCnt: 3 , sticky: false },
+      { id: 'my_wake_word', modelName: 'my_wake_word.dm', threshold: 0.9999, bufferCnt: 3 , sticky: false },
   
     ];
 ```
@@ -66,8 +76,18 @@ For example if your generated custom wake word" is "hey sky":
 ```javascript
     const instanceConfigs:instanceConfig[] = [
   
-      { id: 'hey sky', modelName: 'hey_sky.onnx', threshold: 0.9999, bufferCnt: 3 , sticky: false },
+      { id: 'hey sky', modelName: 'hey_sky.dm', threshold: 0.9999, bufferCnt: 3 , sticky: false },
   
+    ];
+```
+
+If your generated file is `hey_sky.onnx` instead, use:
+
+```javascript
+    const instanceConfigs:instanceConfig[] = [
+
+      { id: 'hey sky', modelName: 'hey_sky.onnx', threshold: 0.9999, bufferCnt: 3 , sticky: false },
+
     ];
 ```
 
