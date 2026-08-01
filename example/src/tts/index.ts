@@ -34,8 +34,8 @@ export const ttsModelSlowHanna = require('../../assets/models/model_ex_hanna_lig
 // const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
 // const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
 
-export const ttsModelRichFast = require('../../assets/models/model_ex_rich_fast_davoice_phoneme.dm');
-export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
+export const ttsModelRichFast = require('../../assets/models/model_ex_rich_jun19_fast_davoice_phoneme.dm');
+export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_jun19_fast_davoice_phoneme.dm');
 // export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
 
 // const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');

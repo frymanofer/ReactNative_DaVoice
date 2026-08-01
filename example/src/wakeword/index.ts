@@ -7,65 +7,6 @@ import type { AudioRoutingConfig, KeyWordRNBridgeInstance } from 'react-native-w
 import type { AppModeChoice } from '../appflow';
 import { ensureMicPermission } from '../initialization';
 
-// Ducking / Unducking
-
-/*
-Ducking/Unducking TEMPORARY code until background timers are
-enabled!!
- */
-
-let unDuckingTimerId: any = null;
-let unDuckingExpiration = 0;
-
-export const scheduleUnDucking = async (seconds: number) => {
-  const now = Date.now();
-  if (seconds <= 2) {
-    seconds = 2;
-  }
-  const newExpiration = now + seconds * 1000;
-
-  // If a timer exists and it's already longer, skip
-  if (unDuckingTimerId && newExpiration <= unDuckingExpiration) {
-    return;
-  }
-
-  // Cancel any existing timer
-  if (unDuckingTimerId) {
-    clearTimeout(unDuckingTimerId);
-    unDuckingTimerId = null;
-  }
-
-  unDuckingExpiration = newExpiration;
-
-  const delay = newExpiration - now;
-  unDuckingTimerId = setTimeout(async () => {
-    if (unDuckingTimerId == null) {
-      // Rat race for unducking.
-      unDuckingTimerId = null;
-      unDuckingExpiration = 0;
-      return;
-    }
-    unDuckingTimerId = null;
-    unDuckingExpiration = 0;
-    await disableDucking();
-  }, delay);
-};
-
-export const enableDuckingAndClearUnDucking = async () => {
-  await enableDucking();
-  if (unDuckingTimerId) {
-    clearTimeout(unDuckingTimerId);
-    unDuckingTimerId = null;
-  }
-  unDuckingExpiration = 0;
-};
-
-// Before playing wav file:
-// await enableDuckingAndClearUnDucking();
-// After playing wav file:
-// await scheduleUnDucking()
-
-// ******* END Ducking / Unducking ********
 
 //
 //
@@ -73,21 +14,53 @@ export const enableDuckingAndClearUnDucking = async () => {
 // Set Audio session for IOS!!!!
 //
 //
-type AppAudioRoutingConfig = AudioRoutingConfig & SpeechAudioRoutingConfig;
+type AppPreferredAudioInput = 'bluetoothHighQualityMic' | 'builtInMic' | 'none';
+type AppAudioRoutingOption =
+  | AudioRoutingConfig['default']['options'][number]
+  | 'allowBluetoothHFP'
+  | 'bluetoothHighQualityRecording';
+type AppRouteConfigEntry = Omit<AudioRoutingConfig['default'], 'options' | 'preferredInput'> & {
+  options: AppAudioRoutingOption[];
+  preferredInput: AppPreferredAudioInput;
+  forceFallback?: AppPreferredAudioInput;
+  forceFallback1?: AppPreferredAudioInput;
+  forceFallback2?: AppPreferredAudioInput;
+  preferredInputFallback?: AppPreferredAudioInput;
+  preferredInputFallback1?: AppPreferredAudioInput;
+  preferredInputFallback2?: AppPreferredAudioInput;
+  notifyOthers?: boolean;
+};
+type AppAudioRoutingConfig = {
+  default: AppRouteConfigEntry;
+  byOutputPort: {
+    [Port in keyof AudioRoutingConfig['byOutputPort']]?: AppRouteConfigEntry;
+  };
+  WhenPlayingAudio?: {
+    onPlay?: Pick<AppRouteConfigEntry, 'options'>;
+    onFinishPlaying?: Pick<AppRouteConfigEntry, 'notifyOthers'>;
+    msBeforeUnduck?: number;
+  };
+  STTDuckingConfig?: {
+    onUnpause?: Pick<AppRouteConfigEntry, 'options'>;
+    onPause?: Pick<AppRouteConfigEntry, 'notifyOthers'>;
+    msBeforeUnduck?: number;
+  };
+};
 
 export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
-  // Fallback when no special port match
+  // Fallback when no special port matches. Native adds A2DP for the primary
+  // Apple HD-mic attempt and switches to ordinary HFP if HD verification fails.
   default: {
     category: 'playAndRecord',
     mode: 'default',
     options: [
       'mixWithOthers',
-      'allowBluetooth',
-      'allowBluetoothA2DP',
+      'bluetoothHighQualityRecording',
       'allowAirPlay',
       'defaultToSpeaker',
     ],
-    preferredInput: 'none',
+    preferredInput: 'bluetoothHighQualityMic',
+    forceFallback: 'none',
   },
   byOutputPort: {
     // 1. CarPlay: run in CarPlay
@@ -110,12 +83,11 @@ export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
       mode: 'default',
       options: [
         'mixWithOthers',
-        'allowBluetooth',
         'allowBluetoothA2DP',
         'allowAirPlay',
         'defaultToSpeaker',
       ],
-      preferredInput: 'none',
+      preferredInput: 'builtInMic',
     },
 
     // ✅ NEW: when we’re already on built-in speaker, keep SAME config
@@ -124,39 +96,37 @@ export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
       mode: 'default',
       options: [
         'mixWithOthers',
-        'allowBluetooth',
         'allowBluetoothA2DP',
         'allowAirPlay',
         'defaultToSpeaker',
       ],
-      preferredInput: 'none',
+      preferredInput: 'builtInMic',
     },
 
-    // **** PLEASE NOTE - YOU MAY WANT TO KEEP SPOTIFY ON HD SOUND AND NOT ENABLE MIC WHILE IN A2DP **********
-    // 3. Bluetooth A2DP (Spotify etc) – capture from phone mic
+    // 3. Bluetooth A2DP: try the HD headset mic; fall back to ordinary HFP.
     bluetoothA2DP: {
       category: 'playAndRecord',
       mode: 'default',
       options: [
         'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
+        'bluetoothHighQualityRecording',
         'allowAirPlay',
       ],
-      preferredInput: 'builtInMic',
+      preferredInput: 'bluetoothHighQualityMic',
+      forceFallback: 'none',
     },
 
-    // 4. Bluetooth HFP – call-like; you can later change this if needed
+    // 4. Try to upgrade HFP to HD recording; if unavailable, use ordinary HFP.
     bluetoothHFP: {
       category: 'playAndRecord',
       mode: 'default',
       options: [
         'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
+        'bluetoothHighQualityRecording',
         'allowAirPlay',
       ],
-      preferredInput: 'none', // use HFP mic by default
+      preferredInput: 'bluetoothHighQualityMic',
+      forceFallback: 'none',
     },
 
     // 5. Wired headphones – play in ears, mic from phone
@@ -165,41 +135,31 @@ export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
       mode: 'default',
       options: [
         'mixWithOthers',
-        'allowBluetooth',
         'allowBluetoothA2DP',
         'allowAirPlay',
       ],
-      preferredInput: 'none',
+      preferredInput: 'builtInMic',
     },
   },
   WhenPlayingAudio: {
-    // Temporarily lower audio from Spotify/other apps while DaVoice plays TTS or WAV audio.
+    // Native clones the current hardware route and adds only duckOthers.
     onPlay: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'duckOthers',
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-        'defaultToSpeaker',
-      ],
-      preferredInput: 'none',
+      options: ['duckOthers'],
     },
 
-    // Native code uses notifyOthers, then restores the regular default/byOutputPort route.
+    // Native code notifies other audio and then restores the regular route.
     onFinishPlaying: {
-      category: 'playAndRecord',
-      mode: 'default',
-      options: [
-        'mixWithOthers',
-        'allowBluetooth',
-        'allowBluetoothA2DP',
-        'allowAirPlay',
-        'defaultToSpeaker',
-      ],
-      preferredInput: 'none',
+      notifyOthers: true,
+    },
+  },
+  STTDuckingConfig: {
+    // Native clones the current hardware route and adds only duckOthers.
+    onUnpause: {
+      options: ['duckOthers'],
+    },
+
+    // When STT pauses and playback is also idle, notify and restore the route.
+    onPause: {
       notifyOthers: true,
     },
   },
@@ -409,7 +369,9 @@ export async function initializeWakewordBootstrap({
     }
     try {
       // Set the same routing config directly on STT/TTS before Speech.initAll().
-      await Speech.setAudioRoutingConfig(defaultAudioRoutingConfig);
+      // Native accepts the temporary sections as deltas over the regular route.
+      // The installed speech declaration still models them as full entries.
+      await Speech.setAudioRoutingConfig(defaultAudioRoutingConfig as SpeechAudioRoutingConfig);
     } catch (e) {
       console.warn('Speech.setAudioRoutingConfig failed (wakeword fallback will be tried):', e);
     }
