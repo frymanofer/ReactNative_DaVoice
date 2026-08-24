@@ -48,6 +48,38 @@ expo/x
 expo/.pnp.cjs
 expo/.pnp.loader.mjs
 
+# Pure wakeword example: local credentials and machine-specific configuration
+example_wakeword/local.config.ts
+example_wakeword/licensekey.txt
+example_wakeword/.env
+example_wakeword/.env.*
+example_wakeword/ios/.xcode.env.local
+
+# Pure wakeword example: generated project state and build products
+example_wakeword/android/.kotlin/
+example_wakeword/ios/*.xcworkspace/
+example_wakeword/**/*.apk
+example_wakeword/**/*.aab
+example_wakeword/rnconfig.json
+
+# Pure wakeword example: legacy copies, logs, and local notes
+example_wakeword/App.tsx.backup-*
+example_wakeword/AppSimpleUI.tsx
+example_wakeword/old/
+example_wakeword/x
+example_wakeword/x.txt
+example_wakeword/ios/x
+example_wakeword/todo_*.txt
+example_wakeword/maven-metadata.xml
+example_wakeword/install.sh
+example_wakeword/pack_models_and_folders.sh
+
+# This example uses npm/package-lock rather than Yarn Plug'n'Play
+example_wakeword/.pnp.cjs
+example_wakeword/.pnp.loader.mjs
+example_wakeword/.yarnrc.yml
+example_wakeword/.yarn/
+
 # BUCK
 buck-out/
 \.buckd/
