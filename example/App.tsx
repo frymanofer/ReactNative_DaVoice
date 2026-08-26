@@ -578,13 +578,11 @@ function App(): React.JSX.Element {
     { keepDetectionPaused = false }: { keepDetectionPaused?: boolean } = {},
   ) {
     const inst = myInstanceRef.current;
-    if (inst) {
-      try {
-        await inst.pauseDetection(Platform.OS === 'android' ? true : false);
-      } catch (e) {
-        console.warn('pauseDetection before startup narration failed (ignored):', e);
-      }
-    }
+    // TEMPORARY AUDIO-SESSION TEST: keep wakeword active during narration.
+    // if (inst) {
+    //   await inst.pauseDetection(Platform.OS === 'android' ? true : false);
+    // }
+    void keepDetectionPaused;
 
     try {
       await Speech.pauseSpeechRecognition();
@@ -603,16 +601,11 @@ function App(): React.JSX.Element {
       }
     }
 
-    // Wake word detection stays paused when the caller is about to move straight into
-    // another mic-exclusive flow (e.g. speaker verification) — resuming it here would let
-    // a false wake-word trigger during that flow steal the mic and unpause STT.
-    if (inst && !keepDetectionPaused) {
-      try {
-        await inst.unPauseDetection();
-      } catch (e) {
-        console.warn('unPauseDetection after startup narration failed (ignored):', e);
-      }
-    }
+    // Wakeword was not paused above, so do not issue a redundant unpause.
+    // if (inst && !keepDetectionPaused) {
+    //   await inst.unPauseDetection();
+    // }
+    void inst;
   }
 
   async function handleSkipNarration() {
@@ -623,13 +616,10 @@ function App(): React.JSX.Element {
 
   async function reloadSpeechLibraryForSelectedVoice(enrollmentJsonPath?: string | null) {
     const inst = myInstanceRef.current;
-    if (inst) {
-      try {
-        await inst.pauseDetection(Platform.OS === 'android' ? true : false);
-      } catch (e) {
-        console.warn('pauseDetection before reloading selected voice failed (ignored):', e);
-      }
-    }
+    // TEMPORARY AUDIO-SESSION TEST: keep wakeword active while speech reloads.
+    // if (inst) {
+    //   await inst.pauseDetection(Platform.OS === 'android' ? true : false);
+    // }
 
     try {
       suppressAndroidPartialResultsRef.current = true;
@@ -647,13 +637,11 @@ function App(): React.JSX.Element {
       suppressAndroidPartialResultsRef.current = false;
     }
 
-    if (inst) {
-      try {
-        await inst.unPauseDetection();
-      } catch (e) {
-        console.warn('unPauseDetection after reloading selected voice failed (ignored):', e);
-      }
-    }
+    // Wakeword was not paused above, so do not issue a redundant unpause.
+    // if (inst) {
+    //   await inst.unPauseDetection();
+    // }
+    void inst;
   }
 
   const processAIChatTurn = async (rawText: string) => {
@@ -1409,15 +1397,12 @@ function App(): React.JSX.Element {
     setMessage('Full AI Chat is active. Start speaking.');
 
     if (Platform.OS === 'android') {
-      // Pause wake word detection so it releases the microphone before STT starts.
+      // TEMPORARY AUDIO-SESSION TEST: keep wakeword active while STT starts.
       const inst = myInstanceRef.current;
-      if (inst) {
-        try {
-          await inst.pauseDetection(true);
-        } catch (e) {
-          console.warn('[AIChat] pauseDetection before enterFullAIChatMode failed (ignored):', e);
-        }
-      }
+      // if (inst) {
+      //   await inst.pauseDetection(true);
+      // }
+      void inst;
 
       try {
         await Promise.race([

@@ -15,9 +15,9 @@
     "jetifier": "^2.0.0",
     "react": "19.1.1",
     "react-native": "0.82.0",
-    "react-native-davoice": "1.0.55",
+    "react-native-davoice": "1.0.61",
     "react-native-fs": "^2.20.0",
-    "react-native-wakeword": "1.1.131"
+    "react-native-wakeword": "1.1.143"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
