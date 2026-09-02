@@ -93,12 +93,15 @@ import {
   initializeWakewordBootstrap,
   instanceConfigs,
   prepareWakewordSpeechSession,
+  resumeWakewordDetection,
   shareWakewordRecordings,
   startWakewordDetection,
 } from './src/wakeword';
 
-const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Hanna';
-const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'heavy';
+//const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Hanna';
+const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
+
+const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'lite';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
 const FULL_AI_CHAT_STT_OPTIONS = {
@@ -1133,7 +1136,7 @@ function App(): React.JSX.Element {
           }, 10000);
         }
 
-        const { speechInitCompleted } = await initializeWakewordBootstrap({
+        const { speechInitCompleted, failureReason } = await initializeWakewordBootstrap({
           PlatformOS: Platform.OS,
           defaultAudioRoutingConfig,
           setMessage,
@@ -1141,9 +1144,9 @@ function App(): React.JSX.Element {
           listenerRef,
           myInstanceRef,
           keywordLicense:
-            'MTc4NTUzMTYwMDAwMA==-Gt6Mg+w5CfzNDxZrI738PMlcYrH+5GAotaD43oVeOiA=',
+            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
           speechLicense:
-            'MTc4NTUzMTYwMDAwMA==-Gt6Mg+w5CfzNDxZrI738PMlcYrH+5GAotaD43oVeOiA=',
+            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,
@@ -1162,6 +1165,9 @@ function App(): React.JSX.Element {
         }
 
         if (!speechInitCompleted) {
+          if (failureReason === 'invalid-license') {
+            return;
+          }
           setMessage(`Say the wake word "${wakeWords}" to continue.`);
           return;
         }
@@ -1171,7 +1177,9 @@ function App(): React.JSX.Element {
           .filter((voice) => voice !== narratorVoice)
           .join(' or ');
         await speakStartupNarration([
-          `Hey there, my name is ${narratorVoice}. In this application we will use my cloned voice to showcase our voice AI agent capabilities. Don't worry, I will be your personal guide to walk you through this demonstration step by step.`,
+          `Hey there. My name is ${narratorVoice}.`,
+          `In this application we will use my cloned voice to showcase our voice AI agent capabilities.`, 
+          `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
           `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
         ], { keepDetectionPaused: true });
 /*
@@ -1250,6 +1258,9 @@ function App(): React.JSX.Element {
             enrollmentJsonPath: enrollmentJsonPathRef.current,
             sleep,
           });
+          // The shared start helper pauses detection for bootstrap-time speech setup.
+          // This restart happens after setup, so balance that pause immediately.
+          await resumeWakewordDetection(myInstanceRef.current);
         }
 
         await speakStartupNarration([
