@@ -50,6 +50,12 @@ This folder breaks the original `App.tsx` logic into reusable feature modules so
   - `captureWakewordDetection(...)`
   - `prepareWakewordSpeechSession(...)`
   - `shareWakewordRecordings(...)`
+  - `reloadWakewordModel(...)`
+- `wakeword/modelUpdater.ts`: CDN update check for the `.dm` wake word model (sidecar `.sha256` or `HEAD` metadata, verified download, per-version install directory).
+- Main entry points:
+  - `syncWakewordModelOnStartup(...)`
+  - `checkForWakewordModelUpdate(...)`
+  - `getActiveWakewordModelPath(...)`
 
 ### `speaker_verification/onboarding.ts`
 - Enrollment persistence and onboarding flow.
