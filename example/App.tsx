@@ -86,6 +86,7 @@ import {
   attachKeywordListenerOnce,
   AudioPermissionComponent,
   captureWakewordDetection,
+  checkForWakewordModelUpdate,
   cleanDetectedWakeWord,
   defaultAudioRoutingConfig,
   detachKeywordListener,
@@ -93,6 +94,7 @@ import {
   initializeWakewordBootstrap,
   instanceConfigs,
   prepareWakewordSpeechSession,
+  reloadWakewordModel,
   resumeWakewordDetection,
   shareWakewordRecordings,
   startWakewordDetection,
@@ -112,6 +114,9 @@ const FULL_AI_CHAT_STT_OPTIONS = {
   REQUEST_PERMISSIONS_AUTO: true,
 };
 let calledOnce = false;
+// DaVoice demo license for wake word and speech. Kept in one place so the wake word model
+// reload after a CDN update can apply it again.
+const DAVOICE_DEMO_LICENSE = 'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=';
 
 function App(): React.JSX.Element {
   const [isFlashing, setIsFlashing] = useState(false);
@@ -250,16 +255,23 @@ function App(): React.JSX.Element {
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
+      console.log('[WakewordFlow] app state ->', nextAppState);
       if (nextAppState === 'active') {
         try {
           if (Platform.OS === 'android') {
             const granted = await AudioPermissionComponent();
+            console.log('[WakewordFlow] android mic permission granted ->', !!granted);
             setIsPermissionGranted(!!granted);
           } else {
-            if (await hasIOSMicPermissions() != true) {
+            const hadMic = await hasIOSMicPermissions();
+            console.log('[WakewordFlow] ios mic permission already granted ->', hadMic);
+            if (hadMic != true) {
               await requestIOSMicPermissions(20000);
+              console.log('[WakewordFlow] ios mic permission requested');
             }
-            if (await hasIOSSpeechRecognitionPermissions() != true) {
+            const hadSpeech = await hasIOSSpeechRecognitionPermissions();
+            console.log('[WakewordFlow] ios speech recognition permission already granted ->', hadSpeech);
+            if (hadSpeech != true) {
               requestIOSSpeechRecognitionPermissions(20000)
             }
             // Keep iOS behavior unchanged by Android-first permission gating.
@@ -319,6 +331,8 @@ function App(): React.JSX.Element {
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [latestWakewordRecordingPaths, setLatestWakewordRecordingPaths] = useState<string[]>([]);
+  const [isCheckingWakewordUpdate, setIsCheckingWakewordUpdate] = useState(false);
+  const startupFlowDoneRef = useRef(false);
   const lastPartialTimeRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const speechSessionUIAllowedRef = useRef(false);
@@ -1124,6 +1138,12 @@ function App(): React.JSX.Element {
     // --> STARTING POINT - INIT OF KEYWORD DETECTION !!!!
     const initializeKeywordDetection = async () => {
       let svChoice: SVPromptChoice = 'skip';
+      const initStarted = Date.now();
+      console.log('[WakewordFlow] initializeKeywordDetection: begin', {
+        platform: Platform.OS,
+        svChoice,
+        enrollmentJsonPath: enrollmentJsonPathRef.current,
+      });
 
       try {
         if (Platform.OS === 'android') {
@@ -1143,10 +1163,8 @@ function App(): React.JSX.Element {
           keywordCallback,
           listenerRef,
           myInstanceRef,
-          keywordLicense:
-            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
-          speechLicense:
-            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
+          keywordLicense: DAVOICE_DEMO_LICENSE,
+          speechLicense: DAVOICE_DEMO_LICENSE,
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,
@@ -1155,6 +1173,11 @@ function App(): React.JSX.Element {
           withTimeout,
           suppressAndroidPartialResultsRef,
           speechLibraryInitializedRef,
+        });
+        console.log('[WakewordFlow] initializeKeywordDetection: bootstrap returned', {
+          speechInitCompleted,
+          failureReason,
+          elapsedMs: Date.now() - initStarted,
         });
 
         if (Platform.OS === 'android') {
@@ -1166,11 +1189,14 @@ function App(): React.JSX.Element {
 
         if (!speechInitCompleted) {
           if (failureReason === 'invalid-license') {
+            console.log('[WakewordFlow] initializeKeywordDetection: stopping, license invalid');
             return;
           }
+          console.log('[WakewordFlow] initializeKeywordDetection: speech init incomplete, wakeword listening anyway');
           setMessage(`Say the wake word "${wakeWords}" to continue.`);
           return;
         }
+        console.log('[WakewordFlow] initializeKeywordDetection: speech ready, starting narration/onboarding');
 
         const narratorVoice = selectedTTSVoiceRef.current;
         const otherVoices = (['Hanna', 'Rich', 'Ariana'] as TTSVoiceChoice[])
@@ -1278,9 +1304,20 @@ function App(): React.JSX.Element {
           setMessage(`Say the wake word "${wakeWords}" to continue.`);
         }
         console.error('Error during keyword detection initialization:', error);
+      } finally {
+        // The wake word update menu only offers a live model reload once startup has settled.
+        startupFlowDoneRef.current = true;
+        console.log('[WakewordFlow] initializeKeywordDetection: startup flow done (hot reload of model now allowed)', {
+          elapsedMs: Date.now() - initStarted,
+        });
       }
     };
 
+    console.log('[WakewordFlow] init effect', {
+      initStarted: initStartedRef.current,
+      isPermissionGranted,
+      didInitSID,
+    });
     if (initStartedRef.current) return;
     if (!isPermissionGranted || !didInitSID) return;
 
@@ -1481,6 +1518,136 @@ function App(): React.JSX.Element {
       latestWakewordRecordingPaths,
       setIsMenuOpen,
     });
+
+  // Nothing is mid-flight: no prompt, no narration, no STT/TTS session. Only then is it safe to
+  // hot-swap the wake word model on the live instance instead of asking for an app restart.
+  // Mirrored into a ref so the async handlers below read the current value, not the one
+  // captured when they were created.
+  const isIdleListeningRef = useRef(false);
+  isIdleListeningRef.current =
+    !isSpeechSessionActive &&
+    !isIntroSpeaking &&
+    !isTTSTestMode &&
+    !isFullAIChatMode &&
+    !isSTTOnlyMode &&
+    !isCombinedMode &&
+    !showSVPrompt &&
+    !showSVStatusScreen &&
+    !showAppModePrompt &&
+    !showTTSModelPrompt &&
+    !svRunning;
+  const canHotReloadWakeword = () =>
+    startupFlowDoneRef.current && isIdleListeningRef.current && !!myInstanceRef.current;
+
+  const RESTART_FOR_WAKEWORD_UPDATE_MESSAGE =
+    'A new wake word model was downloaded. Close the app completely and open it again to start using it.';
+
+  const reloadWakewordModelNow = async (modelPath: string) => {
+    const instance = myInstanceRef.current;
+    console.log('[WakewordFlow] reloadWakewordModelNow: requested', {
+      modelPath,
+      hasInstance: !!instance,
+      startupFlowDone: startupFlowDoneRef.current,
+      isIdleListening: isIdleListeningRef.current,
+    });
+    if (!instance || !canHotReloadWakeword()) {
+      console.log('[WakewordFlow] reloadWakewordModelNow: cannot hot reload now, asking user to restart the app');
+      Alert.alert('Wake word updated', RESTART_FOR_WAKEWORD_UPDATE_MESSAGE);
+      return;
+    }
+    setMessage('Reloading wake word model...');
+    try {
+      await reloadWakewordModel({
+        instance,
+        modelPath,
+        keywordLicense: DAVOICE_DEMO_LICENSE,
+        svChoice: enrollmentJsonPathRef.current ? 'use_existing' : 'skip',
+        enrollmentJsonPath: enrollmentJsonPathRef.current,
+        sleep,
+        resumeDetection: true,
+      });
+      console.log('[WakewordFlow] reloadWakewordModelNow: hot reload succeeded, new model active');
+      setMessage(`Wake word model updated. Say the wake word "${wakeWords}" to continue.`);
+    } catch (error) {
+      console.warn('[WakewordUpdate] live reload failed, restart required:', error);
+      console.log('[WakewordFlow] reloadWakewordModelNow: hot reload FAILED, model will load on next app launch');
+      setMessage(`Say the wake word "${wakeWords}" to continue.`);
+      Alert.alert(
+        'Could not load the new model',
+        'The new wake word model was downloaded but this version of the wake word engine could not load it. The app keeps using the built-in model.',
+      );
+    }
+  };
+
+  // Manual "Check for wake word update" (top-right menu). The startup check is silent; this one
+  // is user-initiated, so it reports the outcome.
+  const checkForWakewordUpdate = async () => {
+    console.log('[WakewordFlow] manual update check: requested from menu', { alreadyChecking: isCheckingWakewordUpdate });
+    if (isCheckingWakewordUpdate) return;
+    setIsCheckingWakewordUpdate(true);
+    const checkStarted = Date.now();
+    try {
+      const result = await checkForWakewordModelUpdate({
+        fileName: instanceConfigs[0].modelName,
+      });
+      console.log('[WakewordFlow] manual update check: result', {
+        ...result,
+        elapsedMs: Date.now() - checkStarted,
+      });
+      setIsMenuOpen(false);
+      if (result.status === 'up_to_date') {
+        console.log('[WakewordFlow] manual update check: already up to date');
+        Alert.alert('Wake word up to date', `"${wakeWords}" is already using the latest model.`);
+        return;
+      }
+      if (result.status !== 'updated') {
+        console.log('[WakewordFlow] manual update check: CDN unavailable or download failed', result.reason);
+        Alert.alert(
+          'Wake word update',
+          'Could not check for a wake word update right now. Please try again later.',
+        );
+        return;
+      }
+      if (!canHotReloadWakeword()) {
+        console.log('[WakewordFlow] manual update check: new model installed but app is busy, restart required', {
+          startupFlowDone: startupFlowDoneRef.current,
+          isIdleListening: isIdleListeningRef.current,
+          hasInstance: !!myInstanceRef.current,
+        });
+        Alert.alert('Wake word updated', RESTART_FOR_WAKEWORD_UPDATE_MESSAGE);
+        return;
+      }
+      console.log('[WakewordFlow] manual update check: new model installed, offering hot reload');
+      Alert.alert(
+        'Wake word updated',
+        'A new wake word model was downloaded. Reload it now, or close and reopen the app later.',
+        [
+          {
+            text: 'Later',
+            style: 'cancel',
+            onPress: () => console.log('[WakewordFlow] user chose "Later"; new model loads on next app launch'),
+          },
+          {
+            text: 'Reload now',
+            onPress: () => {
+              console.log('[WakewordFlow] user chose "Reload now"');
+              void reloadWakewordModelNow(result.modelPath);
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      console.warn('[WakewordUpdate] manual check failed:', error);
+      console.log('[WakewordFlow] manual update check: threw', error);
+      setIsMenuOpen(false);
+      Alert.alert(
+        'Wake word update',
+        'Could not check for a wake word update right now. Please try again later.',
+      );
+    } finally {
+      setIsCheckingWakewordUpdate(false);
+    }
+  };
 
   const shouldShowFullAIChatScreen =
     isFullAIChatMode ||
@@ -2149,6 +2316,15 @@ function App(): React.JSX.Element {
                   activeOpacity={0.7}
                   onPress={shareLatestRecordings}>
                   <Text style={styles.menuItemText}>Share recordings</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItemButton}
+                  activeOpacity={0.7}
+                  disabled={isCheckingWakewordUpdate}
+                  onPress={checkForWakewordUpdate}>
+                  <Text style={styles.menuItemText}>
+                    {isCheckingWakewordUpdate ? 'Checking for update...' : 'Check for wake word update'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}

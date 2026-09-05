@@ -100,6 +100,75 @@ For production apps, a permanent Gemini key should usually not be shipped direct
 
 Make sure your Metro configuration supports DaVoice model assets such as `.onnx` and `.dm` files. See [react-native.config.js](./react-native.config.js) and the project asset setup.
 
+### Wake word model updates from a CDN
+
+The wake word model `hey_coach_model_28_22012026b.dm` ships inside the app (Android assets and the iOS bundle) and can also be refreshed from a CDN at runtime. The code lives in [src/wakeword/modelUpdater.ts](./src/wakeword/modelUpdater.ts).
+
+Host two files at the root of the CDN, keeping the names:
+
+```text
+https://<cdn>/hey_coach_model_28_22012026b.dm
+https://<cdn>/hey_coach_model_28_22012026b.dm.sha256
+```
+
+`WAKEWORD_MODEL_CDN_BASE_URL` in `src/wakeword/modelUpdater.ts` must be the **directory** that holds the files, not the file itself. The updater appends the model name, so a base URL that already ends in `.dm` produces `.../<model>.dm/<model>.dm` and every request returns 404. The example uses a Cloudflare R2 public bucket:
+
+```ts
+export const WAKEWORD_MODEL_CDN_BASE_URL = 'https://pub-fa06ba558cd447a38e86d0d4cf3e6786.r2.dev';
+```
+
+Generate the `.sha256` sidecar after every model change and upload it together with the model:
+
+```bash
+node scripts/wakeword-model-hash.js path/to/hey_coach_model_28_22012026b.dm
+# writes path/to/hey_coach_model_28_22012026b.dm.sha256 (use --out <dir> to place it elsewhere)
+```
+
+Give the `.sha256` file a short cache TTL so new versions are noticed quickly. The CDN must be served over HTTPS (iOS App Transport Security is left strict in this example).
+
+#### How it behaves
+
+- **App open**: before the wake word instance is created, the app fetches the `.sha256` sidecar (or, if it is missing, the model's `ETag`/`Last-Modified`/`Content-Length` from a `HEAD` request) and compares it with the model in use. Only when it differs is the `.dm` downloaded, hash-verified, and installed. The instance then loads the new file. The check is time-boxed (15 seconds) and silent: if the CDN is unreachable or the download fails, nothing is shown and the current model keeps working.
+- **Menu, "Check for wake word update"**: same check, started by the user. It reports "up to date", "could not check", or "updated". After an update, when the app is idle (no prompt, narration, or speech session), it offers "Reload now", which hot-swaps the model on the running instance. Otherwise it asks the user to close the app completely and open it again.
+- **CDN serves the bundled model again**: the downloaded copy is dropped and the app returns to the bundled model.
+
+Downloaded models are stored under the app's documents directory in `wakeword_models/<sha256 prefix>/`, each version in its own folder so the native `.dm` unpack cache never serves a stale copy. The manifest next to them records what is installed; deleting the folder falls back to the bundled model.
+
+#### Platform support
+
+| Platform | Loads a downloaded model? | Notes |
+|---|---|---|
+| Android | Yes | The DaVoice `KeyWordsDetection` library checks `new File(path).exists()` before treating the string as an asset name. |
+| iOS | Not yet (react-native-wakeword 1.1.143) | The DaVoice `KeyWordDetection.xcframework` resolves every model string as a main-bundle asset (`copyAssetToDocumentsDirectory`). An absolute path fails with `Failed to copy asset`. |
+
+On iOS the download and install still succeed, but when the native instance rejects the path the app logs a warning and falls back to the bundled model (`addInstanceMulti` and `reloadWakewordModel` in [src/wakeword/index.ts](./src/wakeword/index.ts)). The "Reload now" action shows "Could not load the new model" instead of asking for a restart, since a restart would not help. Once the iOS framework accepts absolute paths (a one-line early return for paths that start with `/` and exist on disk, matching the Android behavior), downloaded models take effect on iOS with no app change.
+
+#### Logging
+
+The whole flow is traced in the console:
+
+- `[WakewordFlow]`: app launch, permissions, init gating, bootstrap, instance creation, license, detection start, manual update check, and hot reload (`App.tsx` and `src/wakeword/index.ts`).
+- `[WakewordModelUpdate]`: manifest state, the exact URLs requested, remote and bundled hashes, HEAD fallback metadata, download progress, verification, install path, cleanup, and the final `RESULT` line with the remaining time budget (`src/wakeword/modelUpdater.ts`).
+
+#### Testing an update end to end
+
+1. Keep two different versions of the model with the same file name, for example the bundled one in `assets/models/` and a newer one in `assets/models/new/`.
+2. Create the sidecar for the new model:
+   ```bash
+   node scripts/wakeword-model-hash.js assets/models/new/hey_coach_model_28_22012026b.dm
+   ```
+3. Upload `hey_coach_model_28_22012026b.dm` and `hey_coach_model_28_22012026b.dm.sha256` from that folder to the CDN root, replacing the existing files. Verify:
+   ```bash
+   curl -sS https://<cdn>/hey_coach_model_28_22012026b.dm.sha256
+   curl -sS https://<cdn>/hey_coach_model_28_22012026b.dm | shasum -a 256
+   ```
+   Both hashes must match.
+4. **Startup path**: delete the app from the device, install, launch, and filter the console on `[WakewordModelUpdate]`. Expect `step 1: remote sha256 =`, `compare remote vs bundled` with two different hashes, `download verified`, `INSTALLING new model`, `RESULT updated`, then `using DOWNLOADED model`. On iOS a `[WakewordFlow]` warning follows and the bundled model is used (see Platform support).
+5. **Already up to date**: relaunch without changing the CDN. Expect `remote sha256 matches the installed downloaded model` and `RESULT up_to_date` with no download.
+6. **Manual check**: upload another version plus its sidecar, open the top-right menu, tap "Check for wake word update", then "Reload now". Android hot-swaps the model; iOS shows "Could not load the new model" and keeps running.
+7. **Rollback**: upload the bundled model and its sidecar again and relaunch. Expect `switching back to the BUNDLED model` and `RESULT up_to_date`; the old version folder is removed.
+8. **Offline**: disable networking and launch. Expect `RESULT unavailable` within seconds and a normal start on the active model.
+
 ### Native permissions
 
 Microphone permission is required. iOS speech-recognition permissions may also be required depending on the flow you enable.
@@ -117,6 +186,8 @@ The example can share recorded wake-word audio. On Android that uses a `FileProv
 - [src/stt/](./src/stt): STT transcript merge logic and speech callback registration
 - [src/tts/](./src/tts): TTS constants, model assets, and intro speech flow
 - [src/wakeword/](./src/wakeword): wakeword config, bootstrap, listener, capture, and sharing helpers
+- [src/wakeword/modelUpdater.ts](./src/wakeword/modelUpdater.ts): CDN update check and download for the `.dm` wake word model
+- [scripts/wakeword-model-hash.js](./scripts/wakeword-model-hash.js): writes the `.sha256` sidecar to upload next to the model
 - [src/speaker_verification/](./src/speaker_verification): onboarding and verification helpers
 - [src/aichat/](./src/aichat): Gemini request helpers and AI-chat speech/session helpers
 - [package.json](./package.json): example dependencies

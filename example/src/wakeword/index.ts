@@ -6,6 +6,19 @@ import { disableDucking, enableDucking, createKeyWordRNBridgeInstance, setWakewo
 import type { AudioRoutingConfig, KeyWordRNBridgeInstance } from 'react-native-wakeword';
 import type { AppModeChoice } from '../appflow';
 import { ensureMicPermission } from '../initialization';
+import { getActiveWakewordModelPath, syncWakewordModelOnStartup } from './modelUpdater';
+
+// CDN model update helpers (see ./modelUpdater.ts for the on-disk layout and hash checks).
+export {
+  checkForWakewordModelUpdate,
+  getActiveWakewordModelPath,
+  getWakewordModelCdnUrl,
+  getWakewordModelsDir,
+  syncWakewordModelOnStartup,
+  WAKEWORD_MODEL_CDN_BASE_URL,
+  WAKEWORD_MODEL_HASH_SUFFIX,
+} from './modelUpdater';
+export type { WakewordModelUpdateResult, WakewordModelUpdateStatus } from './modelUpdater';
 
 
 //
@@ -194,9 +207,11 @@ export const instanceConfigs: InstanceConfig[] = [
   //   { id: 'multi_model_instance', modelName, threshold: 0.95, bufferCnt: 3, sticky: false, msBetweenCallbacks: 1000 },
 ];
 
-// Helper function to format the ONNX file name
+// Helper function to format the ONNX file name.
+// Accepts a bare file name or an absolute path (CDN-updated models are passed as paths).
 export const formatWakeWord = (fileName: string) => {
-    return fileName
+    const baseName = fileName.split('/').pop() ?? fileName;
+    return baseName
       .replace(/(_model.*|_\d+.*)(\.(onnx|dm))$/, '')
       .replace(/\.(onnx|dm)$/, '')
       .replace(/_/g, ' ')
@@ -215,26 +230,55 @@ export async function addInstance(conf: InstanceConfig): Promise<KeyWordRNBridge
     console.error(`Failed to create instance ${id}`);
   }
   console.log(`Instance ${id} created ${instance}`);
-  await instance.createInstance(conf.modelName, conf.threshold, conf.bufferCnt);
+  // Absolute path of a CDN-updated model when one is installed, otherwise the bundled asset name.
+  const modelPath = await getActiveWakewordModelPath(conf.modelName);
+  await instance.createInstance(modelPath, conf.threshold, conf.bufferCnt);
   console.log(`Instance ${id} createInstance() called`);
   return instance;
 }
 
 export async function addInstanceMulti(conf: InstanceConfig): Promise<KeyWordRNBridgeInstance> {
   const id = conf.id;
+  console.log('[WakewordFlow] addInstanceMulti: creating bridge instance', id);
   const instance = await createKeyWordRNBridgeInstance(id, false);
   if (!instance) {
     console.error(`Failed to create instance ${id}`);
   }
   console.log(`Instance ${id} created ${instance}`);
 
-  const modelNames = instanceConfigs.map((c) => c.modelName);
+  // Absolute paths of CDN-updated models when installed, otherwise the bundled asset names.
+  const modelNames = await Promise.all(
+    instanceConfigs.map((c) => getActiveWakewordModelPath(c.modelName)),
+  );
   const thresholds = instanceConfigs.map((c) => c.threshold);
   const bufferCnts = instanceConfigs.map((c) => c.bufferCnt);
   const msBetweenCallbacks = instanceConfigs.map((c) => c.msBetweenCallbacks);
 
-  await instance.createInstanceMulti(modelNames, thresholds, bufferCnts, msBetweenCallbacks);
+  console.log('[WakewordFlow] addInstanceMulti: createInstanceMulti() with', {
+    modelNames,
+    thresholds,
+    bufferCnts,
+    msBetweenCallbacks,
+  });
+  const bundledNames = instanceConfigs.map((c) => c.modelName);
+  const usingDownloaded = modelNames.some((path, index) => path !== bundledNames[index]);
+  try {
+    await instance.createInstanceMulti(modelNames, thresholds, bufferCnts, msBetweenCallbacks);
+  } catch (error) {
+    if (!usingDownloaded) throw error;
+    // The current iOS KeyWordDetection framework only resolves bare bundle asset names
+    // (it copies the asset from the main bundle into Documents); an absolute path to a
+    // CDN-downloaded model fails with "Failed to copy asset". Android accepts absolute paths.
+    // Fall back to the bundled model so the app keeps working.
+    console.warn(
+      '[WakewordFlow] addInstanceMulti: native SDK rejected the downloaded model path(s); falling back to the bundled model(s)',
+      String(error),
+    );
+    await instance.createInstanceMulti(bundledNames, thresholds, bufferCnts, msBetweenCallbacks);
+    console.log('[WakewordFlow] addInstanceMulti: bundled model(s) loaded instead', bundledNames);
+  }
   console.log(`Instance ${id} createInstance() called`);
+  console.log('[WakewordFlow] addInstanceMulti: native instance ready');
   return instance;
 }
 
@@ -295,9 +339,13 @@ export async function startWakewordDetection({
   // await inst.startKeywordDetection(instanceConfigs[0].threshold, false);
   */
 
+  console.log('[WakewordFlow] startWakewordDetection: begin', { svChoice, enrollmentJsonPath });
   try {
     await instance.stopKeywordDetection();
-  } catch {}
+    console.log('[WakewordFlow] startWakewordDetection: previous detection stopped');
+  } catch (e) {
+    console.log('[WakewordFlow] startWakewordDetection: stopKeywordDetection threw (ignored)', e);
+  }
 
   if (svChoice !== 'skip' && typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
     console.log('startKeywordDetection with SV:', enrollmentJsonPath);
@@ -310,6 +358,7 @@ export async function startWakewordDetection({
     console.log('startKeywordDetection without SV:');
     await instance.startKeywordDetection(instanceConfigs[0].threshold, true);
   }
+  console.log('[WakewordFlow] startWakewordDetection: native detection started, pausing until speech init is done');
   await instance.pauseDetection(Platform.OS === 'android' ? true : false);
   await sleep(100);
   console.log('Post pauseDetection');
@@ -323,6 +372,78 @@ export async function resumeWakewordDetection(instance: KeyWordRNBridgeInstance)
   } catch (unpauseError) {
     console.error('Failed to unpause keyword detection:', unpauseError);
   }
+}
+
+/**
+ * Hot-swap the wake word model on the live instance (used after a manual CDN update so the
+ * user does not have to restart the app). Throws when the native SDK rejects the swap; the
+ * caller then asks the user to close and reopen the app.
+ *
+ * Note: the native replace call re-resolves `modelPath` (absolute file or bundled asset) and
+ * resets the per-model license state, so the license is applied again afterwards.
+ */
+export async function reloadWakewordModel({
+  instance,
+  modelPath,
+  keywordLicense,
+  svChoice,
+  enrollmentJsonPath,
+  sleep,
+  resumeDetection = true,
+}: {
+  instance: KeyWordRNBridgeInstance;
+  modelPath: string;
+  keywordLicense: string;
+  svChoice: string;
+  enrollmentJsonPath?: string | null;
+  sleep: (ms: number) => Promise<void>;
+  resumeDetection?: boolean;
+}) {
+  const conf = instanceConfigs[0];
+  console.log('[WakewordFlow] reloadWakewordModel: begin (hot swap without app restart)', { modelPath, resumeDetection });
+  try {
+    await instance.stopKeywordDetection();
+    console.log('[WakewordFlow] reloadWakewordModel: detection stopped');
+  } catch (e) {
+    console.log('[WakewordFlow] reloadWakewordModel: stopKeywordDetection threw (ignored)', e);
+  }
+
+  console.log('reloadWakewordModel: replacing model with', modelPath);
+  try {
+    await instance.replaceKeywordDetectionModel(modelPath, conf.threshold, conf.bufferCnt);
+  } catch (error) {
+    if (modelPath !== conf.modelName) {
+      // Same limitation as in addInstanceMulti: put the bundled model back so detection
+      // keeps running, then let the caller report the failure.
+      console.warn(
+        '[WakewordFlow] reloadWakewordModel: native SDK rejected the downloaded model path; restoring the bundled model',
+        String(error),
+      );
+      try {
+        await instance.replaceKeywordDetectionModel(conf.modelName, conf.threshold, conf.bufferCnt);
+        await instance.setKeywordDetectionLicense(keywordLicense);
+        await startWakewordDetection({ instance, svChoice, enrollmentJsonPath, sleep });
+        if (resumeDetection) await resumeWakewordDetection(instance);
+        console.log('[WakewordFlow] reloadWakewordModel: bundled model restored and detection resumed');
+      } catch (restoreError) {
+        console.error('[WakewordFlow] reloadWakewordModel: restoring the bundled model failed too', restoreError);
+      }
+    }
+    throw error;
+  }
+  console.log('[WakewordFlow] reloadWakewordModel: native replaceKeywordDetectionModel() done');
+
+  const isLicensed = await instance.setKeywordDetectionLicense(keywordLicense);
+  console.log('[WakewordFlow] reloadWakewordModel: license re-applied ->', isLicensed);
+  if (!isLicensed) {
+    throw new Error('Wake word license was rejected after the model reload.');
+  }
+
+  await startWakewordDetection({ instance, svChoice, enrollmentJsonPath, sleep });
+  if (resumeDetection) {
+    await resumeWakewordDetection(instance);
+  }
+  console.log('[WakewordFlow] reloadWakewordModel: complete, new model is live');
 }
 
 export async function initializeWakewordBootstrap({
@@ -360,10 +481,17 @@ export async function initializeWakewordBootstrap({
   suppressAndroidPartialResultsRef: { current: boolean };
   speechLibraryInitializedRef: { current: boolean };
 }) {
+  console.log('[WakewordFlow] initializeWakewordBootstrap: begin', {
+    platform: PlatformOS,
+    svChoice,
+    enrollmentJsonPath,
+    models: instanceConfigs.map((c) => c.modelName),
+  });
   // 🔹 *** NEW ***: configure routing once (iOS only) BEFORE creating instances
   if (PlatformOS === 'ios') {
     try {
       await setWakewordAudioRoutingConfig(defaultAudioRoutingConfig);
+      console.log('[WakewordFlow] iOS audio routing config applied to wakeword');
     } catch (e) {
       console.warn('setWakewordAudioRoutingConfig failed (ignored):', e);
     }
@@ -372,9 +500,34 @@ export async function initializeWakewordBootstrap({
       // Native accepts the temporary sections as deltas over the regular route.
       // The installed speech declaration still models them as full entries.
       await Speech.setAudioRoutingConfig(defaultAudioRoutingConfig as SpeechAudioRoutingConfig);
+      console.log('[WakewordFlow] iOS audio routing config applied to Speech');
     } catch (e) {
       console.warn('Speech.setAudioRoutingConfig failed (wakeword fallback will be tried):', e);
     }
+  }
+
+  // --> CHECK THE CDN FOR A NEWER WAKEWORD MODEL !!!!
+  // Silent and time-boxed: a failed check or download never blocks init or surfaces an error.
+  // The instance created below simply loads whichever model is active (downloaded or bundled).
+  for (const config of instanceConfigs) {
+    console.log('[WakewordFlow] CDN model check: starting for', config.modelName);
+    const syncStarted = Date.now();
+    const modelUpdate = await syncWakewordModelOnStartup({
+      fileName: config.modelName,
+      onDownloadStart: () => {
+        console.log('[WakewordFlow] CDN model check: download started, showing status to user');
+        setMessage('Downloading wake word update...');
+      },
+    });
+    console.log('Wakeword model sync:', modelUpdate.status, modelUpdate.modelPath);
+    console.log('[WakewordFlow] CDN model check: finished', {
+      status: modelUpdate.status,
+      usingDownloadedModel: modelUpdate.usingDownloadedModel,
+      modelPath: modelUpdate.modelPath,
+      sha256: modelUpdate.sha256,
+      reason: modelUpdate.reason,
+      elapsedMs: Date.now() - syncStarted,
+    });
   }
 
   // --> CREATE THE INSTANCE !!!!
@@ -382,16 +535,20 @@ export async function initializeWakewordBootstrap({
     console.log('Adding element:', instanceConfigs[0]);
     const instance = await addInstanceMulti(instanceConfigs[0]);
     myInstanceRef.current = instance;
+    console.log('[WakewordFlow] wakeword instance stored in myInstanceRef');
   } catch (error) {
     console.error('Error loading model:', error);
+    console.log('[WakewordFlow] initializeWakewordBootstrap: ABORT, model load failed');
     return { speechInitCompleted: false };
   }
 
   // --> Attach the callback !!!!
   const inst = myInstanceRef.current!;
   await attachKeywordListenerOnce(listenerRef, inst, formatWakeWord, keywordCallback);
+  console.log('[WakewordFlow] keyword detection listener attached');
 
   const isLicensed = await inst.setKeywordDetectionLicense(keywordLicense);
+  console.log('[WakewordFlow] wakeword license accepted ->', isLicensed);
   if (!isLicensed) {
     console.error('No License!!! - setKeywordDetectionLicense returned', isLicensed);
     setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
@@ -399,6 +556,7 @@ export async function initializeWakewordBootstrap({
   }
 
   const isSpeechLicensed = await Speech.setLicense(speechLicense);
+  console.log('[WakewordFlow] speech license accepted ->', isSpeechLicensed);
   if (!isSpeechLicensed) {
     console.error('No License!!! - Speech.setLicense returned', isSpeechLicensed);
     setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
@@ -450,6 +608,7 @@ export async function initializeWakewordBootstrap({
     await resumeWakewordDetection(inst);
   }
 
+  console.log('[WakewordFlow] initializeWakewordBootstrap: complete', { speechInitCompleted });
   return { inst, speechInitCompleted };
 }
 

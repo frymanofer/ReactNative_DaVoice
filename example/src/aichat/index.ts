@@ -1,5 +1,4 @@
-import { GEMINI_API_KEY } from '../../local.config';
-
+const GEMINI_API_KEY = 'PUT YOUR KEY HERE'; // Replace with your actual Gemini API key
 export type GeminiChatMessage = {
   role: 'user' | 'model';
   parts: Array<{ text: string }>;
