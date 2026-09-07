@@ -1176,9 +1176,10 @@ function App(): React.JSX.Element {
         const otherVoices = (['Hanna', 'Rich', 'Ariana'] as TTSVoiceChoice[])
           .filter((voice) => voice !== narratorVoice)
           .join(' or ');
+        const voiceToUse = narratorVoice === 'Rich' ? 'Richard' : narratorVoice;
         await speakStartupNarration([
-          `Hey there. My name is ${narratorVoice}.`,
-          `In this application we will use my cloned voice to showcase our voice AI agent capabilities.`, 
+          `Hey there. My name is ${voiceToUse}`,
+          `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
           `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
           `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
         ], { keepDetectionPaused: true });

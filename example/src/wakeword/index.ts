@@ -45,9 +45,21 @@ type AppAudioRoutingConfig = {
     onPause?: Pick<AppRouteConfigEntry, 'notifyOthers'>;
     msBeforeUnduck?: number;
   };
+  wakeWordDuringTTS?: {
+    threshold: number;
+    buffer_cnt: number;
+  };
+  WakewordAEC?: {
+    regular: boolean;
+    duringTTS: boolean;
+  };
 };
 
 export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
+  WakewordAEC: {
+    regular: false,
+    duringTTS: true,
+  },
   // Fallback when no special port matches. Native adds A2DP for the primary
   // Apple HD-mic attempt and switches to ordinary HFP if HD verification fails.
   default: {
@@ -162,6 +174,10 @@ export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
     onPause: {
       notifyOthers: true,
     },
+  },
+  wakeWordDuringTTS: {
+    threshold: 0.9,
+    buffer_cnt: 1,
   },
 };
 
@@ -359,7 +375,11 @@ export async function initializeWakewordBootstrap({
   withTimeout: <T>(promise: Promise<T>, timeoutMs: number, label: string) => Promise<T>;
   suppressAndroidPartialResultsRef: { current: boolean };
   speechLibraryInitializedRef: { current: boolean };
-}) {
+}): Promise<{
+  inst?: KeyWordRNBridgeInstance;
+  speechInitCompleted: boolean;
+  failureReason?: 'model-load' | 'invalid-license' | 'speech-initialization';
+}> {
   // 🔹 *** NEW ***: configure routing once (iOS only) BEFORE creating instances
   if (PlatformOS === 'ios') {
     try {
@@ -384,7 +404,7 @@ export async function initializeWakewordBootstrap({
     myInstanceRef.current = instance;
   } catch (error) {
     console.error('Error loading model:', error);
-    return { speechInitCompleted: false };
+    return { speechInitCompleted: false, failureReason: 'model-load' };
   }
 
   // --> Attach the callback !!!!
@@ -394,15 +414,15 @@ export async function initializeWakewordBootstrap({
   const isLicensed = await inst.setKeywordDetectionLicense(keywordLicense);
   if (!isLicensed) {
     console.error('No License!!! - setKeywordDetectionLicense returned', isLicensed);
-    setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
-    return { speechInitCompleted: false };
+    setMessage('License not valid: Please contact info@davoice.io for a new license');
+    return { speechInitCompleted: false, failureReason: 'invalid-license' };
   }
 
   const isSpeechLicensed = await Speech.setLicense(speechLicense);
   if (!isSpeechLicensed) {
     console.error('No License!!! - Speech.setLicense returned', isSpeechLicensed);
-    setMessage('Lincese not valid: Please contact info@davoice.io for a new license');
-    return { speechInitCompleted: false };
+    setMessage('License not valid: Please contact info@davoice.io for a new license');
+    return { speechInitCompleted: false, failureReason: 'invalid-license' };
   }
 
   await startWakewordDetection({
@@ -450,7 +470,11 @@ export async function initializeWakewordBootstrap({
     await resumeWakewordDetection(inst);
   }
 
-  return { inst, speechInitCompleted };
+  return {
+    inst,
+    speechInitCompleted,
+    failureReason: speechInitCompleted ? undefined : 'speech-initialization',
+  };
 }
 
 const toFileUrl = (path: string): string => (path.startsWith('file://') ? path : `file://${path}`);

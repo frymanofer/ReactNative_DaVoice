@@ -6,7 +6,7 @@ export const RICH = 1;
 
 export const SPEAKER = 0;
 
-export const RICH_SPEAKER_SPEED = 0.9;
+export const RICH_SPEAKER_SPEED = 0.85;
 export const ARIANA_SPEAKER_SPEED = 0.88; //0.75;
 export const HANNA_SPEAKER_SPEED = 0.9;
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
