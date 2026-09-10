@@ -98,8 +98,8 @@ import {
   startWakewordDetection,
 } from './src/wakeword';
 
-//const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Hanna';
-const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
+// const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
+const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Hanna';
 
 const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'lite';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
@@ -990,7 +990,7 @@ function App(): React.JSX.Element {
             await speakStartupNarration([`${cleanWakeWord} detected.`], { keepDetectionPaused: true });
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
-              'Now you can choose from four options, a full AI Chat option, testing Speech to Text individually, testing Text to Speech individually, or a combination of both Speech to Text and Text to Speech.',
+              'Now you can test the voice capabilities in four different ways. You can sellect a full AI Chat, or simple test Speech to Text and Text to Speech individually or a combination of both.',
             ]);
           },
         });
@@ -1177,12 +1177,21 @@ function App(): React.JSX.Element {
           .filter((voice) => voice !== narratorVoice)
           .join(' or ');
         const voiceToUse = narratorVoice === 'Rich' ? 'Richard' : narratorVoice;
-        await speakStartupNarration([
-          `Hey there. My name is ${voiceToUse}`,
-          `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
-          `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-          `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
-        ], { keepDetectionPaused: true });
+
+        if (narratorVoice === 'Rich') { 
+          await speakStartupNarration([
+            `Hey there. My name is ${voiceToUse}`,
+            `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
+            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
+            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+          ], { keepDetectionPaused: true });
+        } else {
+          await speakStartupNarration([
+            `Hey there, My name is ${narratorVoice}, In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
+            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
+            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+          ], { keepDetectionPaused: true });
+        }
 /*
         await speakStartupNarration([
           `Hey there,, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
