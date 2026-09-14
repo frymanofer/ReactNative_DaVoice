@@ -71,6 +71,11 @@ import {
 } from './src/speaker_verification/onboarding';
 import {
   ARIANA_SPEAKER_SPEED,
+  ARIANA_SPEAKER_SPEED_NEW_MODEL,
+  HANNA_SPEAKER_SPEED_NEW_MODEL,
+  RICH_SPEAKER_SPEED_NEW_MODEL,
+  defaultTTSModel,
+  usesEx2TTSModel,
   HANNA_SPEAKER_SPEED,
   playWakewordIntroSpeech,
   RICH_SPEAKER_SPEED,
@@ -98,8 +103,7 @@ import {
   startWakewordDetection,
 } from './src/wakeword';
 
-// const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
-const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Hanna';
+const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
 
 const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'lite';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
@@ -141,13 +145,7 @@ function App(): React.JSX.Element {
   const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
   const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
-  const selectedTTSModelRef = useRef(
-    DEFAULT_TTS_VOICE === 'Rich'
-      ? (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelRichFast : ttsModelRichSlow)
-      : DEFAULT_TTS_VOICE === 'Hanna'
-        ? (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelFastHanna : ttsModelSlowHanna)
-      : (DEFAULT_TTS_QUALITY === 'lite' ? ttsModelFast : ttsModelSlow),
-  );
+  const selectedTTSModelRef = useRef(defaultTTSModel);
   const useDoubleCommasForTTSRef = useRef(false);
   const selectedAppModeRef = useRef<AppModeChoice>('combined');
   const enrollmentJsonRef = useRef<string | null>(null);
@@ -541,6 +539,7 @@ function App(): React.JSX.Element {
       selectedTTSModelRef.current,
       enrollmentJsonPath,
     );
+    await applySelectedTTSVoice();
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
       if (aiChatStreamingActiveRef.current) {
@@ -556,6 +555,15 @@ function App(): React.JSX.Element {
     await Speech.pauseSpeechRecognition();
   }
 
+  async function applySelectedTTSVoice() {
+    if (!usesEx2TTSModel) return;
+    const voice = selectedTTSVoiceRef.current;
+    const result = await Speech.changeVoice(voice);
+    if (result !== 0) {
+      console.warn(`[TTS] Speech.changeVoice("${voice}") failed or is unsupported on this platform.`);
+    }
+  }
+
   async function promptForTTSModelChoice() {
     const selectedModelChoice = await promptForTTSModelChoiceBase({
       setShowTTSModelPrompt,
@@ -564,6 +572,7 @@ function App(): React.JSX.Element {
       setTtsVoiceChoice,
       selectedTTSVoiceRef,
       selectedTTSModelRef,
+      sharedTTSModel: usesEx2TTSModel ? defaultTTSModel : undefined,
       ttsModelRichFast,
       ttsModelRichSlow,
       ttsModelFastHanna,
@@ -573,6 +582,7 @@ function App(): React.JSX.Element {
       waitForNextInteraction,
     });
     useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
+    await applySelectedTTSVoice();
     return selectedModelChoice;
   }
 
@@ -592,7 +602,8 @@ function App(): React.JSX.Element {
     } catch (e) {
       console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
     }
-
+    // Keep the selected speaker (Rich initially) for startup narration.
+    await applySelectedTTSVoice();
     if (!skipNarrationRef.current) {
       for (const line of lines) {
         if (skipNarrationRef.current) break;
@@ -864,10 +875,10 @@ function App(): React.JSX.Element {
 
   const getSelectedSpeakerSpeed = (): number =>
     selectedTTSVoiceRef.current === 'Rich'
-      ? RICH_SPEAKER_SPEED
+      ? (usesEx2TTSModel ? RICH_SPEAKER_SPEED_NEW_MODEL : RICH_SPEAKER_SPEED)
       : selectedTTSVoiceRef.current === 'Hanna'
-        ? HANNA_SPEAKER_SPEED
-        : ARIANA_SPEAKER_SPEED;
+        ? (usesEx2TTSModel ? HANNA_SPEAKER_SPEED_NEW_MODEL : HANNA_SPEAKER_SPEED)
+        : (usesEx2TTSModel ? ARIANA_SPEAKER_SPEED_NEW_MODEL : ARIANA_SPEAKER_SPEED);
   const isFirstKeywordCallbackRef = useRef(true);
   registerSpeechHandlers({
     Speech,
@@ -1246,8 +1257,7 @@ function App(): React.JSX.Element {
 
         const needsSpeechReload =
           svChoice !== 'skip' ||
-          selectedTTSVoiceRef.current !== DEFAULT_TTS_VOICE ||
-          ttsQualityChoice !== DEFAULT_TTS_QUALITY;
+          (!usesEx2TTSModel && selectedTTSModelRef.current !== defaultTTSModel);
 
         if (needsSpeechReload) {
           await reloadSpeechLibraryForSelectedVoice(
@@ -1778,8 +1788,8 @@ function App(): React.JSX.Element {
   if (showTTSModelPrompt) {
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
-            <Text style={styles.svPromptTitle}>Choose Voice Model</Text>
-            <View style={styles.ttsOptionSection}>
+            <Text style={styles.svPromptTitle}>{usesEx2TTSModel ? 'Choose Voice' : 'Choose Voice Model'}</Text>
+            {!usesEx2TTSModel && <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Quality</Text>
               <View style={styles.svButtonRow}>
                 <TouchableOpacity
@@ -1802,6 +1812,7 @@ function App(): React.JSX.Element {
                 </TouchableOpacity>
               </View>
             </View>
+            }
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Voice</Text>
               <View style={styles.svButtonRow}>

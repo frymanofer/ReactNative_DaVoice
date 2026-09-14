@@ -107,6 +107,7 @@ export async function promptForTTSModelChoice({
   setTtsVoiceChoice,
   selectedTTSVoiceRef,
   selectedTTSModelRef,
+  sharedTTSModel,
   ttsModelRichFast,
   ttsModelRichSlow,
   ttsModelFastHanna,
@@ -121,6 +122,7 @@ export async function promptForTTSModelChoice({
   setTtsVoiceChoice: (value: TTSVoiceChoice) => void;
   selectedTTSVoiceRef: { current: TTSVoiceChoice };
   selectedTTSModelRef: { current: any };
+  sharedTTSModel?: any;
   ttsModelRichFast: any;
   ttsModelRichSlow: any;
   ttsModelFastHanna: any;
@@ -138,7 +140,9 @@ export async function promptForTTSModelChoice({
   setTtsQualityChoice(selectedModelChoice.quality);
   setTtsVoiceChoice(selectedModelChoice.voice);
   selectedTTSVoiceRef.current = selectedModelChoice.voice;
-  if (selectedModelChoice.voice === 'Rich') {
+  if (sharedTTSModel !== undefined) {
+    selectedTTSModelRef.current = sharedTTSModel;
+  } else if (selectedModelChoice.voice === 'Rich') {
     selectedTTSModelRef.current =
       selectedModelChoice.quality === 'lite' ? ttsModelRichFast : ttsModelRichSlow;
   } else if (selectedModelChoice.voice === 'Hanna') {

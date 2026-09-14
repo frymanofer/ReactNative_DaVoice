@@ -9,15 +9,25 @@ export const SPEAKER = 0;
 export const RICH_SPEAKER_SPEED = 0.85;
 export const ARIANA_SPEAKER_SPEED = 0.88; //0.75;
 export const HANNA_SPEAKER_SPEED = 0.9;
+
+export const RICH_SPEAKER_SPEED_NEW_MODEL = 0.95;
+export const ARIANA_SPEAKER_SPEED_NEW_MODEL = 1.0; //0.75;
+export const HANNA_SPEAKER_SPEED_NEW_MODEL = 1.0;
+
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
 //const SPEAKER_SPEED = 0.75;
 // const SPEAKER_SPEED_ = 0.85;
-export const SPEAKER_SPEED = 0.9;// 0.85;
+//export const SPEAKER_SPEED = 0.9;// 0.85;
+export const SPEAKER_SPEED = 1.0;// 0.85;
 
 export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
-import { Platform } from 'react-native';
+import { Image } from 'react-native';
+
+// Change this asset to select the default TTS model. ex2 bundles share named voices.
+export const defaultTTSModel = require('../../assets/models/model_ex2_rich_hanna_ariana.dm');
+export const usesEx2TTSModel = /ex2/i.test(Image.resolveAssetSource(defaultTTSModel).uri);
 // export const ttsModelFast = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
 // export const ttsModelSlow = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
 
