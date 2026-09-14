@@ -106,6 +106,7 @@ import {
 const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
 
 const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'lite';
+const SPEECH_INIT_TIMEOUT_MS = usesEx2TTSModel ? 120000 : 15000;
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
 const FULL_AI_CHAT_STT_OPTIONS = {
@@ -302,6 +303,10 @@ function App(): React.JSX.Element {
   const [isSTTOnlyMode, setIsSTTOnlyMode] = useState(false);
   const [isCombinedMode, setIsCombinedMode] = useState(false);
   const [lastSentSentence, setLastSentSentence] = useState('');
+  const startupWakewordBlockedRef = useRef(true);
+  const narrationWakewordBlockedRef = useRef(false);
+  const narrationSpeechPendingRef = useRef(false);
+  const narrationStopPromiseRef = useRef<Promise<void> | null>(null);
   const skipNarrationRef = useRef(false);
   const [skipNarration, setSkipNarration] = useState(false);
   const [aiChatLiveTranscript, setAiChatLiveTranscript] = useState('');
@@ -591,41 +596,67 @@ function App(): React.JSX.Element {
     { keepDetectionPaused = false }: { keepDetectionPaused?: boolean } = {},
   ) {
     const inst = myInstanceRef.current;
-    // TEMPORARY AUDIO-SESSION TEST: keep wakeword active during narration.
-    // if (inst) {
-    //   await inst.pauseDetection(Platform.OS === 'android' ? true : false);
-    // }
-    void keepDetectionPaused;
-
+    narrationWakewordBlockedRef.current = true;
     try {
-      await Speech.pauseSpeechRecognition();
-    } catch (e) {
-      console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
-    }
-    // Keep the selected speaker (Rich initially) for startup narration.
-    await applySelectedTTSVoice();
-    if (!skipNarrationRef.current) {
-      for (const line of lines) {
-        if (skipNarrationRef.current) break;
-        setMessage(line);
-        try {
-          await speakText(line, SPEAKER, getSelectedSpeakerSpeed());
-        } catch {}
-        if (skipNarrationRef.current) break;
+      if (inst) {
+        await inst.pauseDetection(Platform.OS === 'android');
+      }
+      try {
+        await Speech.pauseSpeechRecognition();
+      } catch (e) {
+        console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
+      }
+      await applySelectedTTSVoice();
+      if (!skipNarrationRef.current) {
+        for (const line of lines) {
+          if (skipNarrationRef.current) break;
+          setMessage(line);
+          narrationSpeechPendingRef.current = true;
+          try {
+            await speakText(line, SPEAKER, getSelectedSpeakerSpeed());
+          } catch (error) {
+            if (!skipNarrationRef.current) throw error;
+          } finally {
+            // stopSpeaking releases the JS speak waiter before native stop completes.
+            await narrationStopPromiseRef.current;
+            narrationSpeechPendingRef.current = false;
+          }
+        }
+      }
+    } finally {
+      // Keep queued detections and the playback tail out of the next listening turn.
+      await sleep(500);
+      if (!keepDetectionPaused) {
+        if (inst && !startupWakewordBlockedRef.current) {
+          await resumeWakewordDetection(inst);
+        }
+        narrationWakewordBlockedRef.current = false;
       }
     }
-
-    // Wakeword was not paused above, so do not issue a redundant unpause.
-    // if (inst && !keepDetectionPaused) {
-    //   await inst.unPauseDetection();
-    // }
-    void inst;
   }
 
   async function handleSkipNarration() {
+    if (skipNarrationRef.current) return;
     skipNarrationRef.current = true;
     setSkipNarration(true);
-    try { await Speech.stopSpeaking(); } catch {}
+    // During model initialization there is no narration to stop. Do not send a
+    // native stop into initAll; just skip narration once initialization completes.
+    if (!narrationSpeechPendingRef.current) return;
+    const stopPromise = Promise.resolve().then(async () => {
+      try {
+        await Speech.stopSpeaking();
+      } catch (error) {
+        console.warn('[Narration] Failed to stop playback:', error);
+      }
+    });
+    narrationStopPromiseRef.current = stopPromise;
+    try {
+      await stopPromise;
+    } finally {
+      if (narrationStopPromiseRef.current === stopPromise) {
+        narrationStopPromiseRef.current = null;
+      }
+    }
   }
 
   async function reloadSpeechLibraryForSelectedVoice(enrollmentJsonPath?: string | null) {
@@ -644,7 +675,7 @@ function App(): React.JSX.Element {
       await Speech.destroyAll();
       await withTimeout(
         initializeSpeechLibrary(enrollmentJsonPath),
-        15000,
+        SPEECH_INIT_TIMEOUT_MS,
         'Speech.initAll selected voice',
       );
     } finally {
@@ -946,6 +977,10 @@ function App(): React.JSX.Element {
     // THIS IS THE PLACE TO PLAY WITH ASR/STT and TTS
     //
     const keywordCallback = async (keywordIndex: any) => {
+      if (startupWakewordBlockedRef.current || narrationWakewordBlockedRef.current) {
+        console.log('[keywordCallback] Ignoring detection during setup/narration');
+        return;
+      }
       const isFirstCall = isFirstKeywordCallbackRef.current;
       console.log(
         `[keywordCallback] ${isFirstCall ? 'first call' : 'subsequent call'}`,
@@ -1001,7 +1036,7 @@ function App(): React.JSX.Element {
             await speakStartupNarration([`${cleanWakeWord} detected.`], { keepDetectionPaused: true });
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
-              'Now you can test the voice capabilities in four different ways. You can sellect a full AI Chat, or simple test Speech to Text and Text to Speech individually or a combination of both.',
+              'Now you can test the voice capabilities in four different ways. You can sellect a full AI Chat, or simply test Speech to Text and Text to Speech individually or a combination of both.',
             ]);
           },
         });
@@ -1142,9 +1177,9 @@ function App(): React.JSX.Element {
             clearTimeout(voiceDemoBootstrapTimeoutRef.current);
           }
           voiceDemoBootstrapTimeoutRef.current = setTimeout(() => {
-            console.warn('[Demo] voice demo bootstrap timed out; continuing with UI');
-            setMessage(`Say the wake word "${wakeWords}" to continue.`);
-          }, 10000);
+            console.warn('[Demo] voice demo bootstrap is still running');
+            setMessage('Still preparing the voice demo...');
+          }, 60000);
         }
 
         const { speechInitCompleted, failureReason } = await initializeWakewordBootstrap({
@@ -1163,6 +1198,7 @@ function App(): React.JSX.Element {
           enrollmentJsonPath: enrollmentJsonPathRef.current,
           sleep,
           initializeSpeechLibrary,
+          speechInitTimeoutMs: SPEECH_INIT_TIMEOUT_MS,
           withTimeout,
           suppressAndroidPartialResultsRef,
           speechLibraryInitializedRef,
@@ -1179,8 +1215,12 @@ function App(): React.JSX.Element {
           if (failureReason === 'invalid-license') {
             return;
           }
-          setMessage(`Say the wake word "${wakeWords}" to continue.`);
+          setMessage('Speech setup failed. Restart the app to retry.');
           return;
+        }
+
+        if (myInstanceRef.current) {
+          await myInstanceRef.current.pauseDetection(Platform.OS === 'android');
         }
 
         const narratorVoice = selectedTTSVoiceRef.current;
@@ -1189,20 +1229,20 @@ function App(): React.JSX.Element {
           .join(' or ');
         const voiceToUse = narratorVoice === 'Rich' ? 'Richard' : narratorVoice;
 
-        if (narratorVoice === 'Rich') { 
+        /*if (narratorVoice === 'Rich') { 
           await speakStartupNarration([
             `Hey there. My name is ${voiceToUse}`,
             `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
             `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
             `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
           ], { keepDetectionPaused: true });
-        } else {
+        } else {*/
           await speakStartupNarration([
-            `Hey there, My name is ${narratorVoice}, In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
+            `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
             `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
             `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
           ], { keepDetectionPaused: true });
-        }
+        /*}*/
 /*
         await speakStartupNarration([
           `Hey there,, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
@@ -1278,15 +1318,17 @@ function App(): React.JSX.Element {
             enrollmentJsonPath: enrollmentJsonPathRef.current,
             sleep,
           });
-          // The shared start helper pauses detection for bootstrap-time speech setup.
-          // This restart happens after setup, so balance that pause immediately.
-          await resumeWakewordDetection(myInstanceRef.current);
+          // Leave detection paused until the final narration finishes.
         }
 
         await speakStartupNarration([
           svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
           `Now please say the wake word ${wakeWords} to continue.`,
         ]);
+        if (myInstanceRef.current) {
+          await resumeWakewordDetection(myInstanceRef.current);
+        }
+        startupWakewordBlockedRef.current = false;
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
 
       } catch (error) {
@@ -1295,7 +1337,7 @@ function App(): React.JSX.Element {
             clearTimeout(voiceDemoBootstrapTimeoutRef.current);
             voiceDemoBootstrapTimeoutRef.current = null;
           }
-          setMessage(`Say the wake word "${wakeWords}" to continue.`);
+          setMessage('Voice setup failed. Restart the app to retry.');
         }
         console.error('Error during keyword detection initialization:', error);
       }

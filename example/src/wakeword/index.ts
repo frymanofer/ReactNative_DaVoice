@@ -355,6 +355,7 @@ export async function initializeWakewordBootstrap({
   enrollmentJsonPath,
   sleep,
   initializeSpeechLibrary,
+  speechInitTimeoutMs = 15000,
   withTimeout,
   suppressAndroidPartialResultsRef,
   speechLibraryInitializedRef,
@@ -372,6 +373,7 @@ export async function initializeWakewordBootstrap({
   enrollmentJsonPath?: string | null;
   sleep: (ms: number) => Promise<void>;
   initializeSpeechLibrary: (enrollmentJsonPath?: string | null) => Promise<void>;
+  speechInitTimeoutMs?: number;
   withTimeout: <T>(promise: Promise<T>, timeoutMs: number, label: string) => Promise<T>;
   suppressAndroidPartialResultsRef: { current: boolean };
   speechLibraryInitializedRef: { current: boolean };
@@ -443,7 +445,7 @@ export async function initializeWakewordBootstrap({
           ? enrollmentJsonPath
           : null,
       ),
-      15000,
+      speechInitTimeoutMs,
       'Speech.initAll',
     );
     speechLibraryInitializedRef.current = true;
