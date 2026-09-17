@@ -15,9 +15,9 @@
     "jetifier": "^2.0.0",
     "react": "19.1.1",
     "react-native": "0.82.0",
-    "react-native-davoice": "1.0.71",
+    "react-native-davoice": "1.0.81",
     "react-native-fs": "^2.20.0",
-    "react-native-wakeword": "1.1.145"
+    "react-native-wakeword": "1.1.147"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -39,5 +39,6 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

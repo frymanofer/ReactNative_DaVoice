@@ -24,7 +24,6 @@ import {
   Alert,
   InputAccessoryView,
   Keyboard,
-  InteractionManager,
   Image,
   type DimensionValue,
 } from 'react-native';
@@ -56,37 +55,19 @@ import {
   AppModeChoice,
   SV_ONBOARDING_SAMPLE_COUNT,
   SVPromptChoice,
-  TTSQualityChoice,
   TTSVoiceChoice,
 } from './src/appflow';
 import {
   initializeSpeechLibrary as initializeSpeechLibraryBase,
   promptForTTSModelChoice as promptForTTSModelChoiceBase,
-  waitForNextInteraction as waitForNextInteractionBase,
+  waitForIdle,
   withTimeout,
 } from './src/initialization';
 import { getAdjustedSpeed, mergeSmartKeepPunct, registerSpeechHandlers } from './src/stt';
 import {
   runSpeakerVerificationStartupFlow,
 } from './src/speaker_verification/onboarding';
-import {
-  ARIANA_SPEAKER_SPEED,
-  ARIANA_SPEAKER_SPEED_NEW_MODEL,
-  HANNA_SPEAKER_SPEED_NEW_MODEL,
-  RICH_SPEAKER_SPEED_NEW_MODEL,
-  defaultTTSModel,
-  usesEx2TTSModel,
-  HANNA_SPEAKER_SPEED,
-  playWakewordIntroSpeech,
-  RICH_SPEAKER_SPEED,
-  SPEAKER,
-  ttsModelFast,
-  ttsModelFastHanna,
-  ttsModelRichFast,
-  ttsModelRichSlow,
-  ttsModelSlowHanna,
-  ttsModelSlow,
-} from './src/tts';
+import { getTTSVoiceConfig, playWakewordIntroSpeech, SPEAKER } from './src/tts';
 import {
   attachKeywordListenerOnce,
   AudioPermissionComponent,
@@ -105,10 +86,8 @@ import {
 
 const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
 
-const DEFAULT_TTS_QUALITY: TTSQualityChoice = 'lite';
-const SPEECH_INIT_TIMEOUT_MS = usesEx2TTSModel ? 120000 : 15000;
+const SPEECH_INIT_TIMEOUT_MS = 120000;
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
-const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
 const FULL_AI_CHAT_STT_OPTIONS = {
   EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
   EXTRA_MAX_RESULTS: 5,
@@ -119,6 +98,8 @@ const FULL_AI_CHAT_STT_OPTIONS = {
 let calledOnce = false;
 
 function App(): React.JSX.Element {
+  // true: shared TTS2 model; false: per-speaker models, reloaded on voice changes.
+  const useTTS2Only = useRef(false);
   const [isFlashing, setIsFlashing] = useState(false);
   const wakeWords = instanceConfigs.map((config) => formatWakeWord(config.modelName)).join(', ');
 
@@ -139,15 +120,13 @@ function App(): React.JSX.Element {
   const svChoiceResolverRef = useRef<null | ((choice: SVPromptChoice) => void)>(null);
   const svContinueResolverRef = useRef<null | (() => void)>(null);
   const ttsModelChoiceResolverRef = useRef<
-    null | ((choice: { quality: TTSQualityChoice; voice: TTSVoiceChoice }) => void)
+    null | ((choice: { voice: TTSVoiceChoice }) => void)
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
-  const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>(DEFAULT_TTS_QUALITY);
   const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
   const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
-  const selectedTTSModelRef = useRef(defaultTTSModel);
-  const useDoubleCommasForTTSRef = useRef(false);
+  const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_TTS_VOICE, useTTS2Only.current).model);
   const selectedAppModeRef = useRef<AppModeChoice>('combined');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
@@ -163,13 +142,10 @@ function App(): React.JSX.Element {
   const [didInitSID, setDidInitSID] = useState(false);
 
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-  useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
 
   const applyTTSTextPolicy = (text: string): string => {
     let ttsText = text.replace(/\bDaVoice's\b/g, 'the voice').replace(/\bDaVoice\b/g, 'The Voice');
-    if (!useDoubleCommasForTTSRef.current) return ttsText;
     return ttsText;
-    return ttsText.replace(/(^|[^,]),(?!,)/g, '$1,,');
   };
 
   const speakText = (text: string, speaker: number = SPEAKER, speed?: number) =>
@@ -303,8 +279,10 @@ function App(): React.JSX.Element {
   const [isSTTOnlyMode, setIsSTTOnlyMode] = useState(false);
   const [isCombinedMode, setIsCombinedMode] = useState(false);
   const [lastSentSentence, setLastSentSentence] = useState('');
-  const startupWakewordBlockedRef = useRef(true);
-  const narrationWakewordBlockedRef = useRef(false);
+  const startupInProgressRef = useRef(true);
+  const narrationActiveRef = useRef(false);
+  const narrationInterruptedRef = useRef(false);
+  const creatingSpeakerSignatureRef = useRef(false);
   const narrationSpeechPendingRef = useRef(false);
   const narrationStopPromiseRef = useRef<Promise<void> | null>(null);
   const skipNarrationRef = useRef(false);
@@ -538,7 +516,6 @@ function App(): React.JSX.Element {
   };
 
   async function initializeSpeechLibrary(enrollmentJsonPath?: string | null) {
-    useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
     await initializeSpeechLibraryBase(
       Speech,
       selectedTTSModelRef.current,
@@ -561,7 +538,7 @@ function App(): React.JSX.Element {
   }
 
   async function applySelectedTTSVoice() {
-    if (!usesEx2TTSModel) return;
+    if (!getTTSVoiceConfig(selectedTTSVoiceRef.current, useTTS2Only.current).usesTTS2) return;
     const voice = selectedTTSVoiceRef.current;
     const result = await Speech.changeVoice(voice);
     if (result !== 0) {
@@ -570,37 +547,28 @@ function App(): React.JSX.Element {
   }
 
   async function promptForTTSModelChoice() {
-    const selectedModelChoice = await promptForTTSModelChoiceBase({
+    const choice = await promptForTTSModelChoiceBase({
       setShowTTSModelPrompt,
       ttsModelChoiceResolverRef,
-      setTtsQualityChoice,
       setTtsVoiceChoice,
-      selectedTTSVoiceRef,
-      selectedTTSModelRef,
-      sharedTTSModel: usesEx2TTSModel ? defaultTTSModel : undefined,
-      ttsModelRichFast,
-      ttsModelRichSlow,
-      ttsModelFastHanna,
-      ttsModelSlowHanna,
-      ttsModelFast,
-      ttsModelSlow,
-      waitForNextInteraction,
+      waitForIdle,
     });
-    useDoubleCommasForTTSRef.current = selectedTTSModelRef.current === ttsModelRichSlow;
-    await applySelectedTTSVoice();
-    return selectedModelChoice;
+    const previousModel = selectedTTSModelRef.current;
+    selectedTTSVoiceRef.current = choice.voice;
+    selectedTTSModelRef.current = getTTSVoiceConfig(choice.voice, useTTS2Only.current).model;
+    if (selectedTTSModelRef.current !== previousModel) {
+      // Finish replacing the model before the chosen speaker narrates the next step.
+      await reloadSpeechLibraryForSelectedVoice(enrollmentJsonPathRef.current);
+    } else {
+      await applySelectedTTSVoice();
+    }
+    return choice;
   }
 
-  async function speakStartupNarration(
-    lines: string[],
-    { keepDetectionPaused = false }: { keepDetectionPaused?: boolean } = {},
-  ) {
-    const inst = myInstanceRef.current;
-    narrationWakewordBlockedRef.current = true;
+  async function speakStartupNarration(lines: string[]) {
+    narrationActiveRef.current = true;
+    narrationInterruptedRef.current = false;
     try {
-      if (inst) {
-        await inst.pauseDetection(Platform.OS === 'android');
-      }
       try {
         await Speech.pauseSpeechRecognition();
       } catch (e) {
@@ -609,13 +577,13 @@ function App(): React.JSX.Element {
       await applySelectedTTSVoice();
       if (!skipNarrationRef.current) {
         for (const line of lines) {
-          if (skipNarrationRef.current) break;
+          if (skipNarrationRef.current || narrationInterruptedRef.current) break;
           setMessage(line);
           narrationSpeechPendingRef.current = true;
           try {
             await speakText(line, SPEAKER, getSelectedSpeakerSpeed());
           } catch (error) {
-            if (!skipNarrationRef.current) throw error;
+            if (!skipNarrationRef.current && !narrationInterruptedRef.current) throw error;
           } finally {
             // stopSpeaking releases the JS speak waiter before native stop completes.
             await narrationStopPromiseRef.current;
@@ -624,24 +592,20 @@ function App(): React.JSX.Element {
         }
       }
     } finally {
-      // Keep queued detections and the playback tail out of the next listening turn.
+      // Consume queued playback-tail detections before allowing screen navigation.
       await sleep(500);
-      if (!keepDetectionPaused) {
-        if (inst && !startupWakewordBlockedRef.current) {
-          await resumeWakewordDetection(inst);
-        }
-        narrationWakewordBlockedRef.current = false;
-      }
+      narrationActiveRef.current = false;
     }
   }
 
-  async function handleSkipNarration() {
-    if (skipNarrationRef.current) return;
-    skipNarrationRef.current = true;
-    setSkipNarration(true);
-    // During model initialization there is no narration to stop. Do not send a
-    // native stop into initAll; just skip narration once initialization completes.
+  async function stopCurrentNarration() {
+    if (narrationStopPromiseRef.current) {
+      await narrationStopPromiseRef.current;
+      return;
+    }
+    // Early Skip or a wake word while idle must not stop an initializing model.
     if (!narrationSpeechPendingRef.current) return;
+    narrationInterruptedRef.current = true;
     const stopPromise = Promise.resolve().then(async () => {
       try {
         await Speech.stopSpeaking();
@@ -657,6 +621,13 @@ function App(): React.JSX.Element {
         narrationStopPromiseRef.current = null;
       }
     }
+  }
+
+  async function handleSkipNarration() {
+    if (skipNarrationRef.current) return;
+    skipNarrationRef.current = true;
+    setSkipNarration(true);
+    await stopCurrentNarration();
   }
 
   async function reloadSpeechLibraryForSelectedVoice(enrollmentJsonPath?: string | null) {
@@ -905,11 +876,7 @@ function App(): React.JSX.Element {
   };
 
   const getSelectedSpeakerSpeed = (): number =>
-    selectedTTSVoiceRef.current === 'Rich'
-      ? (usesEx2TTSModel ? RICH_SPEAKER_SPEED_NEW_MODEL : RICH_SPEAKER_SPEED)
-      : selectedTTSVoiceRef.current === 'Hanna'
-        ? (usesEx2TTSModel ? HANNA_SPEAKER_SPEED_NEW_MODEL : HANNA_SPEAKER_SPEED)
-        : (usesEx2TTSModel ? ARIANA_SPEAKER_SPEED_NEW_MODEL : ARIANA_SPEAKER_SPEED);
+    getTTSVoiceConfig(selectedTTSVoiceRef.current, useTTS2Only.current).speed;
   const isFirstKeywordCallbackRef = useRef(true);
   registerSpeechHandlers({
     Speech,
@@ -977,8 +944,10 @@ function App(): React.JSX.Element {
     // THIS IS THE PLACE TO PLAY WITH ASR/STT and TTS
     //
     const keywordCallback = async (keywordIndex: any) => {
-      if (startupWakewordBlockedRef.current || narrationWakewordBlockedRef.current) {
-        console.log('[keywordCallback] Ignoring detection during setup/narration');
+      if (creatingSpeakerSignatureRef.current) return;
+      if (startupInProgressRef.current || narrationActiveRef.current) {
+        // Before the wake-word test, detection only interrupts current narration.
+        await stopCurrentNarration();
         return;
       }
       const isFirstCall = isFirstKeywordCallbackRef.current;
@@ -1028,12 +997,12 @@ function App(): React.JSX.Element {
           setShowAppModePrompt,
           appModeChoiceResolverRef,
           selectedAppModeRef,
-          waitForNextInteraction,
+          waitForIdle,
           setCurrentSpeechSentence,
           setIsSpeakerIdentificationActive,
           speechLibraryInitializedRef,
           speakModeSelectionNarration: async () => {
-            await speakStartupNarration([`${cleanWakeWord} detected.`], { keepDetectionPaused: true });
+            await speakStartupNarration([`${cleanWakeWord} detected.`]);
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
               'Now you can test the voice capabilities in four different ways. You can sellect a full AI Chat, or simply test Speech to Text and Text to Speech individually or a combination of both.',
@@ -1108,7 +1077,7 @@ function App(): React.JSX.Element {
         selectedSpeakerName,
         getSelectedSpeakerSpeed,
         SPEAKER,
-        waitForNextInteraction,
+        waitForIdle,
         resetSpeechTranscriptState,
         sleep,
         clearSpeechSentenceUI,
@@ -1219,10 +1188,7 @@ function App(): React.JSX.Element {
           return;
         }
 
-        if (myInstanceRef.current) {
-          await myInstanceRef.current.pauseDetection(Platform.OS === 'android');
-        }
-
+        // Bootstrap already resumed detection after loading the speech packages.
         const narratorVoice = selectedTTSVoiceRef.current;
         const otherVoices = (['Hanna', 'Rich', 'Ariana'] as TTSVoiceChoice[])
           .filter((voice) => voice !== narratorVoice)
@@ -1235,24 +1201,24 @@ function App(): React.JSX.Element {
             `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
             `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
             `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
-          ], { keepDetectionPaused: true });
+          ]);
         } else {*/
           await speakStartupNarration([
             `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
             `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
             `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
-          ], { keepDetectionPaused: true });
+          ]);
         /*}*/
 /*
         await speakStartupNarration([
           `Hey there,, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
           `First,, please choose which voice you want to use? You can stay with me,, ${narratorVoice},, or switch to ${alternativeVoice}?`,
-        ], { keepDetectionPaused: true });
+        ]);
 
         await speakStartupNarration([
           `Hey there! My name is ${narratorVoice}! In this application we will use my cloned voice to walk you through this demonstration step by step.`,
           `First, please choose which voice you want to use? You can stay with me, ${narratorVoice}, or switch to ${alternativeVoice}?`,
-        ], { keepDetectionPaused: true });
+        ]);
 
 */
         await promptForTTSModelChoice();
@@ -1262,11 +1228,10 @@ function App(): React.JSX.Element {
             ? 'Awesome, Thanks for choosing to stay with me.'
             : `Awesome, You chose ${selectedTTSVoiceRef.current}.`,
           'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
-        ], { keepDetectionPaused: true });
+        ]);
 
-        // Belt-and-suspenders: speakStartupNarration above already paused STT, but make sure
-        // it's still paused right before speaker verification starts — nothing should unpause
-        // it between here and the end of the SV flow (wake word stays paused too, see above).
+        // Pause STT before verification; wake-word detection stays active except
+        // while a new speaker signature is being recorded.
         try {
           await Speech.pauseSpeechRecognition();
         } catch (e) {
@@ -1274,6 +1239,17 @@ function App(): React.JSX.Element {
         }
 
         const startupFlow = await runSpeakerVerificationStartupFlow({
+          beforeEnrollment: async () => {
+            creatingSpeakerSignatureRef.current = true;
+            await myInstanceRef.current?.pauseDetection(Platform.OS === 'android');
+          },
+          afterEnrollment: async () => {
+            try {
+              await myInstanceRef.current?.unPauseDetection();
+            } finally {
+              creatingSpeakerSignatureRef.current = false;
+            }
+          },
           setMessage,
           enrollmentJsonRef,
           enrollmentJsonPathRef,
@@ -1295,9 +1271,7 @@ function App(): React.JSX.Element {
         });
         svChoice = startupFlow.svChoice;
 
-        const needsSpeechReload =
-          svChoice !== 'skip' ||
-          (!usesEx2TTSModel && selectedTTSModelRef.current !== defaultTTSModel);
+        const needsSpeechReload = svChoice !== 'skip';
 
         if (needsSpeechReload) {
           await reloadSpeechLibraryForSelectedVoice(
@@ -1318,17 +1292,14 @@ function App(): React.JSX.Element {
             enrollmentJsonPath: enrollmentJsonPathRef.current,
             sleep,
           });
-          // Leave detection paused until the final narration finishes.
+          await resumeWakewordDetection(myInstanceRef.current);
         }
 
         await speakStartupNarration([
           svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
           `Now please say the wake word ${wakeWords} to continue.`,
         ]);
-        if (myInstanceRef.current) {
-          await resumeWakewordDetection(myInstanceRef.current);
-        }
-        startupWakewordBlockedRef.current = false;
+        startupInProgressRef.current = false;
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
 
       } catch (error) {
@@ -1479,7 +1450,7 @@ function App(): React.JSX.Element {
 
       try {
         await Promise.race([
-          waitForNextInteraction(),
+          waitForIdle(),
           sleep(250),
         ]);
         await restartFullAIChatMicrophone('enterFullAIChatMode');
@@ -1498,7 +1469,7 @@ function App(): React.JSX.Element {
       // await Speech.speak("Hello, I am rich!", SPEAKER, getSelectedSpeakerSpeed());
 
       try {
-        await waitForNextInteraction();
+        await waitForIdle();
         resetSpeechTranscriptState();
         console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
         await Speech.unPauseSpeechRecognition(-1);
@@ -1830,31 +1801,7 @@ function App(): React.JSX.Element {
   if (showTTSModelPrompt) {
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
-            <Text style={styles.svPromptTitle}>{usesEx2TTSModel ? 'Choose Voice' : 'Choose Voice Model'}</Text>
-            {!usesEx2TTSModel && <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>Quality</Text>
-              <View style={styles.svButtonRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    ttsQualityChoice === 'lite' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsQualityChoice('lite')}>
-                  <Text style={styles.svButtonText}>Lite</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    ttsQualityChoice === 'heavy' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsQualityChoice('heavy')}>
-                  <Text style={styles.svButtonText}>Heavy</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            }
+            <Text style={styles.svPromptTitle}>Choose Voice</Text>
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Voice</Text>
               <View style={styles.svButtonRow}>
@@ -1896,7 +1843,6 @@ function App(): React.JSX.Element {
                 activeOpacity={0.7}
                 onPress={() => {
                   ttsModelChoiceResolverRef.current?.({
-                    quality: ttsQualityChoice,
                     voice: ttsVoiceChoice,
                   });
                   ttsModelChoiceResolverRef.current = null;
