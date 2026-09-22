@@ -381,22 +381,21 @@ export async function initializeWakewordBootstrap({
   speechInitCompleted: boolean;
   failureReason?: 'model-load' | 'invalid-license' | 'speech-initialization';
 }> {
-  // 🔹 *** NEW ***: configure routing once (iOS only) BEFORE creating instances
-  if (PlatformOS === 'ios') {
-    try {
-      await setWakewordAudioRoutingConfig(defaultAudioRoutingConfig);
-    } catch (e) {
-      console.warn('setWakewordAudioRoutingConfig failed (ignored):', e);
-    }
-    try {
-      // Set the same routing config directly on STT/TTS before Speech.initAll().
-      // Native accepts the temporary sections as deltas over the regular route.
-      // The installed speech declaration still models them as full entries.
-      await Speech.setAudioRoutingConfig(defaultAudioRoutingConfig as SpeechAudioRoutingConfig);
-    } catch (e) {
-      console.warn('Speech.setAudioRoutingConfig failed (wakeword fallback will be tried):', e);
-    }
+  // 🔹 Configure audio session before creating instances
+  try {
+    await setWakewordAudioRoutingConfig(defaultAudioRoutingConfig);
+  } catch (e) {
+    console.warn('setWakewordAudioRoutingConfig failed (ignored):', e);
   }
+  try {
+    // Set the same routing config directly on STT/TTS before Speech.initAll().
+    // Native accepts the temporary sections as deltas over the regular route.
+    // The installed speech declaration still models them as full entries.
+    await Speech.setAudioRoutingConfig(defaultAudioRoutingConfig as SpeechAudioRoutingConfig);
+  } catch (e) {
+    console.warn('Speech.setAudioRoutingConfig failed (wakeword fallback will be tried):', e);
+  }
+
 
   // --> CREATE THE INSTANCE !!!!
   try {
