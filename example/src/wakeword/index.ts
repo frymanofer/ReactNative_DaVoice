@@ -7,7 +7,6 @@ import type { AudioRoutingConfig, KeyWordRNBridgeInstance } from 'react-native-w
 import type { AppModeChoice } from '../appflow';
 import { ensureMicPermission } from '../initialization';
 
-
 //
 //
 // --> *** IMPORTANT IOS AUDIO SESSION CONFIG ***
@@ -326,7 +325,7 @@ export async function startWakewordDetection({
     console.log('startKeywordDetection without SV:');
     await instance.startKeywordDetection(instanceConfigs[0].threshold, true);
   }
-  await instance.pauseDetection(Platform.OS === 'android' ? true : false);
+  await instance.pauseDetection(false);//Platform.OS === 'android' ? true : false);
   await sleep(100);
   console.log('Post pauseDetection');
 }
@@ -542,7 +541,7 @@ export async function prepareWakewordSpeechSession({
   setShowAppModePrompt,
   appModeChoiceResolverRef,
   selectedAppModeRef,
-  waitForNextInteraction,
+  waitForIdle,
   setCurrentSpeechSentence,
   setIsSpeakerIdentificationActive,
   speechLibraryInitializedRef,
@@ -576,7 +575,7 @@ export async function prepareWakewordSpeechSession({
     });
     setShowAppModePrompt(false);
     selectedAppModeRef.current = selectedModeChoice;
-    await waitForNextInteraction();
+    await waitForIdle();
   }
 
   // await Speech.destroyAll();
@@ -608,7 +607,7 @@ export async function captureWakewordDetection({
     if (stopWakeWord) {
       await instance.stopKeywordDetection(/* FR add if stop microphone or */);
     } else {
-      await instance.pauseDetection(Platform.OS === 'android' ? true : false);
+      await instance.pauseDetection(false);//Platform.OS === 'android' ? true : false);
     }
 
     wavFilePath = await instance.getRecordingWav();

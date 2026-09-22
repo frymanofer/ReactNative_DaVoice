@@ -18,7 +18,7 @@ This folder breaks the original `App.tsx` logic into reusable feature modules so
   - `ensureMicPermission(...)`
   - `initializeSpeechLibrary(...)`
   - `promptForTTSModelChoice(...)`
-  - `waitForNextInteraction(...)`
+  - `waitForIdle(...)`
   - `withTimeout(...)`
 
 ### `stt/`

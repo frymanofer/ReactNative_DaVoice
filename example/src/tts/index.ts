@@ -23,43 +23,29 @@ export const SPEAKER_SPEED = 1.0;// 0.85;
 export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
-import { Image } from 'react-native';
+import type { TTSVoiceChoice } from '../appflow';
 
-// Change this asset to select the default TTS model. ex2 bundles share named voices.
-export const defaultTTSModel = require('../../assets/models/model_ex2_rich_hanna_ariana.dm');
-export const usesEx2TTSModel = /ex2/i.test(Image.resolveAssetSource(defaultTTSModel).uri);
-// export const ttsModelFast = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
-// export const ttsModelSlow = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
+const sharedTTS2Model = require('../../assets/models/model_ex2_rich_hanna_ariana.dm');
+const richTTS2Model = require('../../assets/models/model_ex2_rich.dm');
+const arianaModel = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
+const hannaModel = require('../../assets/models/model_ex_hanna_light_davoice_ph.dm');
 
-// Ariana
-export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-
-// Hanna
-export const ttsModelFastHanna = require('../../assets/models/model_ex_hanna_light_davoice_ph.dm');
-export const ttsModelSlowHanna = require('../../assets/models/model_ex_hanna_light_davoice_ph.dm');
-
-// export const ttsModelFast = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-// export const ttsModelSlow = require('../../assets/models/model_ex_ariana_fast.dm');
-// const ttsModelFast = require('./assets/models/model_ex_ariana_fast.dm');
-// const ttsModelSlow = require('./assets/models/model_ex_ariana.dm');
-
-export const ttsModelRichFast = require('../../assets/models/model_ex_rich_jun19_fast_davoice_phoneme.dm');
-export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_jun19_fast_davoice_phoneme.dm');
-// export const ttsModelRichSlow = require('../../assets/models/model_ex_rich_heavy_davoice_ph.dm');
-
-// const ttsModelRichFast = require('./assets/models/model_ex_rich_fast.dm');
-// const ttsModelRichSlow = require('./assets/models/model_ex_rich.dm');
-
-// This is how you send the speech library the tts model.
-// const ttsModel = require('./assets/models/model_ex.dm');
-//const ttsModel = 'model.onnx';
-
-// If you want to use only TTS:
-// import { DaVoiceTTSInstance } from 'react-native-davoice';
-// let tts = new DaVoiceTTSInstance();
-// If you want to use only STT
-//import STT from 'react-native-davoice/stt';
+export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
+  if (useTTS2Only) {
+    const speeds = {
+      Rich: RICH_SPEAKER_SPEED_NEW_MODEL,
+      Ariana: ARIANA_SPEAKER_SPEED_NEW_MODEL,
+      Hanna: HANNA_SPEAKER_SPEED_NEW_MODEL,
+    };
+    return { model: sharedTTS2Model, speed: speeds[voice], usesTTS2: true };
+  }
+  const voices = {
+    Rich: { model: richTTS2Model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Ariana: { model: arianaModel, speed: ARIANA_SPEAKER_SPEED, usesTTS2: false },
+    Hanna: { model: hannaModel, speed: HANNA_SPEAKER_SPEED, usesTTS2: false },
+  };
+  return voices[voice];
+}
 
 export async function playWakewordIntroSpeech({
   Speech,
@@ -73,7 +59,7 @@ export async function playWakewordIntroSpeech({
   selectedSpeakerName,
   getSelectedSpeakerSpeed,
   SPEAKER,
-  waitForNextInteraction,
+  waitForIdle,
   resetSpeechTranscriptState,
   sleep,
   clearSpeechSentenceUI,
@@ -137,11 +123,11 @@ export async function playWakewordIntroSpeech({
   await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
   await Speech.speak("Hello good people, how are you.", SPEAKER, SPEAKER_SPEED * 0.8);
   */
-  await waitForNextInteraction();
+  await waitForIdle();
   resetSpeechTranscriptState();
-  console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after waitForNextInteraction');
+  console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) after waitForIdle');
   await Speech.unPauseSpeechRecognition(-1);
-  console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after waitForNextInteraction');
+  console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after waitForIdle');
   await sleep(500);
   clearSpeechSentenceUI(speechUiEpoch);
 

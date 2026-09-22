@@ -1241,7 +1241,7 @@ function App(): React.JSX.Element {
         const startupFlow = await runSpeakerVerificationStartupFlow({
           beforeEnrollment: async () => {
             creatingSpeakerSignatureRef.current = true;
-            await myInstanceRef.current?.pauseDetection(Platform.OS === 'android');
+            await myInstanceRef.current?.pauseDetection(false);//Platform.OS === 'android' ? true : false);
           },
           afterEnrollment: async () => {
             try {
