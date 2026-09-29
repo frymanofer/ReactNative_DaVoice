@@ -281,6 +281,7 @@ function App(): React.JSX.Element {
   const [lastSentSentence, setLastSentSentence] = useState('');
   const startupInProgressRef = useRef(true);
   const narrationActiveRef = useRef(false);
+  const suppressNarrationWakewordStopRef = useRef(false);
   const narrationInterruptedRef = useRef(false);
   const creatingSpeakerSignatureRef = useRef(false);
   const narrationSpeechPendingRef = useRef(false);
@@ -565,8 +566,12 @@ function App(): React.JSX.Element {
     return choice;
   }
 
-  async function speakStartupNarration(lines: string[]) {
+  async function speakStartupNarration(
+    lines: string[],
+    { interruptOnWakeword = true }: { interruptOnWakeword?: boolean } = {},
+  ) {
     narrationActiveRef.current = true;
+    suppressNarrationWakewordStopRef.current = !interruptOnWakeword;
     narrationInterruptedRef.current = false;
     try {
       try {
@@ -595,6 +600,7 @@ function App(): React.JSX.Element {
       // Consume queued playback-tail detections before allowing screen navigation.
       await sleep(500);
       narrationActiveRef.current = false;
+      suppressNarrationWakewordStopRef.current = false;
     }
   }
 
@@ -947,6 +953,7 @@ function App(): React.JSX.Element {
       if (creatingSpeakerSignatureRef.current) return;
       if (startupInProgressRef.current || narrationActiveRef.current) {
         // Before the wake-word test, detection only interrupts current narration.
+        if (suppressNarrationWakewordStopRef.current) return;
         await stopCurrentNarration();
         return;
       }
@@ -1298,7 +1305,7 @@ function App(): React.JSX.Element {
         await speakStartupNarration([
           svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
           `Now please say the wake word ${wakeWords} to continue.`,
-        ]);
+        ], { interruptOnWakeword: false });
         startupInProgressRef.current = false;
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
 
