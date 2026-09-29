@@ -57,7 +57,7 @@ type AppAudioRoutingConfig = {
 export const defaultAudioRoutingConfig: AppAudioRoutingConfig = {
   WakewordAEC: {
     regular: false,
-    duringTTS: true,
+    duringTTS: false,
   },
   // Fallback when no special port matches. Native adds A2DP for the primary
   // Apple HD-mic attempt and switches to ordinary HFP if HD verification fails.
