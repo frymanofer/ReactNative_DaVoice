@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "postinstall": "node scripts/ensure-lfs.js",
+    "postinstall": "patch-package && node scripts/ensure-lfs.js",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
@@ -15,9 +15,10 @@
     "jetifier": "^2.0.0",
     "react": "19.1.1",
     "react-native": "0.82.0",
-    "react-native-davoice": "1.0.102",
+    "react-native-davoice": "1.0.112",
+    "react-native-davoice-llm": "^1.0.0",
     "react-native-fs": "^2.20.0",
-    "react-native-wakeword": "1.1.154"
+    "react-native-wakeword": "1.1.162"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

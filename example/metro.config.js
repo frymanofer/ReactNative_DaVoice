@@ -16,8 +16,8 @@ const config = {
       'dm',
       'onnx',
       'json',
-      'onnx', 
-      'wav', 
+      'onnx',
+      'wav',
       'mp3'
     ],
   },

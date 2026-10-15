@@ -57,6 +57,11 @@ import {
   SVPromptChoice,
   TTSVoiceChoice,
 } from './src/appflow';
+import { LocalLLMProvider } from './src/aichat/provider';
+import ModelPicker from './src/local_llm/ModelPicker';
+import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
+import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
+import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import {
   initializeSpeechLibrary as initializeSpeechLibraryBase,
   promptForTTSModelChoice as promptForTTSModelChoiceBase,
@@ -95,6 +100,12 @@ const FULL_AI_CHAT_STT_OPTIONS = {
   EXTRA_PREFER_OFFLINE: false,
   REQUEST_PERMISSIONS_AUTO: true,
 };
+// Same demo license used for keyword/speech elsewhere in this file — the
+// LicenseManager secret/algorithm is identical across every DaVoice native
+// library, so one license key validates for all of them (see the
+// local-llm-scaffold memory notes).
+const LOCAL_LLM_DEMO_LICENSE =
+  'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=';
 let calledOnce = false;
 
 function App(): React.JSX.Element {
@@ -296,6 +307,19 @@ function App(): React.JSX.Element {
   const [isAIChatHistoryVisible, setIsAIChatHistoryVisible] = useState(false);
   const [isAIChatLoading, setIsAIChatLoading] = useState(false);
   const [isAIChatHelpVisible, setIsAIChatHelpVisible] = useState(false);
+  const [isModelPickerVisible, setIsModelPickerVisible] = useState(false);
+  const [localModelName, setLocalModelName] = useState('');
+  const [localModelStatus, setLocalModelStatus] = useState('');
+  // Latest status for async chat turns (the state value can be stale inside them).
+  const localModelStatusRef = useRef('');
+  localModelStatusRef.current = localModelStatus;
+  const localModelWarmUpSeqRef = useRef(0);
+
+  useEffect(() => {
+    getSelectedModel()
+      .then((model) => setLocalModelName(model.displayName))
+      .catch(() => undefined);
+  }, []);
   const [isTTSTestHelpVisible, setIsTTSTestHelpVisible] = useState(false);
   const [isAndroidKeyboardVisible, setIsAndroidKeyboardVisible] = useState(false);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
@@ -315,6 +339,26 @@ function App(): React.JSX.Element {
   const aiChatAwaitingSpeechFinishRef = useRef(false);
   const aiChatRequestIdRef = useRef(0);
   const geminiConversationRef = useRef<GeminiChatMessage[]>([]);
+  const localLLMProviderRef = useRef<LocalLLMProvider | null>(null);
+  const getLocalLLMProvider = (): LocalLLMProvider => {
+    if (!localLLMProviderRef.current) {
+      localLLMProviderRef.current = new LocalLLMProvider('demo_user', LOCAL_LLM_DEMO_LICENSE);
+    }
+    return localLLMProviderRef.current;
+  };
+
+  // While the user is still talking, feed each partial transcript to the
+  // local model's prefill, so when the silence timeout sends the turn only
+  // the last few words remain to be processed. Runs in parallel with speech
+  // recognition; the native side keeps only the newest request.
+  useEffect(() => {
+    if (!isFullAIChatMode || selectedAppModeRef.current !== 'local_ai_chat') return;
+    if (aiChatInFlightRef.current) return;
+    const partial = aiChatLiveTranscript.trim();
+    if (!partial) return;
+    void getLocalLLMProvider().prefillForTurn(aiChatMessages, partial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiChatLiveTranscript]);
   const lastAIChatSubmitAtRef = useRef(0);
   const aiChatBlockedUntilRef = useRef(0);
   const lastAIChatSubmittedTextRef = useRef('');
@@ -730,84 +774,140 @@ function App(): React.JSX.Element {
     try {
       await Speech.pauseSpeechRecognition();
 
-      const nextHistory = [
-        ...geminiConversationRef.current,
-        { role: 'user' as const, parts: [{ text: userText }] },
-      ];
-      const networkRequestId = geminiNetworkRequestCountRef.current + 1;
-      geminiNetworkRequestCountRef.current = networkRequestId;
-      console.log(
-        `[AIChat] preparing Gemini request #${networkRequestId} for turn #${requestId}`,
-        { userText }
-      );
+      const useLocalLLM = selectedAppModeRef.current === 'local_ai_chat';
 
       let aiReply = '';
-      const shouldUseStreaming = GEMINI_ENABLE_STREAMING && aiChatStreamingSupportedRef.current;
-      if (shouldUseStreaming) {
+      // nextHistory only applies to the Gemini path below (the local LLM
+      // keeps its own history via aiChatMessages).
+      let shouldUseStreaming = false;
+      let nextHistory: GeminiChatMessage[] | null = null;
+
+      const localModel = useLocalLLM ? await getSelectedModel() : null;
+      if (localModel && !isModelReady(localModel.id)) {
+        // The model is still downloading or loading. Say so right away
+        // instead of holding the turn (and the mic) until it is ready.
+        const status = localModelStatusRef.current;
+        const progress = /^Downloading (\d+)%/.exec(status);
+        if (status.startsWith('Failed')) {
+          warmUpLocalModel(aiChatMessages); // retry the download/load
+          aiReply = `The on-device model, ${localModel.displayName}, failed to load, so I am trying again. Please ask me again in a moment.`;
+        } else if (progress) {
+          aiReply = `The on-device model, ${localModel.displayName}, is still downloading. It is ${progress[1]} percent done. Please ask me again when it is ready.`;
+        } else {
+          aiReply = `The on-device model, ${localModel.displayName}, is still loading. Please ask me again in a moment.`;
+        }
+      } else if (useLocalLLM) {
+        setAiChatStatus('Generating local AI reply...');
+        // Downloads (if needed) + licenses + loads the on-device model, then
+        // generates a reply. Any failure here — model not yet downloaded/
+        // hosted, license rejected, engine not vendored — is caught below and
+        // spoken aloud via TTS instead of silently failing.
+        //
+        // Streams tokens into the same sentence queue the Gemini streaming
+        // path uses, so TTS starts on the first complete sentence instead of
+        // waiting for the whole reply to be generated.
+        shouldUseStreaming = true;
         aiChatStreamingActiveRef.current = true;
         aiChatStreamGenerationDoneRef.current = false;
         aiChatStreamSpeakingRef.current = false;
         aiChatPendingSentenceBufferRef.current = '';
         aiChatSpeechQueueRef.current = [];
-        let streamDeliveredChunks = false;
-        setAiChatStatus('Streaming Gemini reply...');
+        await getLocalLLMProvider().generateReplyStream(aiChatMessages, userText, async (delta, done) => {
+          if (done || !delta || aiChatRequestIdRef.current !== requestId) return;
+          aiReply += delta;
+          const aggregateText = aiReply;
+          setAiChatStatus('Streaming local AI reply...');
+          setAiChatMessages((prev) =>
+            prev.map((message) =>
+              message.id === `model-${requestId}` ? { ...message, text: aggregateText } : message
+            )
+          );
+          await enqueueAIChatSpeechFromDelta(delta, aggregateText);
+        });
+        console.log('[AIChat][LOCAL_LLM][FULL_REPLY_BEGIN]');
+        console.log(aiReply);
+        console.log('[AIChat][LOCAL_LLM][FULL_REPLY_END]');
+      } else {
+        nextHistory = [
+          ...geminiConversationRef.current,
+          { role: 'user' as const, parts: [{ text: userText }] },
+        ];
+        const networkRequestId = geminiNetworkRequestCountRef.current + 1;
+        geminiNetworkRequestCountRef.current = networkRequestId;
+        console.log(
+          `[AIChat] preparing Gemini request #${networkRequestId} for turn #${requestId}`,
+          { userText }
+        );
 
-        const streamResult = await generateGeminiReplyStream(
-          nextHistory,
-          {
+        shouldUseStreaming = GEMINI_ENABLE_STREAMING && aiChatStreamingSupportedRef.current;
+        if (shouldUseStreaming) {
+          aiChatStreamingActiveRef.current = true;
+          aiChatStreamGenerationDoneRef.current = false;
+          aiChatStreamSpeakingRef.current = false;
+          aiChatPendingSentenceBufferRef.current = '';
+          aiChatSpeechQueueRef.current = [];
+          let streamDeliveredChunks = false;
+          setAiChatStatus('Streaming Gemini reply...');
+
+          const streamResult = await generateGeminiReplyStream(
+            nextHistory,
+            {
+              requestId: networkRequestId,
+              userText,
+            },
+            async (deltaText, aggregateText) => {
+              if (aiChatRequestIdRef.current !== requestId) return;
+              streamDeliveredChunks = true;
+              setAiChatStatus('Streaming Gemini reply...');
+              setAiChatMessages((prev) =>
+                prev.map((message) =>
+                  message.id === `model-${requestId}`
+                    ? { ...message, text: aggregateText }
+                    : message
+                )
+              );
+              await enqueueAIChatSpeechFromDelta(deltaText, aggregateText);
+            },
+          );
+          aiReply = streamResult.text;
+          if (!streamResult.usedStreaming) {
+            aiChatStreamingSupportedRef.current = false;
+            aiChatStreamingActiveRef.current = false;
+          }
+
+          if (!streamDeliveredChunks && aiReply) {
+            if (streamResult.usedStreaming) {
+              await enqueueAIChatSpeechFromDelta(aiReply, aiReply);
+              setAiChatMessages((prev) =>
+                prev.map((message) =>
+                  message.id === `model-${requestId}`
+                    ? { ...message, text: aiReply }
+                    : message
+                )
+              );
+            }
+          }
+        } else {
+          aiReply = await generateGeminiReply(nextHistory, {
             requestId: networkRequestId,
             userText,
-          },
-          async (deltaText, aggregateText) => {
-            if (aiChatRequestIdRef.current !== requestId) return;
-            streamDeliveredChunks = true;
-            setAiChatStatus('Streaming Gemini reply...');
-            setAiChatMessages((prev) =>
-              prev.map((message) =>
-                message.id === `model-${requestId}`
-                  ? { ...message, text: aggregateText }
-                  : message
-              )
-            );
-            await enqueueAIChatSpeechFromDelta(deltaText, aggregateText);
-          },
-        );
-        aiReply = streamResult.text;
-        if (!streamResult.usedStreaming) {
-          aiChatStreamingSupportedRef.current = false;
-          aiChatStreamingActiveRef.current = false;
+          });
         }
 
-        if (!streamDeliveredChunks && aiReply) {
-          if (streamResult.usedStreaming) {
-            await enqueueAIChatSpeechFromDelta(aiReply, aiReply);
-            setAiChatMessages((prev) =>
-              prev.map((message) =>
-                message.id === `model-${requestId}`
-                  ? { ...message, text: aiReply }
-                  : message
-              )
-            );
-          }
-        }
-      } else {
-        aiReply = await generateGeminiReply(nextHistory, {
-          requestId: networkRequestId,
-          userText,
-        });
+        console.log(`[AIChat] Gemini reply #${networkRequestId}:`, aiReply);
+        console.log('[AIChat][FULL_REPLY_BEGIN]');
+        console.log(aiReply);
+        console.log('[AIChat][FULL_REPLY_END]');
       }
-
-      console.log(`[AIChat] Gemini reply #${networkRequestId}:`, aiReply);
-      console.log('[AIChat][FULL_REPLY_BEGIN]');
-      console.log(aiReply);
-      console.log('[AIChat][FULL_REPLY_END]');
 
       if (aiChatRequestIdRef.current !== requestId) return;
 
-      geminiConversationRef.current = [
-        ...nextHistory,
-        { role: 'model' as const, parts: [{ text: aiReply }] },
-      ];
+      if (nextHistory) {
+        geminiConversationRef.current = [
+          ...nextHistory,
+          { role: 'model' as const, parts: [{ text: aiReply }] },
+        ];
+      }
 
       setAiChatResponse(aiReply);
       setAiChatMessages((prev) =>
@@ -824,20 +924,29 @@ function App(): React.JSX.Element {
         await speakNextAIChatSentence();
       } else {
         aiChatStreamingActiveRef.current = false;
-        setCurrentSpeechSentence(`Gemini: ${aiReply}`);
-        setAiChatStatus('Speaking Gemini reply...');
+        const replySpeakerLabel = useLocalLLM ? 'Local AI' : 'Gemini';
+        setCurrentSpeechSentence(`${replySpeakerLabel}: ${aiReply}`);
+        setAiChatStatus(`Speaking ${replySpeakerLabel} reply...`);
         aiChatAwaitingSpeechFinishRef.current = true;
         await speakText(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
       }
     } catch (error) {
+      const useLocalLLM = selectedAppModeRef.current === 'local_ai_chat';
       const message = String((error as any)?.message ?? error);
-      const friendlyMessage = buildFriendlyGeminiErrorMessage(message);
-      console.log('[AIChat] Gemini error:', message);
+      // Local LLM errors (not-yet-hosted model, rejected license, engine not
+      // vendored, etc.) are read aloud verbatim rather than run through
+      // Gemini's quota/rate-limit-specific friendly-message mapping — the
+      // user explicitly wants "if there is an error the TTS will say the
+      // error" for this mode.
+      const friendlyMessage = useLocalLLM
+        ? `Local AI chat error: ${message}`
+        : buildFriendlyGeminiErrorMessage(message);
+      console.log(useLocalLLM ? '[AIChat] Local LLM error:' : '[AIChat] Gemini error:', message);
       aiChatStreamingActiveRef.current = false;
       aiChatStreamGenerationDoneRef.current = false;
       aiChatStreamSpeakingRef.current = false;
       aiChatAwaitingSpeechFinishRef.current = false;
-      if (/quota|rate limit|429|too many requests/i.test(message)) {
+      if (!useLocalLLM && /quota|rate limit|429|too many requests/i.test(message)) {
         aiChatBlockedUntilRef.current = Date.now() + AI_CHAT_RATE_LIMIT_BACKOFF_MS;
         setAiChatStatus('Gemini is rate limited right now. Please try again in about 30 seconds.');
       }
@@ -849,7 +958,8 @@ function App(): React.JSX.Element {
             : msg
         )
       );
-      setCurrentSpeechSentence(`Gemini: ${friendlyMessage}`);
+      const errorSpeakerLabel = useLocalLLM ? 'Local AI' : 'Gemini';
+      setCurrentSpeechSentence(`${errorSpeakerLabel}: ${friendlyMessage}`);
       setAiChatStatus('Speaking demo status update...');
       aiChatAwaitingSpeechFinishRef.current = true;
       try {
@@ -859,7 +969,7 @@ function App(): React.JSX.Element {
           getSelectedSpeakerSpeed(),
         );
       } catch (speechError) {
-        console.log('[AIChat] failed to speak Gemini fallback message:', speechError);
+        console.log('[AIChat] failed to speak fallback message:', speechError);
         aiChatAwaitingSpeechFinishRef.current = false;
         await finishAIChatSpeechFlow();
       }
@@ -1012,7 +1122,7 @@ function App(): React.JSX.Element {
             await speakStartupNarration([`${cleanWakeWord} detected.`]);
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
-              'Now you can test the voice capabilities in four different ways. You can sellect a full AI Chat, or simply test Speech to Text and Text to Speech individually or a combination of both.',
+              'Now you can test the voice capabilities in five different ways. You can select a Local AI Chat that runs fully on this device, a full AI Chat using remote Gemini, or simply test Speech to Text and Text to Speech individually or a combination of both.',
             ]);
           },
         });
@@ -1063,7 +1173,7 @@ function App(): React.JSX.Element {
         return;
       }
 
-      if (selectedAppModeRef.current === 'full_ai_chat') {
+      if (selectedAppModeRef.current === 'full_ai_chat' || selectedAppModeRef.current === 'local_ai_chat') {
         setAiChatStatus('Preparing chat mode...');
         setAiChatTranscript('');
         setAiChatResponse('');
@@ -1426,7 +1536,35 @@ function App(): React.JSX.Element {
     }
   };
 
+  // Loads the selected on-device model in the background as soon as Local AI
+  // Chat opens (or the model changes), never in the middle of a turn. Only
+  // the latest warm-up updates the status, if the user switches models
+  // quickly.
+  const warmUpLocalModel = (history: AIChatHistoryMessage[] = []) => {
+    const seq = ++localModelWarmUpSeqRef.current;
+    const isLatest = () => seq === localModelWarmUpSeqRef.current;
+    setLocalModelStatus('Loading...');
+    getLocalLLMProvider()
+      .warmUp(history, (fraction) => {
+        if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
+      })
+      .then(async (model) => {
+        if (!isLatest()) return;
+        setLocalModelName(model.displayName);
+        setLocalModelStatus('Ready');
+        const deleted = await deleteUnusedModelFiles(await listModels());
+        if (deleted.length > 0) console.log('[AIChat] deleted unused model files:', deleted);
+      })
+      .catch((error) => {
+        console.log('[AIChat] local model warm-up failed:', error);
+        if (isLatest()) setLocalModelStatus(`Failed: ${String(error?.message ?? error)}`);
+      });
+  };
+
   const enterFullAIChatMode = async () => {
+    if (selectedAppModeRef.current === 'local_ai_chat') {
+      warmUpLocalModel();
+    }
     beginSpeechUiEpoch();
     //resetSpeechTranscriptState();
     resetAIChatSession();
@@ -1445,7 +1583,11 @@ function App(): React.JSX.Element {
     setIsTTSTestMode(false);
     setIsAIChatHistoryVisible(false);
     setIsFullAIChatMode(true);
-    setMessage('Full AI Chat is active. Start speaking.');
+    setMessage(
+      selectedAppModeRef.current === 'local_ai_chat'
+        ? 'Local AI Chat is active. Start speaking.'
+        : 'Full AI Chat is active. Start speaking.',
+    );
 
     if (Platform.OS === 'android') {
       // TEMPORARY AUDIO-SESSION TEST: keep wakeword active while STT starts.
@@ -1525,7 +1667,7 @@ function App(): React.JSX.Element {
   const shouldShowFullAIChatScreen =
     isFullAIChatMode ||
     (
-      selectedAppModeRef.current === 'full_ai_chat' &&
+      (selectedAppModeRef.current === 'full_ai_chat' || selectedAppModeRef.current === 'local_ai_chat') &&
       !showAppModePrompt &&
       !showTTSModelPrompt &&
       !showSVPrompt &&
@@ -1610,7 +1752,10 @@ function App(): React.JSX.Element {
     );
   };
 
-  const aiChatTitle = '*Limited* **Gemini 3.1** Flash Lite Chat';
+  const isLocalAIChat = selectedAppModeRef.current === 'local_ai_chat';
+  const aiChatTitle = isLocalAIChat
+    ? 'Local AI Chat (on-device)'
+    : '*Limited* **Gemini 3.1** Flash Lite Chat';
 
   if (shouldShowFullAIChatScreen) {
     return (
@@ -1639,8 +1784,27 @@ function App(): React.JSX.Element {
               </View>
               {isAIChatHelpVisible && (
                 <Text style={styles.svPromptSubtitle}>
-                  Speak naturally and the app will send your STT text to Gemini 2.5 Flash, then speak the reply with the selected voice.
+                  {isLocalAIChat
+                    ? 'Speak naturally and the app will send your STT text to the on-device LLM, then speak the reply with the selected voice. Runs fully offline once the model is downloaded and loaded; any error is read aloud.'
+                    : 'Speak naturally and the app will send your STT text to Gemini 2.5 Flash, then speak the reply with the selected voice.'}
                 </Text>
+              )}
+              {isLocalAIChat && (
+                <View style={[styles.speechSummaryBlock, styles.localModelRow]}>
+                  <View style={styles.localModelInfo}>
+                    <Text style={styles.speechSentenceLabel}>Model</Text>
+                    <Text style={styles.speechSentenceText}>{localModelName || '...'}</Text>
+                    {!!localModelStatus && (
+                      <Text style={styles.speechSentenceLabel}>{localModelStatus}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.localModelChangeButton}
+                    activeOpacity={0.7}
+                    onPress={() => setIsModelPickerVisible(true)}>
+                    <Text style={styles.localModelChangeText}>Change</Text>
+                  </TouchableOpacity>
+                </View>
               )}
               <View style={styles.speechSummaryBlock}>
                 <Text style={styles.speechSentenceLabel}>Status</Text>
@@ -1678,6 +1842,15 @@ function App(): React.JSX.Element {
               </View>
             </View>
         </ScrollView>
+        <ModelPicker
+          visible={isModelPickerVisible}
+          isBusy={isAIChatLoading}
+          onClose={() => setIsModelPickerVisible(false)}
+          onModelSelected={(model) => {
+            setLocalModelName(model.displayName);
+            warmUpLocalModel(aiChatMessages);
+          }}
+        />
       </View>
     );
   }
@@ -1868,6 +2041,7 @@ function App(): React.JSX.Element {
             <View style={styles.appModeStack}>
               {(
                 [
+                  { key: 'local_ai_chat', label: 'Local AI Chat',        desc: 'STT → on-device LLM → TTS' },
                   { key: 'full_ai_chat',  label: 'Full AI Chat',         desc: 'STT → Gemini → TTS' },
                   { key: 'combined',      label: 'Combined STT + TTS',   desc: 'Speak → hear it back' },
                   { key: 'stt_only',      label: 'STT Only',             desc: 'Show transcript, no playback' },
@@ -1888,7 +2062,7 @@ function App(): React.JSX.Element {
                       selectedAppModeRef.current = key;
                       modeAlreadyEnteredRef.current = true;
                       setShowAppModePrompt(false);
-                      if (key === 'full_ai_chat') {
+                      if (key === 'full_ai_chat' || key === 'local_ai_chat') {
                         setAiChatStatus('Preparing chat mode...');
                         setAiChatTranscript('');
                         setAiChatResponse('');
@@ -1902,7 +2076,7 @@ function App(): React.JSX.Element {
                     }
                     selectedAppModeRef.current = key;
                     setShowAppModePrompt(false);
-                    if (key === 'full_ai_chat') { await enterFullAIChatMode(); return; }
+                    if (key === 'full_ai_chat' || key === 'local_ai_chat') { await enterFullAIChatMode(); return; }
                     if (key === 'stt_only') { await enterSTTOnlyMode(); return; }
                     if (key === 'type_to_tts') { await enterTTSTestMode(); return; }
                     await enterCombinedMode();
@@ -2229,7 +2403,7 @@ function App(): React.JSX.Element {
                       activeOpacity={0.7}
                       onPress={async () => {
                         const mode = selectedAppModeRef.current;
-                        if (mode === 'full_ai_chat') { await enterFullAIChatMode(); return; }
+                        if (mode === 'full_ai_chat' || mode === 'local_ai_chat') { await enterFullAIChatMode(); return; }
                         if (mode === 'stt_only') { await enterSTTOnlyMode(); return; }
                         if (mode === 'type_to_tts') { await enterTTSTestMode(); return; }
                         await enterCombinedMode();
@@ -2676,6 +2850,26 @@ const styles = StyleSheet.create({
   },
   speechSentenceCardTTSIOS: {
     marginTop: -80,
+  },
+  localModelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  localModelInfo: {
+    flex: 1,
+  },
+  localModelChangeButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  localModelChangeText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   speechSentenceLabel: {
     fontSize: 12,

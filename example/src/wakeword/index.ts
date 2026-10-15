@@ -48,6 +48,12 @@ type AppAudioRoutingConfig = {
     threshold: number;
     buffer_cnt: number;
   };
+  // App-wide AEC (STT, wake word and TTS). When present it replaces
+  // WakewordAEC. 'always' keeps AEC on whenever STT or wake word listens;
+  // 'duringTTS' only while TTS plays.
+  AEC?: {
+    mode: 'off' | 'duringTTS' | 'always';
+  };
   WakewordAEC?: {
     regular: boolean;
     duringTTS: boolean;
