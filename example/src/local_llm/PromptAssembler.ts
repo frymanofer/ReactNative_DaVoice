@@ -22,7 +22,12 @@ export interface AssembleInput {
   shortTermMemory: ChatMessage[];
   longTermFacts: MemoryFact[];
   localRagPassages: string[];
+  /** Fresh web results for this turn's question (see needsWebSearch.ts). */
   webRagPassages: WebRAGPassage[];
+  /** A web search was attempted for this turn but failed (e.g. offline). */
+  webSearchFailed?: boolean;
+  /** e.g. "Saturday, October 17, 2026" — lets the model reason about "now". */
+  currentDate?: string;
   toolSchemas: ToolDefinition[];
   /** The selected model's template — see ModelRegistry.ts. */
   chatTemplate: ChatTemplate;
@@ -36,6 +41,7 @@ export interface AssembledPrompt {
 
 function buildSystemBlock(input: AssembleInput): string {
   const parts: string[] = [input.persona.systemPromptFragment];
+  if (input.currentDate) parts.push(`Today's date is ${input.currentDate}.`);
 
   if (input.profile) {
     const prefBits: string[] = [];
@@ -54,11 +60,6 @@ function buildSystemBlock(input: AssembleInput): string {
     parts.push(`Relevant context from the user's own documents:\n${input.localRagPassages.join('\n---\n')}`);
   }
 
-  if (input.webRagPassages.length > 0) {
-    const web = input.webRagPassages.map((p) => `- ${p.text} (${p.url})`).join('\n');
-    parts.push(`Relevant up-to-date information from the web:\n${web}`);
-  }
-
   if (input.toolSchemas.length > 0) {
     const tools = input.toolSchemas
       .map((t) => `- ${t.name}: ${t.description}`)
@@ -69,10 +70,38 @@ function buildSystemBlock(input: AssembleInput): string {
   return parts.join('\n\n');
 }
 
+/**
+ * Web results are appended to this turn's question, not put in the system
+ * block: the system prompt and earlier turns then stay identical between
+ * turns, so the engine's cache (and the prefill done while the user spoke)
+ * is still reused. They go after the question so that prefill still matches.
+ */
+function buildWebBlock(input: AssembleInput): string {
+  if (input.webRagPassages.length > 0) {
+    const results = input.webRagPassages.map((p) => `- ${p.text}`).join('\n');
+    return (
+      `\n\nWeb search results, newer than your training data:\n${results}\n` +
+      'Answer my question using these results; they override what you remember. ' +
+      'Do not mention the search, sources or URLs.'
+    );
+  }
+  if (input.webSearchFailed) {
+    return (
+      '\n\n(A web search for this question failed, for example because the device is offline. ' +
+      'The app already told the user that. Say what was true as of your training data, ' +
+      'using words like "as of my training". Never say it is true today, and never put today\'s date on it. Keep it to two sentences.)'
+    );
+  }
+  return '';
+}
+
 export function assemblePrompt(input: AssembleInput): AssembledPrompt {
   const { chatTemplate } = input;
   const systemBlock = buildSystemBlock(input);
-  const turns: ChatMessage[] = [...input.shortTermMemory, { role: 'user', content: input.userText }];
+  const turns: ChatMessage[] = [
+    ...input.shortTermMemory,
+    { role: 'user', content: input.userText + buildWebBlock(input) },
+  ];
   const segments: string[] = [];
 
   // Models without a system role (Gemma) get the system block prepended to

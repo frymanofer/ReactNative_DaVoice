@@ -58,10 +58,22 @@ import {
   TTSVoiceChoice,
 } from './src/appflow';
 import { LocalLLMProvider } from './src/aichat/provider';
+import type { WebSearchOutcome } from './src/aichat/provider';
 import ModelPicker from './src/local_llm/ModelPicker';
 import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
+import { configureWebSearch } from './src/local_llm/rag/web/WebRAGProvider';
+import type { BuiltInWebSearchEngine } from './src/local_llm/rag/web/WebRAGProvider';
+import {
+  needsWebSearch,
+  pickSearchFailedFiller,
+  pickSearchFiller,
+} from './src/local_llm/rag/web/needsWebSearch';
+// Local AI Chat's web search engine, from the git-ignored local.config.ts:
+// WEB_SEARCH_ENGINE = 'wikipedia' (default, no key) | 'tavily' | 'brave', plus
+// TAVILY_API_KEY / BRAVE_API_KEY. All optional.
+import * as LocalConfig from './local.config';
 import {
   initializeSpeechLibrary as initializeSpeechLibraryBase,
   promptForTTSModelChoice as promptForTTSModelChoiceBase,
@@ -342,6 +354,16 @@ function App(): React.JSX.Element {
   const localLLMProviderRef = useRef<LocalLLMProvider | null>(null);
   const getLocalLLMProvider = (): LocalLLMProvider => {
     if (!localLLMProviderRef.current) {
+      const config = LocalConfig as {
+        WEB_SEARCH_ENGINE?: BuiltInWebSearchEngine;
+        TAVILY_API_KEY?: string;
+        BRAVE_API_KEY?: string;
+      };
+      configureWebSearch({
+        engine: config.WEB_SEARCH_ENGINE ?? 'wikipedia',
+        tavilyApiKey: config.TAVILY_API_KEY,
+        braveApiKey: config.BRAVE_API_KEY,
+      });
       localLLMProviderRef.current = new LocalLLMProvider('demo_user', LOCAL_LLM_DEMO_LICENSE);
     }
     return localLLMProviderRef.current;
@@ -812,6 +834,27 @@ function App(): React.JSX.Element {
         aiChatStreamSpeakingRef.current = false;
         aiChatPendingSentenceBufferRef.current = '';
         aiChatSpeechQueueRef.current = [];
+        // Time-sensitive question ("who is the president..."): search the web
+        // while a short filler is spoken, so the wait isn't silent, then answer
+        // from the results. The filler isn't part of the reply or history.
+        let webSearch: WebSearchOutcome | undefined;
+        if (needsWebSearch(userText)) {
+          const searching = getLocalLLMProvider().searchWeb(userText);
+          setAiChatStatus('Searching the web...');
+          const filler = pickSearchFiller(userText);
+          void enqueueAIChatSpeechFromDelta(filler, filler);
+          webSearch = await searching;
+          if (aiChatRequestIdRef.current !== requestId) return;
+          if (webSearch.failed) {
+            const failedFiller = pickSearchFailedFiller();
+            void enqueueAIChatSpeechFromDelta(failedFiller, failedFiller);
+          }
+          setAiChatStatus(
+            webSearch.failed
+              ? 'Could not search online; answering from memory...'
+              : `Searched online (${webSearch.source}); generating reply...`,
+          );
+        }
         await getLocalLLMProvider().generateReplyStream(aiChatMessages, userText, async (delta, done) => {
           if (done || !delta || aiChatRequestIdRef.current !== requestId) return;
           aiReply += delta;
@@ -823,7 +866,7 @@ function App(): React.JSX.Element {
             )
           );
           await enqueueAIChatSpeechFromDelta(delta, aggregateText);
-        });
+        }, webSearch);
         console.log('[AIChat][LOCAL_LLM][FULL_REPLY_BEGIN]');
         console.log(aiReply);
         console.log('[AIChat][LOCAL_LLM][FULL_REPLY_END]');

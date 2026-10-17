@@ -16,6 +16,7 @@ import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
 import { webRAGProvider } from '../local_llm/rag/web/WebRAGProvider';
+import type { WebRAGPassage } from '../local_llm/rag/web/WebRAGProvider';
 import type { ToolDefinition } from '../local_llm/tools/types';
 import { assemblePrompt, assemblePromptPrefix } from '../local_llm/PromptAssembler';
 import type { AssembleInput } from '../local_llm/PromptAssembler';
@@ -79,6 +80,26 @@ export class GeminiProvider implements LLMProvider {
   }
 }
 
+/** Result of `LocalLLMProvider.searchWeb`, passed on to `generateReplyStream`. */
+export interface WebSearchOutcome {
+  passages: WebRAGPassage[];
+  /** "Tavily" or "Wikipedia". */
+  source: string;
+  /** True when nothing usable came back (offline, timeout, no results). */
+  failed: boolean;
+}
+
+/** e.g. "Saturday, October 17, 2026". Changes once a day, so the system
+ * prompt (and the engine's cache of it) stays the same within a day. */
+function currentDateText(): string {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 function toShortTermMemory(history: AIChatHistoryMessage[]): ChatMessage[] {
   return history.map((m) => ({
     role: m.role === 'model' ? 'assistant' : 'user',
@@ -137,12 +158,27 @@ export class LocalLLMProvider implements LLMProvider {
     try {
       const model = await getSelectedModel();
       if (!isModelReady(model.id)) return;
-      // No web search for a speculative prefill: it would run on every
-      // partial transcript.
-      const input = await this.buildAssembleInput(model, history, partialUserText, false);
+      const input = await this.buildAssembleInput(model, history, partialUserText);
       localLLMModule().prefill(assemblePromptPrefix(input));
     } catch (error) {
       console.log('[LocalLLM] prefill skipped:', error);
+    }
+  }
+
+  /**
+   * Searches the web for `query` (call it only for time-sensitive questions —
+   * see needsWebSearch.ts). Never throws: a failure is reported in the
+   * outcome so the reply can say it couldn't check online.
+   */
+  async searchWeb(query: string): Promise<WebSearchOutcome> {
+    const started = Date.now();
+    try {
+      const passages = await webRAGProvider.search(query);
+      console.log(`[LocalLLM] web search via ${webRAGProvider.lastSource}: ${passages.length} results in ${Date.now() - started} ms`);
+      return { passages, source: webRAGProvider.lastSource, failed: passages.length === 0 };
+    } catch (error) {
+      console.log('[LocalLLM] web search failed:', String(error));
+      return { passages: [], source: webRAGProvider.lastSource, failed: true };
     }
   }
 
@@ -150,16 +186,13 @@ export class LocalLLMProvider implements LLMProvider {
     model: LocalLLMModelConfig,
     history: AIChatHistoryMessage[],
     userText: string,
-    includeWebRag = true,
+    webSearch?: WebSearchOutcome,
   ): Promise<AssembleInput> {
     const [profile, longTermFacts, localRagPassages] = await Promise.all([
       getProfile(this.speakerId),
       listFacts(this.speakerId),
       retrieveLocalRag(this.speakerId, userText),
     ]);
-    const webRagPassages = includeWebRag && webRAGProvider.isAvailable()
-      ? await webRAGProvider.search(userText)
-      : [];
 
     return {
       persona: VOICE_ASSISTANT_PERSONA,
@@ -167,7 +200,9 @@ export class LocalLLMProvider implements LLMProvider {
       shortTermMemory: toShortTermMemory(history),
       longTermFacts,
       localRagPassages,
-      webRagPassages,
+      webRagPassages: webSearch?.passages ?? [],
+      webSearchFailed: webSearch?.failed ?? false,
+      currentDate: currentDateText(),
       toolSchemas: this.tools,
       chatTemplate: model.chatTemplate,
       userText,
@@ -182,10 +217,12 @@ export class LocalLLMProvider implements LLMProvider {
     return full;
   }
 
+  /** `webSearch`: results of `searchWeb` for this question, if it searched. */
   async generateReplyStream(
     history: AIChatHistoryMessage[],
     userText: string,
     onDelta: (delta: string, done: boolean) => void,
+    webSearch?: WebSearchOutcome,
   ): Promise<void> {
     // Downloads (if needed) + licenses + loads the model at most once, even
     // if generateReplyStream is somehow called again before the first load
@@ -197,7 +234,7 @@ export class LocalLLMProvider implements LLMProvider {
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey);
 
-    const { prompt } = assemblePrompt(await this.buildAssembleInput(model, history, userText));
+    const { prompt } = assemblePrompt(await this.buildAssembleInput(model, history, userText, webSearch));
     const localLLM = localLLMModule();
     const stopFilter = new StopSequenceFilter(model.chatTemplate.stopSequences);
     await localLLM.generateStream(prompt, (token, done) => {

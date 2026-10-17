@@ -96,6 +96,52 @@ Recommended setup for contributors:
 
 For production apps, a permanent Gemini key should usually not be shipped directly in the client at all. A backend proxy or short-lived token flow is safer.
 
+### Local AI Chat web search
+
+Local AI Chat runs on the device, so its model only knows facts up to its training. For
+time-sensitive questions ("Who is the president of the US?", "latest", "today", news,
+prices), the app says a short phrase such as "Well, that is a good question, let me search."
+(picked to fit the question), searches the web, and the
+on-device model answers from the results. Other questions never leave the device.
+
+The search engine is replaceable. Choose it in the git-ignored `example/local.config.ts`:
+
+```ts
+export const WEB_SEARCH_ENGINE = 'wikipedia'; // default: free, no key. Or 'tavily' / 'brave'.
+export const TAVILY_API_KEY = '';             // https://tavily.com (free plan available)
+export const BRAVE_API_KEY = '';              // https://brave.com/search/api
+```
+
+All three lines are optional. Wikipedia handles "who currently holds this office" questions
+well but has no news, prices or weather; Tavily and Brave are full web search. If the chosen
+engine fails or finds nothing, Wikipedia is tried.
+
+To use any other search API, implement `WebSearchEngine` from
+`src/local_llm/rag/web/types.ts` and pass it to `configureWebSearch`:
+
+```ts
+import { configureWebSearch } from './src/local_llm/rag/web/WebRAGProvider';
+import type { WebSearchEngine } from './src/local_llm/rag/web/WebRAGProvider';
+
+const mySearch: WebSearchEngine = {
+  name: 'MySearch',
+  async search(query, { maxResults, signal }) {
+    const res = await fetch(`https://my-api.example.com/search?q=${encodeURIComponent(query)}`, { signal });
+    const json = await res.json();
+    return json.items.slice(0, maxResults).map((item: any) => ({
+      text: item.snippet, // short plain text, most relevant first
+      url: item.link,
+      title: item.title,
+      retrievedAt: Date.now(),
+    }));
+  },
+};
+
+configureWebSearch({ engine: mySearch }); // optional: fallbackToWikipedia, maxResults, timeoutMs
+```
+
+Which questions trigger a search is decided in `src/local_llm/rag/web/needsWebSearch.ts`.
+
 ### Metro assets
 
 Make sure your Metro configuration supports DaVoice model assets such as `.onnx` and `.dm` files. See [react-native.config.js](./react-native.config.js) and the project asset setup.
