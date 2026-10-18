@@ -142,6 +142,33 @@ configureWebSearch({ engine: mySearch }); // optional: fallbackToWikipedia, maxR
 
 Which questions trigger a search is decided in `src/local_llm/rag/web/needsWebSearch.ts`.
 
+### Local AI Chat: the AI changes the app (tool calling and MCP)
+
+Local AI Chat shows a **Calories today** card that the on-device AI updates by voice, using
+react-native-davoice-llm's tool calling. Try:
+
+- "I had two eggs for breakfast", "And a banana", "Log a can of coke"
+- "Remove the banana" (deletes that line), "Remove 100 calories", "Set it to 1500", "Undo that"
+- "How much have I eaten today?" / "What did I eat today?"
+- "How many calories are in an apple?" (a question: answered without touching the tracker)
+
+Every change shows on the card with an **Undo** button. The model extracts the food and
+quantity and the app looks up the calories, so "two eggs" is always 156. Foods missing from
+the built-in table are looked up on Wikipedia (per 100 g; "I had 200 grams of lentils" uses
+the weight). For dishes and brands with real serving sizes, add a free
+[USDA FoodData Central](https://fdc.nal.usda.gov/api-key-signup) key; USDA is then tried
+first. If no source knows the food, the AI asks how many calories it had. Other sources
+plug in through `FoodCalorieSource` (onlineFoods.ts). The demo's code is
+in `src/calories/` (`calorieTools.ts` defines the tools, `CalorieStore.ts` holds the data, `CaloriesCard.tsx` is the card): copy it as a template for your own app's tools.
+
+Optional settings, in the git-ignored example/local.config.ts:
+
+```ts
+export const MCP_SERVER_URL = 'https://example.com/mcp';  // optional: tools from a remote MCP server
+export const MCP_SERVER_TOKEN = '';   // its bearer token, if it needs one
+export const USDA_API_KEY = '';       // optional: USDA food lookup
+```
+
 ### Metro assets
 
 Make sure your Metro configuration supports DaVoice model assets such as `.onnx` and `.dm` files. See [react-native.config.js](./react-native.config.js) and the project asset setup.

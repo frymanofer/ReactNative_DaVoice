@@ -11,8 +11,9 @@ export const ARIANA_SPEAKER_SPEED = 0.88; //0.75;
 export const HANNA_SPEAKER_SPEED = 0.9;
 
 export const RICH_SPEAKER_SPEED_NEW_MODEL = 0.95;
-export const ARIANA_SPEAKER_SPEED_NEW_MODEL = 1.0; //0.75;
+export const ARIANA_SPEAKER_SPEED_NEW_MODEL = 1.0;
 export const HANNA_SPEAKER_SPEED_NEW_MODEL = 1.0;
+export const KATE_SPEAKER_SPEED_NEW_MODEL = 1.0;
 
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
 //const SPEAKER_SPEED = 0.75;
@@ -25,22 +26,25 @@ export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPress
 
 import type { TTSVoiceChoice } from '../appflow';
 
-const sharedTTS2Model = require('../../assets/models/model_ex2_rich_hanna_ariana.dm');
-const richTTS2Model = require('../../assets/models/model_ex2_rich.dm');
+const sharedTTS2Model = require('../../assets/models/model_ex2_rich_kate.dm');
 const arianaModel = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
 const hannaModel = require('../../assets/models/model_ex_hanna_light_davoice_ph.dm');
 
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
   if (useTTS2Only) {
-    const speeds = {
-      Rich: RICH_SPEAKER_SPEED_NEW_MODEL,
+    const speeds: Record<TTSVoiceChoice, number> = {
       Ariana: ARIANA_SPEAKER_SPEED_NEW_MODEL,
+      Rich: RICH_SPEAKER_SPEED_NEW_MODEL,
       Hanna: HANNA_SPEAKER_SPEED_NEW_MODEL,
+      Kate: KATE_SPEAKER_SPEED_NEW_MODEL,
+      Jenny: KATE_SPEAKER_SPEED_NEW_MODEL,
     };
     return { model: sharedTTS2Model, speed: speeds[voice], usesTTS2: true };
   }
   const voices = {
-    Rich: { model: richTTS2Model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Rich: { model: sharedTTS2Model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Kate: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Jenny: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Ariana: { model: arianaModel, speed: ARIANA_SPEAKER_SPEED, usesTTS2: false },
     Hanna: { model: hannaModel, speed: HANNA_SPEAKER_SPEED, usesTTS2: false },
   };

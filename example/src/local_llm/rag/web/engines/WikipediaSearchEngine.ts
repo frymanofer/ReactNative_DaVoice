@@ -1,4 +1,5 @@
 import { clip, fetchJson } from '../http';
+import { officeHolderPage } from '../needsWebSearch';
 import type { WebRAGPassage, WebSearchEngine, WebSearchOptions } from '../types';
 
 // Wikimedia asks API clients to identify themselves and rate-limits generic
@@ -26,7 +27,7 @@ function bestSentences(extract: string, query: string, count = 2): { text: strin
   const sentences = extract.split(/(?<=[.!?])\s+/).filter((s) => s.length > 20);
   const scored = sentences.map((sentence, index) => {
     let score = words.reduce((sum, word) => sum + (word.test(sentence) ? 1 : 0), 0);
-    if (/\b(current|currently|incumbent|serving as|as of)\b/i.test(sentence)) score += 2;
+    if (/\b(current|currently|incumbent|officeholder|serving as|as of)\b/i.test(sentence)) score += 2;
     if (/\b20(2[4-9]|[3-9]\d)\b/.test(sentence)) score += 1.5;
     if (index === 0) score += 0.5;
     return { sentence, index, score };
@@ -49,12 +50,24 @@ export class WikipediaSearchEngine implements WebSearchEngine {
   readonly name = 'Wikipedia';
 
   async search(query: string, { signal }: WebSearchOptions): Promise<WebRAGPassage[]> {
+    // "Who holds this office" questions: the office's own page, whose intro
+    // names the current holder (keyword search often finds the wrong article).
+    const officePage = officeHolderPage(query);
+    if (officePage) {
+      const passages = await this.bestPassage([officePage], officePage, signal);
+      if (passages.length > 0) return passages;
+    }
     const found = await fetchJson(
       `${API}&action=query&list=search&srlimit=3&srsearch=${encodeURIComponent(keywords(query).join(' ') || query)}`,
       { headers: HEADERS, signal },
     );
     const titles: string[] = (found?.query?.search ?? []).map((r: any) => String(r.title));
     if (titles.length === 0) return [];
+    return this.bestPassage(titles, query, signal);
+  }
+
+  /** The most relevant sentences of the best of these pages' introductions. */
+  private async bestPassage(titles: string[], query: string, signal: AbortSignal): Promise<WebRAGPassage[]> {
     const pages = await fetchJson(
       `${API}&action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=${encodeURIComponent(titles.join('|'))}`,
       { headers: HEADERS, signal },

@@ -17,7 +17,8 @@ import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
 import { webRAGProvider } from '../local_llm/rag/web/WebRAGProvider';
 import type { WebRAGPassage } from '../local_llm/rag/web/WebRAGProvider';
-import type { ToolDefinition } from '../local_llm/tools/types';
+import { runToolTurn } from 'react-native-davoice-llm/local_llm/tools';
+import type { ToolCallResult, ToolChoice, ToolDefinition, ToolTurnMessage } from 'react-native-davoice-llm/local_llm/tools';
 import { assemblePrompt, assemblePromptPrefix } from '../local_llm/PromptAssembler';
 import type { AssembleInput } from '../local_llm/PromptAssembler';
 
@@ -42,7 +43,7 @@ export interface LLMProvider {
     history: AIChatHistoryMessage[],
     userText: string,
     onDelta: (delta: string, done: boolean) => void,
-  ): Promise<void>;
+  ): Promise<void | ToolTurnMessage[]>;
   isAvailable(): boolean;
 }
 
@@ -101,10 +102,12 @@ function currentDateText(): string {
 }
 
 function toShortTermMemory(history: AIChatHistoryMessage[]): ChatMessage[] {
-  return history.map((m) => ({
-    role: m.role === 'model' ? 'assistant' : 'user',
-    content: m.text,
-  }));
+  const turns: ChatMessage[] = [];
+  for (const m of history) {
+    if (m.role === 'model') turns.push(...(m.toolMessages ?? []));
+    if (m.text) turns.push({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text });
+  }
+  return turns;
 }
 
 /**
@@ -116,11 +119,36 @@ function toShortTermMemory(history: AIChatHistoryMessage[]): ChatMessage[] {
  * not hardcoded here, since licensing is an app-level concern.
  */
 export class LocalLLMProvider implements LLMProvider {
+  private tools: ToolDefinition[] = [];
+  private toolInstructions = '';
+  private toolChoice: (userText: string) => ToolChoice = () => 'auto';
+  private missingToolCallReply = "Sorry, I couldn't do that. Could you say it again?";
+
   constructor(
     private readonly speakerId: string,
     private readonly licenseKey: string,
-    private readonly tools: ToolDefinition[] = [],
   ) {}
+
+  /**
+   * Tools the model may call (app tools and/or MCP server tools), the rules
+   * for using them (added to the system prompt), and an optional per-message
+   * `toolChoice` from the user's words ('required' for clear actions, 'none'
+   * for messages that clearly aren't tool requests). Set before `warmUp`:
+   * the tool list is part of the system prompt the engine caches.
+   * `missingToolCallReply` is spoken when a required tool call never came
+   * (rather than the model's words, which may claim it was done).
+   */
+  setTools(
+    tools: ToolDefinition[],
+    instructions = '',
+    toolChoice: (userText: string) => ToolChoice = () => 'auto',
+    missingToolCallReply?: string,
+  ): void {
+    this.tools = tools;
+    this.toolInstructions = instructions;
+    this.toolChoice = toolChoice;
+    if (missingToolCallReply) this.missingToolCallReply = missingToolCallReply;
+  }
 
   isAvailable(): boolean {
     // Real availability (model downloaded + license set) is determined by
@@ -204,6 +232,7 @@ export class LocalLLMProvider implements LLMProvider {
       webSearchFailed: webSearch?.failed ?? false,
       currentDate: currentDateText(),
       toolSchemas: this.tools,
+      toolInstructions: this.toolInstructions,
       chatTemplate: model.chatTemplate,
       userText,
     };
@@ -223,7 +252,8 @@ export class LocalLLMProvider implements LLMProvider {
     userText: string,
     onDelta: (delta: string, done: boolean) => void,
     webSearch?: WebSearchOutcome,
-  ): Promise<void> {
+    onToolResult?: (result: ToolCallResult) => void,
+  ): Promise<ToolTurnMessage[]> {
     // Downloads (if needed) + licenses + loads the model at most once, even
     // if generateReplyStream is somehow called again before the first load
     // finishes — see LocalLLMLoader.ts's doc comment for why that guard
@@ -234,22 +264,48 @@ export class LocalLLMProvider implements LLMProvider {
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey);
 
-    const { prompt } = assemblePrompt(await this.buildAssembleInput(model, history, userText, webSearch));
+    const input = await this.buildAssembleInput(model, history, userText, webSearch);
     const localLLM = localLLMModule();
-    const stopFilter = new StopSequenceFilter(model.chatTemplate.stopSequences);
-    await localLLM.generateStream(prompt, (token, done) => {
-      if (!done) {
-        const wasStopped = stopFilter.isStopped;
-        const text = stopFilter.push(token);
-        if (text) onDelta(text, false);
-        // Stop generating as soon as the template's turn-end marker shows
-        // up; native still sends the final done=true after cancel.
-        if (!wasStopped && stopFilter.isStopped) localLLM.cancel();
-        return;
-      }
-      const rest = stopFilter.flush();
-      if (rest) onDelta(rest, false);
-      onDelta('', true);
-    });
+
+    // One model reply for the prompt plus this turn's tool messages, with the
+    // template's turn-end marker cut off.
+    const generateRound = async (toolMessages: AssembleInput['toolMessages'], onToken: (text: string) => void) => {
+      const { prompt } = assemblePrompt({ ...input, toolMessages });
+      const stopFilter = new StopSequenceFilter(model.chatTemplate.stopSequences);
+      await localLLM.generateStream(prompt, (token, done) => {
+        if (!done) {
+          const wasStopped = stopFilter.isStopped;
+          const text = stopFilter.push(token);
+          if (text) onToken(text);
+          // Stop generating as soon as the template's turn-end marker shows
+          // up; native still sends the final done=true after cancel.
+          if (!wasStopped && stopFilter.isStopped) localLLM.cancel();
+          return;
+        }
+        const rest = stopFilter.flush();
+        if (rest) onToken(rest);
+      });
+    };
+
+    let toolMessages: ToolTurnMessage[] = [];
+    if (this.tools.length === 0) {
+      await generateRound([], (text) => onDelta(text, false));
+    } else {
+      // The model may call tools: run them, give it the results, and let it
+      // answer. Only speakable text reaches onDelta (no tool-call JSON).
+      const turn = await runToolTurn({
+        tools: this.tools,
+        generate: generateRound,
+        onText: (text) => onDelta(text, false),
+        onToolResult,
+        toolChoice: this.toolChoice(userText),
+        context: { userText },
+      });
+      toolMessages = turn.messages;
+      if (turn.missingRequiredToolCall) onDelta(this.missingToolCallReply, false);
+    }
+    onDelta('', true);
+    // Keep these in the history (AIChatHistoryMessage.toolMessages).
+    return toolMessages;
   }
 }

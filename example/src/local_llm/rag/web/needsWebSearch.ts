@@ -11,6 +11,11 @@ const TIME_WORDS =
 const OFFICE_WORDS =
   /\b(president|vice president|prime minister|chancellor|king|queen|pope|ceo|chief executive|leader|mayor|governor|minister|secretary of state|head of state|chairman|coach of|owner of|richest)\b/i;
 const WHO_QUESTION = /\b(who|whom|whose|name of|is the)\b/i;
+/** "Is Joe Biden the president?", "Is he still the CEO?": yes/no questions about
+ * an office holder need today's answer too. */
+const YES_NO_QUESTION = /^\s*(is|was|are|were|does|did|has|have)\b|\bstill\b/i;
+/** "Who runs the US?", "who is in charge of Apple". */
+const WHO_RUNS = /\bwho('s| is)? (runs|leads|governs|rules|heads|is running|is leading|is in charge|in charge)\b/i;
 
 const NEWSY =
   /\b(news|headlines|weather|forecast|temperature outside|stock|share price|exchange rate|bitcoin|price of|how much does .* cost|score|standings|who won|winner of|champion|election|elected|release date|just released|happening)\b/i;
@@ -25,8 +30,83 @@ export function needsWebSearch(text: string): boolean {
     TIME_WORDS.test(t) ||
     NEWSY.test(t) ||
     RECENT_YEAR.test(t) ||
-    (OFFICE_WORDS.test(t) && WHO_QUESTION.test(t))
+    WHO_RUNS.test(t) ||
+    (OFFICE_WORDS.test(t) && (WHO_QUESTION.test(t) || YES_NO_QUESTION.test(t)))
   );
+}
+
+// Wikipedia page for "who holds this office" questions. Wikipedia's keyword
+// search matches the question's own words, so "Is Joe Biden the president?"
+// finds an article about Biden's 2024 campaign and "Who runs the US?" a
+// highway; the office's own page names the current holder in its intro.
+
+const OFFICE_TITLES: Array<[RegExp, string]> = [
+  [/\bvice president\b/i, 'Vice President'],
+  [/\bprime minister\b/i, 'Prime Minister'],
+  [/\bpresident\b/i, 'President'],
+  [/\bchancellor\b/i, 'Chancellor'],
+  [/\bmayor\b/i, 'Mayor'],
+  [/\bgovernor\b/i, 'Governor'],
+  [/\bking\b/i, 'King'],
+  [/\bqueen\b/i, 'Queen'],
+];
+
+const PLACES: Array<[RegExp, string]> = [
+  [/\b(u\.?s\.?a?|united states( of america)?|america|american|america's)(?=\W|$)/i, 'the United States'],
+  [/\b(u\.?k\.?|united kingdom|great britain|britain|british|england)(?=\W|$)/i, 'the United Kingdom'],
+  [/\b(france|french)\b/i, 'France'],
+  [/\b(germany|german)\b/i, 'Germany'],
+  [/\b(canada|canadian)\b/i, 'Canada'],
+];
+
+function titleCase(words: string): string {
+  return words.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
+/**
+ * The Wikipedia page that names the current holder of the office a question
+ * asks about, e.g. "Is Joe Biden the president?" → "President of the United
+ * States", "who runs the UK" → "Prime Minister of the United Kingdom", "the
+ * mayor of London" → "Mayor of London". null when there's no such office.
+ */
+export function officeHolderPage(question: string): string | null {
+  const text = question.trim();
+  if (/\bpope\b/i.test(text)) return 'Pope';
+  const office = OFFICE_TITLES.find(([pattern]) => pattern.test(text))?.[1];
+  const place = PLACES.find(([pattern]) => pattern.test(text))?.[1];
+  if (!office) {
+    if (!WHO_RUNS.test(text)) return null;
+    if (place === 'the United States') return 'President of the United States';
+    if (place === 'the United Kingdom') return 'Prime Minister of the United Kingdom';
+    return null;
+  }
+  if (place) return `${office} of ${place}`;
+  // "mayor of London", "governor of California": the words after "of".
+  const after = text.match(
+    /\bof\s+(?:the\s+)?([a-z][a-z .'-]*?)\s*(?:[?.!,]|$|\b(?:right now|now|today|currently|these days|at the moment)\b)/i,
+  )?.[1];
+  if (after) return `${office} of ${titleCase(after.trim())}`;
+  // A president with no country: the user most likely means the US one.
+  if (office === 'President' || office === 'Vice President') return `${office} of the United States`;
+  return null;
+}
+
+/**
+ * The neutral question the model answers instead of a yes/no or "who runs"
+ * question about an office holder, e.g. "Is Joe Biden the president?" → "Who
+ * is the president of the United States today?". A 1.5B model repeats a name
+ * from the question even when the search results say otherwise; "The president
+ * is Donald Trump" answers the original question correctly too. null for other
+ * questions ("How old is the president?" keeps its words).
+ */
+export function officeHolderQuestion(question: string): string | null {
+  const page = officeHolderPage(question);
+  if (!page) return null;
+  const asksWho = /^\s*(who|who's)\b/i.test(question);
+  if (!YES_NO_QUESTION.test(question) && !WHO_RUNS.test(question) && !asksWho) return null;
+  // "Prime Minister of the United Kingdom" → "the prime minister of the United Kingdom".
+  const office = `the ${page.replace(/^.*?(?= of |$)/, (title) => title.toLowerCase())}`;
+  return `Who is ${office} today?`;
 }
 
 // Spoken while the search runs, to cover the network delay, and when it
@@ -104,6 +184,18 @@ export function pickSearchFiller(question: string, random: () => number = Math.r
   const topic = TOPIC_FILLERS.find(({ pattern }) => pattern.test(question));
   const pool = topic && random() < 0.7 ? topic.fillers : GENERAL_FILLERS;
   return pickFrom(pool, random);
+}
+
+const ONLINE_TOOL_FILLERS = [
+  'Let me check that online.',
+  "One moment, I'm getting that from the server.",
+  'Give me a second to look that up.',
+  'Let me fetch that for you.',
+];
+
+/** Said while a tool that goes online (a remote MCP server) runs. */
+export function pickOnlineToolFiller(random: () => number = Math.random): string {
+  return pickFrom(ONLINE_TOOL_FILLERS, random);
 }
 
 const SEARCH_FAILED_FILLERS = [

@@ -8,6 +8,7 @@ import { CHAT_TEMPLATE_PRESETS } from './chatTemplates';
 export const LOCAL_LLM_E2B: ModelId = 'gemma-3n-e2b-it';
 export const LOCAL_LLM_E4B: ModelId = 'gemma-3n-e4b-it';
 export const LOCAL_LLM_QWEN25_1_5B: ModelId = 'qwen2.5-1.5b-instruct';
+export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
 
 // URLs are real, verified-reachable Hugging Face files. The Gemma entries use
 // the same unsloth GGUF repos the AmigoLocal reference app uses in
@@ -51,6 +52,19 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     contextSize: 8192,
     chatTemplate: CHAT_TEMPLATE_PRESETS.chatml.template,
     sizeBytes: 1_066_227_232,
+    isCustom: false,
+  },
+  {
+    // Better at tool calling and calorie knowledge than 1.5B (91% vs 86% on
+    // the calorie-tool test set before the food table), but about twice as
+    // slow on phone CPUs. Fast on iPhones with Metal (A14+).
+    id: LOCAL_LLM_QWEN25_3B,
+    displayName: 'Qwen2.5 3B',
+    filename: 'qwen2.5-3b-instruct-q4_0.gguf',
+    url: 'https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_0.gguf',
+    contextSize: 8192,
+    chatTemplate: CHAT_TEMPLATE_PRESETS.chatml.template,
+    sizeBytes: 1_997_879_712,
     isCustom: false,
   },
 ];

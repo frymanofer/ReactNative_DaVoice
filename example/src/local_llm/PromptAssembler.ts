@@ -3,7 +3,11 @@ import type { PersonaConfig } from './persona/Persona';
 import type { UserProfile } from './profile/ProfileStore';
 import type { MemoryFact } from './memory/LongTermMemoryStore';
 import type { WebRAGPassage } from './rag/web/WebRAGProvider';
-import type { ToolDefinition } from './tools/types';
+import { officeHolderQuestion } from './rag/web/needsWebSearch';
+// The framework's pure tool helpers (no native module), so this file stays
+// testable outside the app. Apps can also import them from the package root.
+import { toolsSystemPrompt } from 'react-native-davoice-llm/local_llm/tools';
+import type { ToolDefinition, ToolTurnMessage } from 'react-native-davoice-llm/local_llm/tools';
 
 /**
  * The one function every other layer (persona, profile, memory, RAG, tools)
@@ -28,7 +32,12 @@ export interface AssembleInput {
   webSearchFailed?: boolean;
   /** e.g. "Saturday, October 17, 2026" — lets the model reason about "now". */
   currentDate?: string;
+  /** Tools the model may call this turn (see react-native-davoice-llm's tools). */
   toolSchemas: ToolDefinition[];
+  /** When to use the tools, for the system prompt (e.g. the calorie demo's rules). */
+  toolInstructions?: string;
+  /** This turn's tool calls and results so far (from runToolTurn). */
+  toolMessages?: ToolTurnMessage[];
   /** The selected model's template — see ModelRegistry.ts. */
   chatTemplate: ChatTemplate;
   userText: string;
@@ -60,11 +69,11 @@ function buildSystemBlock(input: AssembleInput): string {
     parts.push(`Relevant context from the user's own documents:\n${input.localRagPassages.join('\n---\n')}`);
   }
 
+  // Tools last, in the format the model was trained on. Keep the tool list
+  // the same every turn so the engine's cache of the system prompt is reused.
   if (input.toolSchemas.length > 0) {
-    const tools = input.toolSchemas
-      .map((t) => `- ${t.name}: ${t.description}`)
-      .join('\n');
-    parts.push(`You may call the following tools when appropriate:\n${tools}`);
+    if (input.toolInstructions) parts.push(input.toolInstructions);
+    parts.push(toolsSystemPrompt(input.toolSchemas));
   }
 
   return parts.join('\n\n');
@@ -81,7 +90,8 @@ function buildWebBlock(input: AssembleInput): string {
     const results = input.webRagPassages.map((p) => `- ${p.text}`).join('\n');
     return (
       `\n\nWeb search results, newer than your training data:\n${results}\n` +
-      'Answer my question using these results; they override what you remember. ' +
+      'Answer my question using these results: they are true today and override what you remember ' +
+      'and anything said earlier in this conversation. ' +
       'Do not mention the search, sources or URLs.'
     );
   }
@@ -100,7 +110,15 @@ export function assemblePrompt(input: AssembleInput): AssembledPrompt {
   const systemBlock = buildSystemBlock(input);
   const turns: ChatMessage[] = [
     ...input.shortTermMemory,
-    { role: 'user', content: input.userText + buildWebBlock(input) },
+    // With search results, an office-holder question is asked neutrally (see
+    // officeHolderQuestion); the history keeps the user's own words.
+    {
+      role: 'user',
+      content:
+        (input.webRagPassages.length > 0 ? officeHolderQuestion(input.userText) ?? input.userText : input.userText) +
+        buildWebBlock(input),
+    },
+    ...(input.toolMessages ?? []),
   ];
   const segments: string[] = [];
 
