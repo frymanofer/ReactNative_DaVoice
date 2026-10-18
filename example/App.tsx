@@ -64,15 +64,29 @@ import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { configureWebSearch } from './src/local_llm/rag/web/WebRAGProvider';
+import { connectMcpServer } from 'react-native-davoice-llm';
+import type { ToolDefinition } from 'react-native-davoice-llm';
+import CaloriesCard from './src/calories/CaloriesCard';
+import {
+  CALORIE_MISSING_TOOL_REPLY,
+  CALORIE_TOOL_INSTRUCTIONS,
+  calorieToolChoice,
+  calorieTools,
+  setFoodCalorieSources,
+  setOnlineFoodLookupListener,
+} from './src/calories/calorieTools';
+import { pickFoodLookupFiller, UsdaFoodSource, WikipediaFoodSource } from './src/calories/onlineFoods';
 import type { BuiltInWebSearchEngine } from './src/local_llm/rag/web/WebRAGProvider';
 import {
   needsWebSearch,
   pickSearchFailedFiller,
+  pickOnlineToolFiller,
   pickSearchFiller,
 } from './src/local_llm/rag/web/needsWebSearch';
 // Local AI Chat's web search engine, from the git-ignored local.config.ts:
 // WEB_SEARCH_ENGINE = 'wikipedia' (default, no key) | 'tavily' | 'brave', plus
-// TAVILY_API_KEY / BRAVE_API_KEY. All optional.
+// TAVILY_API_KEY / BRAVE_API_KEY; USDA_API_KEY for the calorie demo's food
+// lookup. All optional.
 import * as LocalConfig from './local.config';
 import {
   initializeSpeechLibrary as initializeSpeechLibraryBase,
@@ -102,6 +116,7 @@ import {
 } from './src/wakeword';
 
 const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
+const TTS_VOICE_OPTIONS: TTSVoiceChoice[] = ['Ariana', 'Rich', 'Hanna', 'Kate', 'Jenny', 'Matthew', 'Gloria'];
 
 const SPEECH_INIT_TIMEOUT_MS = 120000;
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
@@ -352,19 +367,36 @@ function App(): React.JSX.Element {
   const aiChatRequestIdRef = useRef(0);
   const geminiConversationRef = useRef<GeminiChatMessage[]>([]);
   const localLLMProviderRef = useRef<LocalLLMProvider | null>(null);
+  // The streamed reply's full text, shown once it has all been spoken.
+  const aiChatFullReplyRef = useRef('');
+  // Sentences handed to the speech library and not yet finished (it queues them).
+  const aiChatSpeechChainRef = useRef<Promise<void>>(Promise.resolve());
+  const aiChatSpeechPendingRef = useRef(0);
   const getLocalLLMProvider = (): LocalLLMProvider => {
     if (!localLLMProviderRef.current) {
       const config = LocalConfig as {
         WEB_SEARCH_ENGINE?: BuiltInWebSearchEngine;
         TAVILY_API_KEY?: string;
         BRAVE_API_KEY?: string;
+        USDA_API_KEY?: string;
       };
+
       configureWebSearch({
         engine: config.WEB_SEARCH_ENGINE ?? 'wikipedia',
         tavilyApiKey: config.TAVILY_API_KEY,
         braveApiKey: config.BRAVE_API_KEY,
       });
       localLLMProviderRef.current = new LocalLLMProvider('demo_user', LOCAL_LLM_DEMO_LICENSE);
+      // The calorie tracker's tools (demo of the framework's tool calling).
+      // MCP server tools, if configured, are added at warm-up. Foods missing
+      // from the built-in table are looked up on Wikipedia, and first on USDA
+      // FoodData Central when USDA_API_KEY is set.
+      const usdaApiKey = config.USDA_API_KEY?.trim();
+      setFoodCalorieSources(
+        usdaApiKey ? [new UsdaFoodSource(usdaApiKey), new WikipediaFoodSource()] : [new WikipediaFoodSource()],
+      );
+      setOnlineFoodLookupListener((food) => sayWhileWaitingOnline(pickFoodLookupFiller(food)));
+      localLLMProviderRef.current.setTools(calorieTools, CALORIE_TOOL_INSTRUCTIONS, calorieToolChoice, CALORIE_MISSING_TOOL_REPLY);
     }
     return localLLMProviderRef.current;
   };
@@ -491,6 +523,11 @@ function App(): React.JSX.Element {
   }
 
   const finishAIChatSpeechFlow = async () => {
+    // Everything was spoken: show the reply with its original formatting.
+    if (aiChatFullReplyRef.current) {
+      setAiChatResponse(aiChatFullReplyRef.current);
+      aiChatFullReplyRef.current = '';
+    }
     if (Platform.OS === 'android') {
       aiChatStreamingActiveRef.current = false;
       aiChatStreamGenerationDoneRef.current = false;
@@ -534,7 +571,21 @@ function App(): React.JSX.Element {
       aiChatPendingSentenceBufferRef,
       SPEAKER,
       finishAIChatSpeechFlow,
+      // The reply on screen grows a sentence at a time as each one goes to TTS.
+      revealSpokenText: (sentence: string) =>
+        setAiChatResponse((shown) => (shown ? `${shown} ${sentence}` : sentence)),
+      aiChatSpeechChainRef,
+      aiChatSpeechPendingRef,
+      aiChatRequestIdRef,
+      speakerLabel: selectedAppModeRef.current === 'local_ai_chat' ? 'Local AI' : 'Gemini',
     });
+
+  // Says a short phrase while the local AI waits on something online (a food
+  // lookup, a remote MCP tool), queued like any reply sentence.
+  const sayWhileWaitingOnline = (filler: string) => {
+    aiChatSpeechQueueRef.current.push(filler);
+    void speakNextAIChatSentence();
+  };
 
   const enqueueAIChatSpeechFromDelta = async (deltaText: string, aggregateText: string) =>
     enqueueAIChatSpeechFromDeltaBase({
@@ -543,7 +594,6 @@ function App(): React.JSX.Element {
       aiChatPendingSentenceBufferRef,
       aiChatSpeechQueueRef,
       speakNextAIChatSentence,
-      setAiChatResponse,
     });
 
   const resetAIChatSession = () =>
@@ -591,11 +641,9 @@ function App(): React.JSX.Element {
     await applySelectedTTSVoice();
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
-      if (aiChatStreamingActiveRef.current) {
-        aiChatStreamSpeakingRef.current = false;
-        await speakNextAIChatSentence();
-        return;
-      }
+      // Streamed replies finish when every queued sentence has been spoken
+      // (speakNextAIChatSentence tracks them).
+      if (aiChatStreamingActiveRef.current) return;
       if (aiChatAwaitingSpeechFinishRef.current) {
         aiChatAwaitingSpeechFinishRef.current = false;
         await finishAIChatSpeechFlow();
@@ -623,10 +671,10 @@ function App(): React.JSX.Element {
     const previousModel = selectedTTSModelRef.current;
     selectedTTSVoiceRef.current = choice.voice;
     selectedTTSModelRef.current = getTTSVoiceConfig(choice.voice, useTTS2Only.current).model;
-    if (selectedTTSModelRef.current !== previousModel) {
+    if (selectedTTSModelRef.current !== previousModel && speechLibraryInitializedRef.current) {
       // Finish replacing the model before the chosen speaker narrates the next step.
       await reloadSpeechLibraryForSelectedVoice(enrollmentJsonPathRef.current);
-    } else {
+    } else if (speechLibraryInitializedRef.current) {
       await applySelectedTTSVoice();
     }
     return choice;
@@ -744,7 +792,8 @@ function App(): React.JSX.Element {
     if (!userText || aiChatInFlightRef.current) return;
 
     const now = Date.now();
-    if (now < aiChatBlockedUntilRef.current) {
+    // Gemini's rate-limit cooldown doesn't apply to the on-device model.
+    if (selectedAppModeRef.current !== 'local_ai_chat' && now < aiChatBlockedUntilRef.current) {
       const waitSeconds = Math.ceil((aiChatBlockedUntilRef.current - now) / 1000);
       setAiChatStatus(
         `This demo uses Google Gemini as its backend LLM. Gemini is cooling down after rate limiting. Please try again in ${waitSeconds}s.`,
@@ -777,7 +826,13 @@ function App(): React.JSX.Element {
     aiChatRequestIdRef.current = requestId;
     setAiChatTranscript(userText);
     setAiChatLiveTranscript(userText);
-    setAiChatStatus('Sending transcript to Gemini...');
+    setAiChatStatus(
+      selectedAppModeRef.current === 'local_ai_chat' ? 'Sending transcript to the local AI...' : 'Sending transcript to Gemini...',
+    );
+    setAiChatResponse('');
+    aiChatFullReplyRef.current = '';
+    aiChatSpeechChainRef.current = Promise.resolve();
+    aiChatSpeechPendingRef.current = 0;
     setAiChatMessages((prev) => [
       ...prev,
       {
@@ -855,7 +910,7 @@ function App(): React.JSX.Element {
               : `Searched online (${webSearch.source}); generating reply...`,
           );
         }
-        await getLocalLLMProvider().generateReplyStream(aiChatMessages, userText, async (delta, done) => {
+        const toolMessages = await getLocalLLMProvider().generateReplyStream(aiChatMessages, userText, async (delta, done) => {
           if (done || !delta || aiChatRequestIdRef.current !== requestId) return;
           aiReply += delta;
           const aggregateText = aiReply;
@@ -867,6 +922,12 @@ function App(): React.JSX.Element {
           );
           await enqueueAIChatSpeechFromDelta(delta, aggregateText);
         }, webSearch);
+        if (toolMessages.length > 0) {
+          setAiChatMessages((prev) =>
+            prev.map((message) => (message.id === `model-${requestId}` ? { ...message, toolMessages } : message)),
+          );
+        }
+        console.log(`[AIChat][LOCAL_LLM] "${userText}"${webSearch ? ` (searched ${webSearch.source})` : ''}`);
         console.log('[AIChat][LOCAL_LLM][FULL_REPLY_BEGIN]');
         console.log(aiReply);
         console.log('[AIChat][LOCAL_LLM][FULL_REPLY_END]');
@@ -952,7 +1013,6 @@ function App(): React.JSX.Element {
         ];
       }
 
-      setAiChatResponse(aiReply);
       setAiChatMessages((prev) =>
         prev.map((message) =>
           message.id === `model-${requestId}`
@@ -962,11 +1022,14 @@ function App(): React.JSX.Element {
       );
 
       if (shouldUseStreaming && aiChatStreamingActiveRef.current) {
+        // Sentences appear as they are spoken; the full text when speech ends.
+        aiChatFullReplyRef.current = aiReply;
         aiChatStreamGenerationDoneRef.current = true;
         aiChatAwaitingSpeechFinishRef.current = true;
         await speakNextAIChatSentence();
       } else {
         aiChatStreamingActiveRef.current = false;
+        setAiChatResponse(aiReply);
         const replySpeakerLabel = useLocalLLM ? 'Local AI' : 'Gemini';
         setCurrentSpeechSentence(`${replySpeakerLabel}: ${aiReply}`);
         setAiChatStatus(`Speaking ${replySpeakerLabel} reply...`);
@@ -1350,10 +1413,9 @@ function App(): React.JSX.Element {
 
         // Bootstrap already resumed detection after loading the speech packages.
         const narratorVoice = selectedTTSVoiceRef.current;
-        const otherVoices = (['Hanna', 'Rich', 'Ariana'] as TTSVoiceChoice[])
+        const otherVoices = TTS_VOICE_OPTIONS
           .filter((voice) => voice !== narratorVoice)
           .join(' or ');
-        const voiceToUse = narratorVoice === 'Rich' ? 'Richard' : narratorVoice;
 
         /*if (narratorVoice === 'Rich') { 
           await speakStartupNarration([
@@ -1384,9 +1446,7 @@ function App(): React.JSX.Element {
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          selectedTTSVoiceRef.current === narratorVoice
-            ? 'Awesome, Thanks for choosing to stay with me.'
-            : `Awesome, You chose ${selectedTTSVoiceRef.current}.`,
+          `You selected ${selectedTTSVoiceRef.current}.`,
           'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
         ]);
 
@@ -1583,13 +1643,58 @@ function App(): React.JSX.Element {
   // Chat opens (or the model changes), never in the middle of a turn. Only
   // the latest warm-up updates the status, if the user switches models
   // quickly.
+  // Optional remote MCP server (MCP_SERVER_URL / MCP_SERVER_TOKEN in the
+  // git-ignored local.config.ts): its tools join the calorie tools. Connected
+  // once, before the first warm-up, because the tool list is part of the
+  // system prompt the engine caches. A failure only logs; the app tools work.
+  const mcpToolsRef = useRef<Promise<ToolDefinition[]> | null>(null);
+  const loadMcpTools = (): Promise<ToolDefinition[]> => {
+    if (!mcpToolsRef.current) {
+      const config = LocalConfig as { MCP_SERVER_URL?: string; MCP_SERVER_TOKEN?: string };
+      const url = config.MCP_SERVER_URL?.trim();
+      mcpToolsRef.current = !url
+        ? Promise.resolve([])
+        : connectMcpServer({
+            url,
+            headers: config.MCP_SERVER_TOKEN ? { Authorization: `Bearer ${config.MCP_SERVER_TOKEN}` } : undefined,
+            timeoutMs: 8000,
+          })
+            .then((server) => {
+              console.log(`[AIChat] MCP server connected (${server.client.protocolEra}): ${server.tools.map((t) => t.name).join(', ')}`);
+              // MCP tools run on a remote server: say something while waiting.
+              return server.tools.map((tool) => ({
+                ...tool,
+                handler: (args: any, context: any) => {
+                  sayWhileWaitingOnline(pickOnlineToolFiller());
+                  return tool.handler(args, context);
+                },
+              }));
+            })
+            .catch((error) => {
+              console.log('[AIChat] MCP server unavailable:', String(error?.message ?? error));
+              return [];
+            });
+    }
+    return mcpToolsRef.current;
+  };
+
   const warmUpLocalModel = (history: AIChatHistoryMessage[] = []) => {
     const seq = ++localModelWarmUpSeqRef.current;
     const isLatest = () => seq === localModelWarmUpSeqRef.current;
     setLocalModelStatus('Loading...');
-    getLocalLLMProvider()
-      .warmUp(history, (fraction) => {
-        if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
+    loadMcpTools()
+      .then((mcpTools) => {
+        if (mcpTools.length > 0) {
+          getLocalLLMProvider().setTools(
+            [...calorieTools, ...mcpTools],
+            `${CALORIE_TOOL_INSTRUCTIONS} The other tools listed below come from a connected service; use them when they help.`,
+            calorieToolChoice,
+            CALORIE_MISSING_TOOL_REPLY,
+          );
+        }
+        return getLocalLLMProvider().warmUp(history, (fraction) => {
+          if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
+        });
       })
       .then(async (model) => {
         if (!isLatest()) return;
@@ -1849,6 +1954,7 @@ function App(): React.JSX.Element {
                   </TouchableOpacity>
                 </View>
               )}
+              {isLocalAIChat && <CaloriesCard />}
               <View style={styles.speechSummaryBlock}>
                 <Text style={styles.speechSentenceLabel}>Status</Text>
                 <Text style={styles.speechSentenceText}>
@@ -1864,9 +1970,9 @@ function App(): React.JSX.Element {
                 </Text>
               </View>
               <View style={styles.speechSummaryBlock}>
-                <Text style={styles.speechSentenceLabel}>Gemini Reply</Text>
+                <Text style={styles.speechSentenceLabel}>{isLocalAIChat ? 'Local AI Reply' : 'Gemini Reply'}</Text>
                 <Text style={styles.speechSentenceText}>
-                  {aiChatResponse || 'Gemini response will appear here.'}
+                  {aiChatResponse || (isLocalAIChat ? 'The local AI reply will appear here.' : 'Gemini response will appear here.')}
                 </Text>
               </View>
               <View style={styles.ttsTestActionRow}>
@@ -2024,40 +2130,26 @@ function App(): React.JSX.Element {
   if (showTTSModelPrompt) {
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
-            <Text style={styles.svPromptTitle}>Choose Voice</Text>
+            <Text style={styles.svPromptTitle}>Choose Your Voice</Text>
+            <Text style={styles.svPromptSubtitle}>
+              Select a voice from model_ex2_rich_kate.dm before the demo starts.
+            </Text>
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Voice</Text>
-              <View style={styles.svButtonRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    styles.ttsVoiceButton,
-                    ttsVoiceChoice === 'Ariana' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsVoiceChoice('Ariana')}>
-                  <Text style={styles.svButtonText}>Ariana</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    styles.ttsVoiceButton,
-                    ttsVoiceChoice === 'Rich' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsVoiceChoice('Rich')}>
-                  <Text style={styles.svButtonText}>Rich</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    styles.ttsVoiceButton,
-                    ttsVoiceChoice === 'Hanna' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsVoiceChoice('Hanna')}>
-                  <Text style={styles.svButtonText}>Hanna</Text>
-                </TouchableOpacity>
+              <View style={styles.ttsVoiceGrid}>
+                {TTS_VOICE_OPTIONS.map((voice) => (
+                  <TouchableOpacity
+                    key={voice}
+                    style={[
+                      styles.svButton,
+                      styles.ttsVoiceButton,
+                      ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => setTtsVoiceChoice(voice)}>
+                    <Text style={styles.svButtonText}>{voice}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
             <View style={styles.svButtonRow}>
@@ -3116,8 +3208,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   ttsVoiceButton: {
-    flex: 1,
-    paddingHorizontal: 12,
+    width: '47%',
+    paddingHorizontal: 8,
+  },
+  ttsVoiceGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
   },
   appModeStack: {
     width: '100%',

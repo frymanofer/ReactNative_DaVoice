@@ -38,6 +38,8 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
       Hanna: HANNA_SPEAKER_SPEED_NEW_MODEL,
       Kate: KATE_SPEAKER_SPEED_NEW_MODEL,
       Jenny: KATE_SPEAKER_SPEED_NEW_MODEL,
+      Matthew: KATE_SPEAKER_SPEED_NEW_MODEL,
+      Gloria: KATE_SPEAKER_SPEED_NEW_MODEL,
     };
     return { model: sharedTTS2Model, speed: speeds[voice], usesTTS2: true };
   }
@@ -45,6 +47,8 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
     Rich: { model: sharedTTS2Model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Kate: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Jenny: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Matthew: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Gloria: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Ariana: { model: arianaModel, speed: ARIANA_SPEAKER_SPEED, usesTTS2: false },
     Hanna: { model: hannaModel, speed: HANNA_SPEAKER_SPEED, usesTTS2: false },
   };
