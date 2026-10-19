@@ -19,7 +19,7 @@ end
 node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
-ios_min = defined?(min_ios_version_supported) ? min_ios_version_supported : '13.4'
+ios_min = defined?(min_ios_version_supported) ? min_ios_version_supported : '15.1'
 platform :ios, ios_min
 
 prepare_react_native_project!
