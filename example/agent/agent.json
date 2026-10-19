@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "persona": {
+    "systemPrompt": "You are a helpful voice assistant. Keep all answers under four sentences. Do not use markdown, bullet points, or numbered lists. Do not begin a sentence with \"Certainly\" or \"Of course\". Spell out abbreviations when reading aloud."
+  },
+  "prompts": {
+    "currentDate": "Today's date is {date}.",
+    "webResults": "\n\nWeb search results, newer than your training data:\n{results}\nAnswer my question using these results: they are true today and override what you remember and anything said earlier in this conversation. Do not mention the search, sources or URLs.",
+    "webResultLine": "- {text}",
+    "webSearchFailed": "\n\n(A web search for this question failed, for example because the device is offline. The app already told the user that. Say what was true as of your training data, using words like \"as of my training\". Never say it is true today, and never put today's date on it. Keep it to two sentences.)",
+    "externalToolsNote": "The other tools listed below come from a connected service; use them when they help."
+  },
+  "webSearch": {
+    "rules": {
+      "timeWords": "\\b(current|currently|latest|recent|recently|newest|nowadays|today|tonight|tomorrow|yesterday|right now|at the moment|as of now|this (week|month|year)|these days)\\b",
+      "newsy": "\\b(news|headlines|weather|forecast|temperature outside|stock|share price|exchange rate|bitcoin|price of|how much does .* cost|score|standings|who won|winner of|champion|election|elected|release date|just released|happening)\\b",
+      "recentYear": "\\b20(2[3-9]|[3-9]\\d)\\b",
+      "whoRuns": "\\bwho('s| is)? (runs|leads|governs|rules|heads|is running|is leading|is in charge|in charge)\\b",
+      "officeWords": "\\b(president|vice president|prime minister|chancellor|king|queen|pope|ceo|chief executive|leader|mayor|governor|minister|secretary of state|head of state|chairman|coach of|owner of|richest)\\b",
+      "whoQuestion": "\\b(who|whom|whose|name of|is the)\\b",
+      "yesNoQuestion": "^\\s*(is|was|are|were|does|did|has|have)\\b|\\bstill\\b",
+      "asksWho": "^\\s*(who|who's)\\b"
+    },
+    "officePages": {
+      "fixed": [
+        {
+          "pattern": "\\bpope\\b",
+          "page": "Pope"
+        }
+      ],
+      "offices": [
+        {
+          "pattern": "\\bvice president\\b",
+          "title": "Vice President"
+        },
+        {
+          "pattern": "\\bprime minister\\b",
+          "title": "Prime Minister"
+        },
+        {
+          "pattern": "\\bpresident\\b",
+          "title": "President"
+        },
+        {
+          "pattern": "\\bchancellor\\b",
+          "title": "Chancellor"
+        },
+        {
+          "pattern": "\\bmayor\\b",
+          "title": "Mayor"
+        },
+        {
+          "pattern": "\\bgovernor\\b",
+          "title": "Governor"
+        },
+        {
+          "pattern": "\\bking\\b",
+          "title": "King"
+        },
+        {
+          "pattern": "\\bqueen\\b",
+          "title": "Queen"
+        }
+      ],
+      "places": [
+        {
+          "pattern": "\\b(u\\.?s\\.?a?|united states( of america)?|america|american|america's)(?=\\W|$)",
+          "name": "the United States"
+        },
+        {
+          "pattern": "\\b(u\\.?k\\.?|united kingdom|great britain|britain|british|england)(?=\\W|$)",
+          "name": "the United Kingdom"
+        },
+        {
+          "pattern": "\\b(france|french)\\b",
+          "name": "France"
+        },
+        {
+          "pattern": "\\b(germany|german)\\b",
+          "name": "Germany"
+        },
+        {
+          "pattern": "\\b(canada|canadian)\\b",
+          "name": "Canada"
+        }
+      ],
+      "whoRunsPages": {
+        "the United States": "President of the United States",
+        "the United Kingdom": "Prime Minister of the United Kingdom"
+      },
+      "placeAfterOf": "\\bof\\s+(?:the\\s+)?([a-z][a-z .'-]*?)\\s*(?:[?.!,]|$|\\b(?:right now|now|today|currently|these days|at the moment)\\b)",
+      "defaultPlaces": {
+        "President": "the United States",
+        "Vice President": "the United States"
+      },
+      "neutralQuestion": "Who is {office} today?"
+    },
+    "fillers": {
+      "topicProbability": 0.7,
+      "general": [
+        "Well, that is a good question, let me search.",
+        "That is a good question, please let me do some digging.",
+        "Good question, let me look that up for you.",
+        "Let me check the latest information on that.",
+        "Give me a second, I will look that up.",
+        "Great question, let me find out."
+      ],
+      "topics": [
+        {
+          "pattern": "\\b(weather|forecast|temperature|rain|snow|sunny)\\b",
+          "fillers": [
+            "Let me check the latest forecast.",
+            "Good question, let me look at the weather for you.",
+            "Let me see what the weather looks like."
+          ]
+        },
+        {
+          "pattern": "\\b(price|cost|stock|shares?|exchange rate|bitcoin|crypto|dollar|euro|market)\\b",
+          "fillers": [
+            "Prices change all the time, let me check the latest numbers.",
+            "Let me look up the current figures for you.",
+            "Good question, let me check the latest market data."
+          ]
+        },
+        {
+          "pattern": "\\b(score|scores|won|winner|win|match|game|champion|championship|league|cup|standings|tournament)\\b",
+          "fillers": [
+            "Let me check the latest results.",
+            "Good question, let me look up how that turned out.",
+            "Let me see what the latest scores say."
+          ]
+        },
+        {
+          "pattern": "\\b(news|headlines|happening|happened|announced|released|election|elected)\\b",
+          "fillers": [
+            "Let me check the latest news on that.",
+            "Good question, let me see what is new.",
+            "Let me look up the most recent reports."
+          ]
+        },
+        {
+          "pattern": "\\b(who|whom|whose|president|prime minister|ceo|pope|king|queen|leader|minister|mayor|governor|chancellor)\\b",
+          "fillers": [
+            "That can change over time, so let me check who it is right now.",
+            "Good question, let me make sure I have the latest on that.",
+            "Let me check who holds that role today."
+          ]
+        }
+      ],
+      "searchFailed": [
+        "Sorry, I can't reach the internet right now.",
+        "I could not connect to the internet just now.",
+        "It looks like I'm offline at the moment."
+      ]
+    }
+  },
+  "onlineToolFillers": [
+    "Let me check that online.",
+    "One moment, I'm getting that from the server.",
+    "Give me a second to look that up.",
+    "Let me fetch that for you."
+  ]
+}

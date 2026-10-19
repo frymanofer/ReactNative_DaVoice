@@ -58,35 +58,15 @@ import {
   TTSVoiceChoice,
 } from './src/appflow';
 import { LocalLLMProvider } from './src/aichat/provider';
-import type { WebSearchOutcome } from './src/aichat/provider';
 import ModelPicker from './src/local_llm/ModelPicker';
 import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
-import { configureWebSearch } from './src/local_llm/rag/web/WebRAGProvider';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import CaloriesCard from './src/calories/CaloriesCard';
-import {
-  CALORIE_MISSING_TOOL_REPLY,
-  CALORIE_TOOL_INSTRUCTIONS,
-  calorieToolChoice,
-  calorieTools,
-  setFoodCalorieSources,
-  setOnlineFoodLookupListener,
-} from './src/calories/calorieTools';
-import { pickFoodLookupFiller, UsdaFoodSource, WikipediaFoodSource } from './src/calories/onlineFoods';
-import type { BuiltInWebSearchEngine } from './src/local_llm/rag/web/WebRAGProvider';
-import {
-  needsWebSearch,
-  pickSearchFailedFiller,
-  pickOnlineToolFiller,
-  pickSearchFiller,
-} from './src/local_llm/rag/web/needsWebSearch';
-// Local AI Chat's web search engine, from the git-ignored local.config.ts:
-// WEB_SEARCH_ENGINE = 'wikipedia' (default, no key) | 'tavily' | 'brave', plus
-// TAVILY_API_KEY / BRAVE_API_KEY; USDA_API_KEY for the calorie demo's food
-// lookup. All optional.
+// MCP_SERVER_URL / MCP_SERVER_TOKEN for Local AI Chat, from the git-ignored
+// local.config.ts (web search and USDA keys are read in src/agent/LocalAgent.ts).
 import * as LocalConfig from './local.config';
 import {
   initializeSpeechLibrary as initializeSpeechLibraryBase,
@@ -374,29 +354,9 @@ function App(): React.JSX.Element {
   const aiChatSpeechPendingRef = useRef(0);
   const getLocalLLMProvider = (): LocalLLMProvider => {
     if (!localLLMProviderRef.current) {
-      const config = LocalConfig as {
-        WEB_SEARCH_ENGINE?: BuiltInWebSearchEngine;
-        TAVILY_API_KEY?: string;
-        BRAVE_API_KEY?: string;
-        USDA_API_KEY?: string;
-      };
-
-      configureWebSearch({
-        engine: config.WEB_SEARCH_ENGINE ?? 'wikipedia',
-        tavilyApiKey: config.TAVILY_API_KEY,
-        braveApiKey: config.BRAVE_API_KEY,
-      });
+      // The agent (web search, fillers, the calorie tracker's tools) is set
+      // up in src/agent/LocalAgent.ts.
       localLLMProviderRef.current = new LocalLLMProvider('demo_user', LOCAL_LLM_DEMO_LICENSE);
-      // The calorie tracker's tools (demo of the framework's tool calling).
-      // MCP server tools, if configured, are added at warm-up. Foods missing
-      // from the built-in table are looked up on Wikipedia, and first on USDA
-      // FoodData Central when USDA_API_KEY is set.
-      const usdaApiKey = config.USDA_API_KEY?.trim();
-      setFoodCalorieSources(
-        usdaApiKey ? [new UsdaFoodSource(usdaApiKey), new WikipediaFoodSource()] : [new WikipediaFoodSource()],
-      );
-      setOnlineFoodLookupListener((food) => sayWhileWaitingOnline(pickFoodLookupFiller(food)));
-      localLLMProviderRef.current.setTools(calorieTools, CALORIE_TOOL_INSTRUCTIONS, calorieToolChoice, CALORIE_MISSING_TOOL_REPLY);
     }
     return localLLMProviderRef.current;
   };
@@ -889,45 +849,54 @@ function App(): React.JSX.Element {
         aiChatStreamSpeakingRef.current = false;
         aiChatPendingSentenceBufferRef.current = '';
         aiChatSpeechQueueRef.current = [];
-        // Time-sensitive question ("who is the president..."): search the web
-        // while a short filler is spoken, so the wait isn't silent, then answer
-        // from the results. The filler isn't part of the reply or history.
-        let webSearch: WebSearchOutcome | undefined;
-        if (needsWebSearch(userText)) {
-          const searching = getLocalLLMProvider().searchWeb(userText);
-          setAiChatStatus('Searching the web...');
-          const filler = pickSearchFiller(userText);
-          void enqueueAIChatSpeechFromDelta(filler, filler);
-          webSearch = await searching;
-          if (aiChatRequestIdRef.current !== requestId) return;
-          if (webSearch.failed) {
-            const failedFiller = pickSearchFailedFiller();
-            void enqueueAIChatSpeechFromDelta(failedFiller, failedFiller);
-          }
-          setAiChatStatus(
-            webSearch.failed
-              ? 'Could not search online; answering from memory...'
-              : `Searched online (${webSearch.source}); generating reply...`,
-          );
-        }
-        const toolMessages = await getLocalLLMProvider().generateReplyStream(aiChatMessages, userText, async (delta, done) => {
-          if (done || !delta || aiChatRequestIdRef.current !== requestId) return;
-          aiReply += delta;
-          const aggregateText = aiReply;
-          setAiChatStatus('Streaming local AI reply...');
+        // The agent searches the web for time-sensitive questions ("who is
+        // the president...") and looks up unknown foods online; meanwhile it
+        // sends a short filler to say, so the wait isn't silent. Fillers
+        // aren't part of the reply or the history.
+        const turn = await getLocalLLMProvider().generateReplyStream(
+          aiChatMessages,
+          userText,
+          async (delta, done) => {
+            if (done || !delta || aiChatRequestIdRef.current !== requestId) return;
+            aiReply += delta;
+            const aggregateText = aiReply;
+            setAiChatStatus('Streaming local AI reply...');
+            setAiChatMessages((prev) =>
+              prev.map((message) =>
+                message.id === `model-${requestId}` ? { ...message, text: aggregateText } : message
+              )
+            );
+            await enqueueAIChatSpeechFromDelta(delta, aggregateText);
+          },
+          (event) => {
+            if (aiChatRequestIdRef.current !== requestId) return;
+            if (event.type === 'filler') {
+              // Search fillers start the reply's speech queue; lookups and
+              // MCP tools happen mid-turn and are queued like a sentence.
+              if (event.reason === 'webSearch' || event.reason === 'webSearchFailed') {
+                void enqueueAIChatSpeechFromDelta(event.text, event.text);
+              } else {
+                sayWhileWaitingOnline(event.text);
+              }
+            } else if (event.type === 'status' && event.status === 'searching') {
+              setAiChatStatus('Searching the web...');
+            } else if (event.type === 'webSearch') {
+              setAiChatStatus(
+                event.failed
+                  ? 'Could not search online; answering from memory...'
+                  : `Searched online (${event.source}); generating reply...`,
+              );
+            }
+          },
+        );
+        if (turn.toolMessages.length > 0) {
           setAiChatMessages((prev) =>
             prev.map((message) =>
-              message.id === `model-${requestId}` ? { ...message, text: aggregateText } : message
-            )
-          );
-          await enqueueAIChatSpeechFromDelta(delta, aggregateText);
-        }, webSearch);
-        if (toolMessages.length > 0) {
-          setAiChatMessages((prev) =>
-            prev.map((message) => (message.id === `model-${requestId}` ? { ...message, toolMessages } : message)),
+              message.id === `model-${requestId}` ? { ...message, toolMessages: turn.toolMessages } : message,
+            ),
           );
         }
-        console.log(`[AIChat][LOCAL_LLM] "${userText}"${webSearch ? ` (searched ${webSearch.source})` : ''}`);
+        console.log(`[AIChat][LOCAL_LLM] "${userText}"${turn.webSearch ? ` (searched ${turn.webSearch.source})` : ''}`);
         console.log('[AIChat][LOCAL_LLM][FULL_REPLY_BEGIN]');
         console.log(aiReply);
         console.log('[AIChat][LOCAL_LLM][FULL_REPLY_END]');
@@ -1661,14 +1630,7 @@ function App(): React.JSX.Element {
           })
             .then((server) => {
               console.log(`[AIChat] MCP server connected (${server.client.protocolEra}): ${server.tools.map((t) => t.name).join(', ')}`);
-              // MCP tools run on a remote server: say something while waiting.
-              return server.tools.map((tool) => ({
-                ...tool,
-                handler: (args: any, context: any) => {
-                  sayWhileWaitingOnline(pickOnlineToolFiller());
-                  return tool.handler(args, context);
-                },
-              }));
+              return server.tools;
             })
             .catch((error) => {
               console.log('[AIChat] MCP server unavailable:', String(error?.message ?? error));
@@ -1683,15 +1645,9 @@ function App(): React.JSX.Element {
     const isLatest = () => seq === localModelWarmUpSeqRef.current;
     setLocalModelStatus('Loading...');
     loadMcpTools()
-      .then((mcpTools) => {
-        if (mcpTools.length > 0) {
-          getLocalLLMProvider().setTools(
-            [...calorieTools, ...mcpTools],
-            `${CALORIE_TOOL_INSTRUCTIONS} The other tools listed below come from a connected service; use them when they help.`,
-            calorieToolChoice,
-            CALORIE_MISSING_TOOL_REPLY,
-          );
-        }
+      .then(async (mcpTools) => {
+        // They run on a remote server: the agent says a filler while they run.
+        if (mcpTools.length > 0) await getLocalLLMProvider().setExternalTools(mcpTools);
         return getLocalLLMProvider().warmUp(history, (fraction) => {
           if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
         });

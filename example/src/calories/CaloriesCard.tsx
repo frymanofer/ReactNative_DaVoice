@@ -1,28 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { calorieStore } from './CalorieStore';
-import type { CalorieEntry } from './CalorieStore';
+import { getLocalAgent, onLocalAgentEvent } from '../agent/LocalAgent';
+
+/** One line of today's calorie log (the agent core's calories skill). */
+interface CalorieEntry {
+  id: string;
+  label: string;
+  /** Negative for removals and downward corrections. */
+  calories: number;
+}
+
+interface CalorieLog {
+  total: number;
+  entries: CalorieEntry[];
+  canUndo: boolean;
+}
 
 /**
  * "Calories today" card for Local AI Chat. The on-device AI changes it by
- * voice through the calorie tools; every change shows here immediately and
- * can be undone with the button (or by saying "undo that").
+ * voice through the calorie tools (in the native agent core, which keeps the
+ * log in SQLite); every change shows here immediately and can be undone with
+ * the button (or by saying "undo that").
  */
 export default function CaloriesCard() {
   const [total, setTotal] = useState(0);
   const [entries, setEntries] = useState<CalorieEntry[]>([]);
   const [canUndo, setCanUndo] = useState(false);
 
-  useEffect(
-    () =>
-      calorieStore.subscribe((nextEntries, nextTotal) => {
-        setEntries(nextEntries);
-        setTotal(nextTotal);
-        void calorieStore.get().then((state) => setCanUndo(state.canUndo));
-      }),
-    [],
-  );
+  useEffect(() => {
+    const show = (log: CalorieLog) => {
+      setEntries(log.entries);
+      setTotal(log.total);
+      setCanUndo(log.canUndo);
+    };
+    const unsubscribe = onLocalAgentEvent((event) => {
+      if (event.type === 'skill' && event.skill === 'calories') show(event as unknown as CalorieLog);
+    });
+    getLocalAgent()
+      .then((agent) => agent.skill<CalorieLog>('calories', 'log.get'))
+      .then(show)
+      .catch((error) => console.log('[Calories] could not read the log:', error));
+    return unsubscribe;
+  }, []);
 
   const recent = entries.slice(-3).reverse();
   return (
@@ -36,7 +56,7 @@ export default function CaloriesCard() {
           style={[styles.undoButton, !canUndo && styles.undoDisabled]}
           activeOpacity={0.7}
           disabled={!canUndo}
-          onPress={() => void calorieStore.undo()}>
+          onPress={() => void getLocalAgent().then((agent) => agent.skill('calories', 'log.undo'))}>
           <Text style={styles.undoText}>Undo</Text>
         </TouchableOpacity>
       </View>
