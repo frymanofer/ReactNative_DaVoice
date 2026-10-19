@@ -5464,7 +5464,7 @@ react-is@^19.1.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.3.1.tgz#81f7f7e431fc9b5bd9781b0a9f19997f08dee51b"
   integrity sha512-RRieF6IyxQBkcK6pP8xOHprLTPW6QjRkbGdImtqNme+/hYVwCZkLQLdlZGOhUqXwkS9IEynaGvPJtv6XB/cz0Q==
 
-react-native-davoice-llm@^1.0.2:
+react-native-davoice-llm@1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/react-native-davoice-llm/-/react-native-davoice-llm-1.0.2.tgz#4d29ed078fa79147b19666fcc356b90996a55677"
   integrity sha512-5D5xi9sj2zNgvrLDjjI1TduQP02lmGp8T2VvoQ/WNrl5T/SLhsho6+F16X/OsmK/fbk8vBXt1LKQz0GlpQ+NkQ==

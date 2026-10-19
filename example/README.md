@@ -116,31 +116,53 @@ All three lines are optional. Wikipedia handles "who currently holds this office
 well but has no news, prices or weather; Tavily and Brave are full web search. If the chosen
 engine fails or finds nothing, Wikipedia is tried.
 
-To use any other search API, implement `WebSearchEngine` from
-`src/local_llm/rag/web/types.ts` and pass it to `configureWebSearch`:
+To use any other search API, set `engine: 'host'` in `webSearch` (see
+`src/agent/LocalAgent.ts`) and answer the agent's `webSearch` requests in `Agent.create`'s
+`onRequest`:
 
 ```ts
-import { configureWebSearch } from './src/local_llm/rag/web/WebRAGProvider';
-import type { WebSearchEngine } from './src/local_llm/rag/web/WebRAGProvider';
+import { Agent } from 'react-native-davoice-llm';
 
-const mySearch: WebSearchEngine = {
-  name: 'MySearch',
-  async search(query, { maxResults, signal }) {
-    const res = await fetch(`https://my-api.example.com/search?q=${encodeURIComponent(query)}`, { signal });
-    const json = await res.json();
-    return json.items.slice(0, maxResults).map((item: any) => ({
-      text: item.snippet, // short plain text, most relevant first
-      url: item.link,
-      title: item.title,
-      retrievedAt: Date.now(),
-    }));
+const agent = await Agent.create(
+  { pack, webSearch: { engine: 'host' } },
+  {
+    onRequest: async (request) => {
+      if (request.type !== 'webSearch') throw new Error(`unexpected ${request.type}`);
+      const res = await fetch(`https://my-api.example.com/search?q=${encodeURIComponent(String(request.query))}`);
+      const json = await res.json();
+      return {
+        name: 'MySearch',
+        passages: json.items.slice(0, Number(request.maxResults)).map((item: any) => ({
+          text: item.snippet, // short plain text, most relevant first
+          url: item.link,
+          title: item.title,
+        })),
+      };
+    },
   },
-};
-
-configureWebSearch({ engine: mySearch }); // optional: fallbackToWikipedia, maxResults, timeoutMs
+);
 ```
 
-Which questions trigger a search is decided in `src/local_llm/rag/web/needsWebSearch.ts`.
+Which questions trigger a search is set in `agent/agent.json` (`webSearch.rules`).
+
+### Local AI Chat: customize it with the agent pack
+
+What the on-device AI says and does is configured in JSON files in `example/agent/` (the React
+Native and Flutter examples ship the same files). react-native-davoice-llm's `Agent` (the same
+native code on Android and iOS, and in the Flutter plugin) reads them; `src/agent/LocalAgent.ts`
+creates it:
+
+| File | What it holds |
+|---|---|
+| `agent.json` | Persona (system prompt), prompt wording, when to search the web, which Wikipedia page answers "who holds this office", and the phrases said while waiting |
+| `skills/calories/skill.json` | The calorie tracker's tools (names, descriptions, arguments), which tool each kind of sentence uses, word lists and every message it says |
+| `skills/calories/foods.json` | The food list: calories per typical serving |
+
+Patterns are regular expressions, matched case-insensitively. Change a file and rebuild
+the app; no code changes are needed. To add a food, add it to `foods.json`. At runtime the
+app can also add, change or remove foods (`agent.skill('calories', 'foods.upsert', { food })`
+/ `'foods.remove'`); those changes, and foods found online, are kept on the device (in the
+agent's SQLite database) on top of the shipped list.
 
 ### Local AI Chat: the AI changes the app (tool calling and MCP)
 
@@ -154,12 +176,18 @@ react-native-davoice-llm's tool calling. Try:
 
 Every change shows on the card with an **Undo** button. The model extracts the food and
 quantity and the app looks up the calories, so "two eggs" is always 156. Foods missing from
-the built-in table are looked up on Wikipedia (per 100 g; "I had 200 grams of lentils" uses
+the built-in list are looked up on Wikipedia (per 100 g; "I had 200 grams of lentils" uses
 the weight). For dishes and brands with real serving sizes, add a free
 [USDA FoodData Central](https://fdc.nal.usda.gov/api-key-signup) key; USDA is then tried
-first. If no source knows the food, the AI asks how many calories it had. Other sources
-plug in through `FoodCalorieSource` (onlineFoods.ts). The demo's code is
-in `src/calories/` (`calorieTools.ts` defines the tools, `CalorieStore.ts` holds the data, `CaloriesCard.tsx` is the card): copy it as a template for your own app's tools.
+first. If no source knows the food, the AI asks how many calories it had. Another source
+can be added as `{ type: 'host', name }` in the calories skill's `sources`; the app answers
+its `foodLookup` requests in `onRequest`.
+
+The tracker's tools run in the agent (their definitions, routing and messages are in
+`skills/calories/skill.json`), and the calorie log is kept in its SQLite database.
+`src/calories/CaloriesCard.tsx` shows it (`agent.skill('calories', 'log.get')` and the
+agent's `skill` events). Your app's own tools, or a remote MCP server's, join with
+`agent.setTools(tools)`.
 
 Optional settings, in the git-ignored example/local.config.ts:
 

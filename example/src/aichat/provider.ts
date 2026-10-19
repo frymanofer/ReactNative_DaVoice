@@ -7,35 +7,14 @@
 import type { AIChatHistoryMessage, GeminiChatMessage } from './index';
 import { generateGeminiReply, generateGeminiReplyStream } from './index';
 
-import type { ChatMessage, LocalLLMModelConfig } from '../local_llm/types';
+import type { LocalLLMModelConfig } from '../local_llm/types';
 import { ensureModelLoaded, isModelReady } from '../local_llm/LocalLLMLoader';
 import { getSelectedModel } from '../local_llm/ModelRegistry';
-import { StopSequenceFilter } from '../local_llm/StopSequenceFilter';
-import { VOICE_ASSISTANT_PERSONA } from '../local_llm/persona/Persona';
 import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
-import { webRAGProvider } from '../local_llm/rag/web/WebRAGProvider';
-import type { WebRAGPassage } from '../local_llm/rag/web/WebRAGProvider';
-import { runToolTurn } from 'react-native-davoice-llm/local_llm/tools';
-import type { ToolCallResult, ToolChoice, ToolDefinition, ToolTurnMessage } from 'react-native-davoice-llm/local_llm/tools';
-import { assemblePrompt, assemblePromptPrefix } from '../local_llm/PromptAssembler';
-import type { AssembleInput } from '../local_llm/PromptAssembler';
-
-// Untyped, lazy require — deliberately not a static import and not `typeof
-// import(...)` either: react-native-davoice-llm is linked from the sibling
-// TTSLLM repo rather than declared in this app's package.json, and this file
-// must still type-check on its own. Its real shape is TTSLLM/local_llm/index.ts.
-interface LocalLLMModule {
-  generateStream: (prompt: string, onToken: (token: string, done: boolean) => void) => Promise<void>;
-  prefill: (prompt: string) => void;
-  cancel: () => void;
-}
-
-function localLLMModule(): LocalLLMModule {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('react-native-davoice-llm');
-}
+import type { Agent, AgentEvent, AgentHistoryMessage, ToolDefinition, ToolTurnMessage, TurnResult } from 'react-native-davoice-llm';
+import { getLocalAgent } from '../agent/LocalAgent';
 
 export interface LLMProvider {
   generateReply(history: AIChatHistoryMessage[], userText: string): Promise<string>;
@@ -43,7 +22,7 @@ export interface LLMProvider {
     history: AIChatHistoryMessage[],
     userText: string,
     onDelta: (delta: string, done: boolean) => void,
-  ): Promise<void | ToolTurnMessage[]>;
+  ): Promise<void | LocalTurnOutcome>;
   isAvailable(): boolean;
 }
 
@@ -81,15 +60,6 @@ export class GeminiProvider implements LLMProvider {
   }
 }
 
-/** Result of `LocalLLMProvider.searchWeb`, passed on to `generateReplyStream`. */
-export interface WebSearchOutcome {
-  passages: WebRAGPassage[];
-  /** "Tavily" or "Wikipedia". */
-  source: string;
-  /** True when nothing usable came back (offline, timeout, no results). */
-  failed: boolean;
-}
-
 /** e.g. "Saturday, October 17, 2026". Changes once a day, so the system
  * prompt (and the engine's cache of it) stays the same within a day. */
 function currentDateText(): string {
@@ -101,28 +71,28 @@ function currentDateText(): string {
   });
 }
 
-function toShortTermMemory(history: AIChatHistoryMessage[]): ChatMessage[] {
-  const turns: ChatMessage[] = [];
-  for (const m of history) {
-    if (m.role === 'model') turns.push(...(m.toolMessages ?? []));
-    if (m.text) turns.push({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text });
-  }
-  return turns;
+function toAgentHistory(history: AIChatHistoryMessage[]): AgentHistoryMessage[] {
+  return history.map((m) => ({ role: m.role, text: m.text, toolMessages: m.toolMessages }));
+}
+
+/** What a local turn did besides speaking (see `generateReplyStream`). */
+export interface LocalTurnOutcome {
+  /** Keep these in the history with the reply (AIChatHistoryMessage.toolMessages). */
+  toolMessages: ToolTurnMessage[];
+  /** Set when the turn searched the web. */
+  webSearch: TurnResult['webSearch'];
 }
 
 /**
- * Speaks to the local model via react-native-davoice-llm. `speakerId` scopes
- * profile/memory lookups; pass whatever src/speaker_verification/ currently
- * has active (or a stable "anonymous" id when speaker verification was
- * skipped). `licenseKey` is whatever the app already uses to license the
- * other DaVoice native libraries (see `DAVOICE_DEMO_LICENSE` in `App.tsx`) —
- * not hardcoded here, since licensing is an app-level concern.
+ * Speaks to the local model through the shared native agent core
+ * (react-native-davoice-llm's `Agent`, set up in src/agent/LocalAgent.ts):
+ * web search, fillers, the calorie tracker's tools, prompt assembly and the
+ * model all run natively, the same as in the Flutter example. `speakerId`
+ * scopes profile/memory lookups; `licenseKey` licenses the engine.
  */
 export class LocalLLMProvider implements LLMProvider {
-  private tools: ToolDefinition[] = [];
-  private toolInstructions = '';
-  private toolChoice: (userText: string) => ToolChoice = () => 'auto';
-  private missingToolCallReply = "Sorry, I couldn't do that. Could you say it again?";
+  private chatTemplateFor: string | null = null;
+  private chatTemplateSet: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly speakerId: string,
@@ -130,32 +100,32 @@ export class LocalLLMProvider implements LLMProvider {
   ) {}
 
   /**
-   * Tools the model may call (app tools and/or MCP server tools), the rules
-   * for using them (added to the system prompt), and an optional per-message
-   * `toolChoice` from the user's words ('required' for clear actions, 'none'
-   * for messages that clearly aren't tool requests). Set before `warmUp`:
-   * the tool list is part of the system prompt the engine caches.
-   * `missingToolCallReply` is spoken when a required tool call never came
-   * (rather than the model's words, which may claim it was done).
+   * Tools of a remote MCP server, next to the calorie tracker's. They run
+   * online, so a filler is said while they run. Set before `warmUp`: the tool
+   * list is part of the system prompt the engine caches.
    */
-  setTools(
-    tools: ToolDefinition[],
-    instructions = '',
-    toolChoice: (userText: string) => ToolChoice = () => 'auto',
-    missingToolCallReply?: string,
-  ): void {
-    this.tools = tools;
-    this.toolInstructions = instructions;
-    this.toolChoice = toolChoice;
-    if (missingToolCallReply) this.missingToolCallReply = missingToolCallReply;
+  async setExternalTools(tools: ToolDefinition[], note?: string): Promise<void> {
+    const agent = await getLocalAgent();
+    await agent.setTools(tools, { online: () => true, note });
   }
 
   isAvailable(): boolean {
     // Real availability (model downloaded + license set) is determined by
     // the caller before constructing this provider — see
-    // example/src/local_llm/ModelManager.ts's isModelDownloaded(). Kept
-    // simple here since wiring that check into app flow is Stage 6 work.
+    // example/src/local_llm/ModelManager.ts's isModelDownloaded().
     return true;
+  }
+
+  /** The agent, set up for `model`'s chat template. */
+  private async agentFor(model: LocalLLMModelConfig): Promise<Agent> {
+    const agent = await getLocalAgent();
+    // Set once per model, even when calls race (warm-up and a prefill).
+    if (this.chatTemplateFor !== model.id) {
+      this.chatTemplateFor = model.id;
+      this.chatTemplateSet = agent.configure({ chatTemplate: model.chatTemplate });
+    }
+    await this.chatTemplateSet;
+    return agent;
   }
 
   /**
@@ -186,56 +156,10 @@ export class LocalLLMProvider implements LLMProvider {
     try {
       const model = await getSelectedModel();
       if (!isModelReady(model.id)) return;
-      const input = await this.buildAssembleInput(model, history, partialUserText);
-      localLLMModule().prefill(assemblePromptPrefix(input));
+      (await this.agentFor(model)).prefill(toAgentHistory(history), partialUserText);
     } catch (error) {
       console.log('[LocalLLM] prefill skipped:', error);
     }
-  }
-
-  /**
-   * Searches the web for `query` (call it only for time-sensitive questions —
-   * see needsWebSearch.ts). Never throws: a failure is reported in the
-   * outcome so the reply can say it couldn't check online.
-   */
-  async searchWeb(query: string): Promise<WebSearchOutcome> {
-    const started = Date.now();
-    try {
-      const passages = await webRAGProvider.search(query);
-      console.log(`[LocalLLM] web search via ${webRAGProvider.lastSource}: ${passages.length} results in ${Date.now() - started} ms`);
-      return { passages, source: webRAGProvider.lastSource, failed: passages.length === 0 };
-    } catch (error) {
-      console.log('[LocalLLM] web search failed:', String(error));
-      return { passages: [], source: webRAGProvider.lastSource, failed: true };
-    }
-  }
-
-  private async buildAssembleInput(
-    model: LocalLLMModelConfig,
-    history: AIChatHistoryMessage[],
-    userText: string,
-    webSearch?: WebSearchOutcome,
-  ): Promise<AssembleInput> {
-    const [profile, longTermFacts, localRagPassages] = await Promise.all([
-      getProfile(this.speakerId),
-      listFacts(this.speakerId),
-      retrieveLocalRag(this.speakerId, userText),
-    ]);
-
-    return {
-      persona: VOICE_ASSISTANT_PERSONA,
-      profile,
-      shortTermMemory: toShortTermMemory(history),
-      longTermFacts,
-      localRagPassages,
-      webRagPassages: webSearch?.passages ?? [],
-      webSearchFailed: webSearch?.failed ?? false,
-      currentDate: currentDateText(),
-      toolSchemas: this.tools,
-      toolInstructions: this.toolInstructions,
-      chatTemplate: model.chatTemplate,
-      userText,
-    };
   }
 
   async generateReply(history: AIChatHistoryMessage[], userText: string): Promise<string> {
@@ -246,66 +170,45 @@ export class LocalLLMProvider implements LLMProvider {
     return full;
   }
 
-  /** `webSearch`: results of `searchWeb` for this question, if it searched. */
+  /**
+   * One turn. Reply text streams to `onDelta`; `onEvent` gets everything else
+   * the agent reports while working: `filler` (say it while waiting: web
+   * search, food lookup, MCP tool), `status`, `webSearch`, `toolResult`.
+   */
   async generateReplyStream(
     history: AIChatHistoryMessage[],
     userText: string,
     onDelta: (delta: string, done: boolean) => void,
-    webSearch?: WebSearchOutcome,
-    onToolResult?: (result: ToolCallResult) => void,
-  ): Promise<ToolTurnMessage[]> {
+    onEvent?: (event: AgentEvent) => void,
+  ): Promise<LocalTurnOutcome> {
     // Downloads (if needed) + licenses + loads the model at most once, even
-    // if generateReplyStream is somehow called again before the first load
-    // finishes — see LocalLLMLoader.ts's doc comment for why that guard
-    // matters (loading the same GGUF twice concurrently is what pushed a
-    // reference app's process into swap).
+    // if a turn starts before warm-up finished (LocalLLMLoader's guard).
     // The model (and with it the chat template) is whatever the user last
     // picked in ModelPicker; a change takes effect on the next turn.
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey);
+    const agent = await this.agentFor(model);
 
-    const input = await this.buildAssembleInput(model, history, userText, webSearch);
-    const localLLM = localLLMModule();
-
-    // One model reply for the prompt plus this turn's tool messages, with the
-    // template's turn-end marker cut off.
-    const generateRound = async (toolMessages: AssembleInput['toolMessages'], onToken: (text: string) => void) => {
-      const { prompt } = assemblePrompt({ ...input, toolMessages });
-      const stopFilter = new StopSequenceFilter(model.chatTemplate.stopSequences);
-      await localLLM.generateStream(prompt, (token, done) => {
-        if (!done) {
-          const wasStopped = stopFilter.isStopped;
-          const text = stopFilter.push(token);
-          if (text) onToken(text);
-          // Stop generating as soon as the template's turn-end marker shows
-          // up; native still sends the final done=true after cancel.
-          if (!wasStopped && stopFilter.isStopped) localLLM.cancel();
-          return;
-        }
-        const rest = stopFilter.flush();
-        if (rest) onToken(rest);
-      });
-    };
-
-    let toolMessages: ToolTurnMessage[] = [];
-    if (this.tools.length === 0) {
-      await generateRound([], (text) => onDelta(text, false));
-    } else {
-      // The model may call tools: run them, give it the results, and let it
-      // answer. Only speakable text reaches onDelta (no tool-call JSON).
-      const turn = await runToolTurn({
-        tools: this.tools,
-        generate: generateRound,
-        onText: (text) => onDelta(text, false),
-        onToolResult,
-        toolChoice: this.toolChoice(userText),
-        context: { userText },
-      });
-      toolMessages = turn.messages;
-      if (turn.missingRequiredToolCall) onDelta(this.missingToolCallReply, false);
-    }
+    const [profile, longTermFacts, localPassages] = await Promise.all([
+      getProfile(this.speakerId),
+      listFacts(this.speakerId),
+      retrieveLocalRag(this.speakerId, userText),
+    ]);
+    const result = await agent.turn(
+      {
+        text: userText,
+        history: toAgentHistory(history),
+        profile,
+        longTermFacts,
+        localPassages,
+        date: currentDateText(),
+      },
+      (event) => {
+        if (event.type === 'text') onDelta(event.text, false);
+        else onEvent?.(event);
+      },
+    );
     onDelta('', true);
-    // Keep these in the history (AIChatHistoryMessage.toolMessages).
-    return toolMessages;
+    return { toolMessages: result.toolMessages, webSearch: result.webSearch };
   }
 }

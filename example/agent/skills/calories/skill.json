@@ -1,0 +1,300 @@
+{
+  "id": "calories",
+  "instructions": "The app shows a calories-today tracker. Call a tool only when the user wants to log, change, undo or check THEIR OWN calories for today. A question about how many calories a food has is general knowledge: answer it directly, without any tool. Only use the tools listed below; for anything else answer normally. A tool result with \"ok\": true means the change is already made: say in one short sentence what was done; never ask whether to do it.",
+  "missingToolReply": "Sorry, I couldn't update the calorie tracker. Could you say it again, maybe with the number of calories?",
+  "routing": {
+    "rules": [
+      {
+        "comment": "\"How many calories are in an apple?\" is general knowledge",
+        "all": [
+          "\\b(how many|how much)\\b.*\\bcalories?\\b",
+          "\\b(in|does|do)\\b"
+        ],
+        "none": [
+          "\\b(i|i'm|i've|me|my|today|so far)\\b"
+        ],
+        "choice": "none"
+      },
+      {
+        "any": [
+          "\\b(undo|cancel (it|that)|that was wrong|take that back)\\b"
+        ],
+        "choice": {
+          "name": "undo_last_change"
+        }
+      },
+      {
+        "any": [
+          "\\b(set (it|my|the|today)|reset|in total|total (is|was|to)|clear (it|the list|everything|all)|(remove|delete) (all|everything))\\b"
+        ],
+        "choice": {
+          "name": "set_calories_today"
+        }
+      },
+      {
+        "comment": "\"Remove 100 calories\" subtracts a number",
+        "all": [
+          "\\b(remove|subtract|take off|take away|minus|delete|erase)\\b|\\b(didn'?t|did not|never) (eat|have|drink)\\b"
+        ],
+        "any": [
+          "\\d+\\s*(k?cals?|calories?)\\b",
+          "^\\W*(remove|subtract|take off|take away|minus)\\s+\\d+\\W*$"
+        ],
+        "choice": {
+          "name": "remove_calories"
+        }
+      },
+      {
+        "comment": "\"Remove the kiwi\", \"I didn't eat the coke\" delete that line",
+        "all": [
+          "\\b(remove|subtract|take off|take away|minus|delete|erase)\\b|\\b(didn'?t|did not|never) (eat|have|drink)\\b"
+        ],
+        "choice": {
+          "name": "delete_food"
+        }
+      },
+      {
+        "comment": "Logging, including follow-ups without a verb (\"And a banana\"); not questions (\"How many calories have I had?\")",
+        "any": [
+          "\\b(i (just )?(ate|had|drank)|log|add|ate|drank)\\b",
+          "^\\s*(and|also|plus)\\s+(a|an|some|one|two|three|four|five|\\d+)\\b"
+        ],
+        "none": [
+          "^\\W*(how (much|many)|what)\\b"
+        ],
+        "choice": {
+          "name": "log_food"
+        }
+      },
+      {
+        "any": [
+          "\\b(how (much|many)( calories)? (have|did) i|my total|so far|today's total|calories (have i|today)|what have i eaten|what did i eat)\\b"
+        ],
+        "choice": {
+          "name": "get_calories_today"
+        }
+      }
+    ],
+    "default": "auto"
+  },
+  "tools": [
+    {
+      "name": "get_calories_today",
+      "description": "Read the user's calorie tracker: today's total and entries.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "log_food",
+      "description": "Log something the user says they ate or drank ('I ate', 'I had', 'log', 'add'). Give the food name and quantity; the app knows the calories of common foods. Set calories only if the user said a number.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "food": {
+            "type": "string",
+            "description": "Food or drink, singular, e.g. egg, banana, slice of pizza, can of coke. Use 'calories' if the user only said a number."
+          },
+          "quantity": {
+            "type": "number",
+            "description": "How many, default 1",
+            "minimum": 0
+          },
+          "calories": {
+            "type": "integer",
+            "description": "Total calories, only if the user said the number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "food"
+        ]
+      }
+    },
+    {
+      "name": "delete_food",
+      "description": "Delete a food or drink from today's list ('remove the kiwi', 'delete the coke', 'I didn't eat the banana').",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "food": {
+            "type": "string",
+            "description": "The food to delete, e.g. kiwi, or 'last' for the last one"
+          }
+        }
+      }
+    },
+    {
+      "name": "remove_calories",
+      "description": "Subtract a number of calories from today's total ('remove 100 calories'). To remove a food, use delete_food.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "set_calories_today",
+      "description": "Replace today's total with an exact number, e.g. 'set it to 1500', 'reset to zero', 'today I ate 1200 in total'.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "total"
+        ]
+      }
+    },
+    {
+      "name": "undo_last_change",
+      "description": "Undo the last change to the calorie tracker ('undo', 'that was wrong', 'cancel that').",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "matching": {
+    "foodStopWords": "\\b(a|an|some|the|my|of the|small|large|big|medium)\\b",
+    "servingWords": [
+      "of",
+      "with",
+      "and",
+      "in",
+      "slice",
+      "piece",
+      "bowl",
+      "cup",
+      "glass",
+      "plate",
+      "can",
+      "bottle",
+      "serving",
+      "portion",
+      "handful",
+      "homemade",
+      "fresh"
+    ],
+    "notFoodWords": [
+      "i",
+      "me",
+      "you",
+      "can",
+      "could",
+      "please",
+      "just",
+      "actually",
+      "didn",
+      "didnt",
+      "t",
+      "did",
+      "not",
+      "never",
+      "eat",
+      "ate",
+      "eaten",
+      "have",
+      "had",
+      "drink",
+      "drank",
+      "remove",
+      "delete",
+      "erase",
+      "take",
+      "off",
+      "away",
+      "get",
+      "rid",
+      "of",
+      "with",
+      "and",
+      "in",
+      "from",
+      "on",
+      "to",
+      "list",
+      "today",
+      "tracker",
+      "entry",
+      "entries",
+      "item",
+      "food",
+      "line",
+      "one",
+      "it",
+      "that",
+      "this"
+    ],
+    "lastEntry": "^\\s*(it|that|this|(the )?(last|latest|previous)( one| thing| item| entry| food)?)\\s*$|\\b(last|latest|previous) (one|thing|item|entry|food)\\b|\\b(remove|delete|erase) (it|that|this)\\b",
+    "grams": "(\\d+(?:\\.\\d+)?)\\s*(?:g|gr|grams?)\\b",
+    "justCalories": "^\\s*(k?cal(orie)?s?)?\\s*$"
+  },
+  "onlineLookup": {
+    "timeoutMs": 6000,
+    "fillers": [
+      "I need to check online for the calories in {food}.",
+      "{Food} isn't on my list, so let me look it up online.",
+      "Let me look up the calories for {food} online.",
+      "One moment, I'm checking online how many calories {food} has.",
+      "Give me a second to find {food} online.",
+      "Let me search online for the calories in {food}."
+    ]
+  },
+  "fallbackArguments": {
+    "comment": "When the model doesn't call log_food after a retry, the food (and count) come from the user's words: these patterns are removed (after the grams), then a leading count is read",
+    "log_food": {
+      "strip": [
+        "^\\W*(?:i\\s+)?(?:just\\s+)?(?:have\\s+)?(?:ate|had|drank|eaten|drunk|log|add|and|also|plus)\\b",
+        "^\\W*of\\b",
+        "\\b(?:for|at|with)\\s+(?:breakfast|lunch|dinner|a snack)\\b",
+        "\\b(?:today|tonight|this morning|please|too|as well|to my list|to the tracker)\\b",
+        "[.!?,]"
+      ],
+      "count": {
+        "pattern": "^(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+(?:\\.\\d+)?)\\b",
+        "words": {
+          "a": 1,
+          "an": 1,
+          "one": 1,
+          "two": 2,
+          "three": 3,
+          "four": 4,
+          "five": 5,
+          "six": 6,
+          "seven": 7,
+          "eight": 8,
+          "nine": 9,
+          "ten": 10
+        }
+      }
+    }
+  },
+  "messages": {
+    "unknownFood": "I couldn't find {food} in my food list{searchedOn}.",
+    "searchedOn": " or on {sources}",
+    "unreachable": " I couldn't reach {sources} right now.",
+    "usdaHint": " The app can also use the USDA food database if you add a USDA API key.",
+    "askCalories": " How many calories did it have?",
+    "sourcesSeparator": " or ",
+    "deleteNotFound": "I couldn't find {food} in today's list. The list has: {list}. Which one should I remove?",
+    "deleteListItem": "{label}, {calories} calories",
+    "deleteListSeparator": "; ",
+    "deleteEmpty": "Today's list is empty, so there is nothing to remove.",
+    "nothingToUndo": "There is nothing to undo.",
+    "removeAskAmount": "How many calories should I remove?",
+    "statusLogged": "Done: added to today's tracker",
+    "statusDeleted": "Done: deleted from today's list",
+    "statusRemoved": "Done: removed from today's total",
+    "statusSetTotal": "Done: today's total replaced",
+    "statusUndone": "Done: the last change was undone"
+  }
+}
