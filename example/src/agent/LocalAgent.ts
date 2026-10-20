@@ -30,6 +30,9 @@ function agentSettings(): AgentConfig {
       skills: [{ skill: caloriesSkill, data: { 'foods.json': caloriesFoodsSeed } }],
     },
     databasePath: `${RNFS.DocumentDirectoryPath}/davoice_agent.db`,
+    // The whole chat (user, model outputs, tools, replies), readable off the
+    // phone even when the Xcode console drops lines.
+    chatLogPath: `${RNFS.DocumentDirectoryPath}/davoice_chat.log`,
     webSearch: {
       engine: config.WEB_SEARCH_ENGINE ?? 'wikipedia',
       tavilyApiKey: config.TAVILY_API_KEY,

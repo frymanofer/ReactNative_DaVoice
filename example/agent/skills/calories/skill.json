@@ -1,6 +1,6 @@
 {
   "id": "calories",
-  "instructions": "The app shows a calories-today tracker. Call a tool only when the user wants to log, change, undo or check THEIR OWN calories for today. A question about how many calories a food has is general knowledge: answer it directly, without any tool. Only use the tools listed below; for anything else answer normally. A tool result with \"ok\": true means the change is already made: say in one short sentence what was done; never ask whether to do it.",
+  "instructions": "The app shows a calories-today tracker. Call a tool only when the user wants to log, change, undo or check THEIR OWN calories for today. A question about how many calories a food has is general knowledge: answer it directly, without any tool. Only use the tools listed below; for anything else answer normally. A tool result with \"ok\": true means the change is already made: say in one short sentence what was done; never ask whether to do it. Never offer or suggest logging food unless the user talks about something they ate or drank.",
   "missingToolReply": "Sorry, I couldn't update the calorie tracker. Could you say it again, maybe with the number of calories?",
   "routing": {
     "rules": [
@@ -75,7 +75,12 @@
         }
       }
     ],
-    "default": "auto"
+    "default": "none",
+    "autoToolsComment": "Tools the model may use on its own when no rule picked a tool: reading the tracker only. Changes need the user's words to match a rule.",
+    "autoTools": [
+      "get_calories_today"
+    ],
+    "defaultComment": "When no rule matches, the turn has no tools and the model just answers (\"Hello, how are you?\"). It becomes \"auto\" when the app, an MCP server or memory adds tools only the model can choose; then autoTools limits this skill to reading."
   },
   "tools": [
     {
@@ -282,7 +287,6 @@
     "unknownFood": "I couldn't find {food} in my food list{searchedOn}.",
     "searchedOn": " or on {sources}",
     "unreachable": " I couldn't reach {sources} right now.",
-    "usdaHint": " The app can also use the USDA food database if you add a USDA API key.",
     "askCalories": " How many calories did it have?",
     "sourcesSeparator": " or ",
     "deleteNotFound": "I couldn't find {food} in today's list. The list has: {list}. Which one should I remove?",

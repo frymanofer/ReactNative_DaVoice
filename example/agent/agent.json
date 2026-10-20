@@ -8,7 +8,9 @@
     "webResults": "\n\nWeb search results, newer than your training data:\n{results}\nAnswer my question using these results: they are true today and override what you remember and anything said earlier in this conversation. Do not mention the search, sources or URLs.",
     "webResultLine": "- {text}",
     "webSearchFailed": "\n\n(A web search for this question failed, for example because the device is offline. The app already told the user that. Say what was true as of your training data, using words like \"as of my training\". Never say it is true today, and never put today's date on it. Keep it to two sentences.)",
-    "externalToolsNote": "The other tools listed below come from a connected service; use them when they help."
+    "externalToolsNote": "The other tools listed below come from a connected service; use them when they help.",
+    "toolNotAllowed": "Not done: the user did not ask for this. Do not mention it; just answer what the user said.",
+    "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)"
   },
   "webSearch": {
     "rules": {
@@ -159,5 +161,311 @@
     "One moment, I'm getting that from the server.",
     "Give me a second to look that up.",
     "Let me fetch that for you."
-  ]
+  ],
+  "memory": {
+    "comment": "What the assistant remembers about each user (speaker) across conversations. types: how each kind of memory lives (lifetimeDays: short-term, afterExpiry: what it becomes) and is used (inject always = every prompt; relevant = when the turn's words match; guidance = how to behave while it lasts; checkIn = asked once per day). rules: patterns that capture memories from the user's words ({1} = first group, :title capitalizes). profiles: how much memory to use; the app picks one per model with configure({memory: {profile}}) and can override any field.",
+    "defaultProfile": "small",
+    "profiles": {
+      "off": {
+        "enabled": false
+      },
+      "small": {
+        "enabled": true,
+        "capture": "rules",
+        "alwaysMaxTokens": 120,
+        "relevantMax": 2,
+        "relevantMaxTokens": 100,
+        "maxMemories": 200
+      },
+      "large": {
+        "enabled": true,
+        "capture": "rules+tools",
+        "alwaysMaxTokens": 300,
+        "relevantMax": 6,
+        "relevantMaxTokens": 400,
+        "maxMemories": 2000
+      }
+    },
+    "types": {
+      "profile": {
+        "inject": "always"
+      },
+      "fact": {
+        "inject": "relevant"
+      },
+      "preference": {
+        "inject": "relevant"
+      },
+      "note": {
+        "inject": "relevant"
+      },
+      "grief": {
+        "inject": "always",
+        "lifetimeDays": 7,
+        "announce": false,
+        "guidance": "The user is grieving. Be warm and gentle, keep answers soft, and don't repeat condolences every turn.",
+        "checkIn": "Start your reply with one gentle sentence asking how the user is doing since their {who} died.",
+        "afterExpiry": {
+          "type": "fact",
+          "text": "The user's {who} died on {date}."
+        }
+      },
+      "upcoming": {
+        "inject": "always",
+        "lifetimeDays": 1,
+        "announce": false,
+        "guidance": "If it fits the conversation, wish them well with it."
+      }
+    },
+    "rules": [
+      {
+        "comment": "Forget everything",
+        "match": "^\\W*(?:please\\s+)?forget\\s+(?:everything|all)(?:\\s+(?:about\\s+me|you\\s+know))?\\W*$",
+        "action": "forgetAll"
+      },
+      {
+        "comment": "Forget one thing: the best match is deleted, with its history",
+        "match": "^\\W*(?:please\\s+)?forget\\s+(?:that\\s+|about\\s+)?(.+)$",
+        "action": "forget"
+      },
+      {
+        "comment": "What do you remember about me?",
+        "match": "\\bwhat (?:do|did) you (?:know|remember) about me\\b|\\bwhat have you (?:saved|remembered)\\b",
+        "action": "recall"
+      },
+      {
+        "match": "\\b(?:my name is|call me|i am called|i'm called)\\s+([a-z][a-z'-]{1,20}(?:\\s+[a-z][a-z'-]{1,20})?)",
+        "type": "profile",
+        "key": "name",
+        "text": "The user's name is {1:title}."
+      },
+      {
+        "match": "\\bi (?:live|am living|'m living) in ([a-z][a-z .'-]{1,40})",
+        "type": "profile",
+        "key": "home",
+        "text": "The user lives in {1:title}."
+      },
+      {
+        "match": "\\bi(?:'m| am) allergic to ([a-z][a-z ,'-]{1,40})",
+        "type": "profile",
+        "key": "allergy {1}",
+        "text": "The user is allergic to {1}."
+      },
+      {
+        "match": "\\bi(?:'m| am) (?:a |an )?(vegetarian|vegan|pescatarian|diabetic|lactose intolerant)\\b",
+        "type": "profile",
+        "key": "diet",
+        "text": "The user is {1}."
+      },
+      {
+        "match": "\\bmy (wife|husband|partner|girlfriend|boyfriend|son|daughter|brother|sister|mother|father|mom|dad|dog|cat|boss)(?:'s name is| is called| is named) ([a-z][a-z'-]{1,20})\\b",
+        "type": "fact",
+        "key": "{1} name",
+        "text": "The user's {1} is named {2:title}."
+      },
+      {
+        "match": "\\bmy favou?rite ([a-z]+(?: [a-z]+)?) is ([a-z0-9][a-z0-9 .'-]{1,40})",
+        "type": "preference",
+        "key": "favorite {1}",
+        "text": "The user's favorite {1} is {2}."
+      },
+      {
+        "comment": "Grief: short-term (7 days), then a plain fact",
+        "match": "\\bmy ((?:[a-z]+ ){0,2}?[a-z]+) (?:died|passed away|passed on|has died|just died)\\b",
+        "type": "grief",
+        "key": "loss {1}",
+        "vars": {
+          "who": "{1}"
+        },
+        "text": "The user's {1} died on {date}."
+      },
+      {
+        "match": "\\bwe lost (?:my|our) ((?:[a-z]+ ){0,2}?[a-z]+)\\b",
+        "type": "grief",
+        "key": "loss {1}",
+        "vars": {
+          "who": "{1}"
+        },
+        "text": "The user's {1} died on {date}."
+      },
+      {
+        "comment": "Something coming up: remembered until the day after",
+        "match": "\\bi have (?:a |an |my )?((?:[a-z]+ ){0,2}?(?:exam|test|interview|surgery|operation|appointment|flight|meeting|presentation|job interview))\\b",
+        "type": "upcoming",
+        "key": "upcoming {1}",
+        "vars": {
+          "what": "{1}"
+        },
+        "text": "The user has a {1} on {date}."
+      },
+      {
+        "comment": "Explicit 'remember that ...', when no rule above saved it",
+        "match": "^\\W*(?:please\\s+)?(?:remember|note|keep in mind)\\s+(?:that\\s+)?(.+)$",
+        "type": "note",
+        "cut": false,
+        "fallback": true,
+        "confidence": 1.0,
+        "text": "The user told you: \"{1}\""
+      }
+    ],
+    "questions": [
+      "\\?\\s*$",
+      "^\\W*(?:what|who|whom|whose|where|when|why|how|do|does|did|is|are|was|were|can|could|would|will|should|have|has)\\b"
+    ],
+    "valueEnd": "\\s*(?:[,.;!?]|\\b(?:and|but|so|because|though|which|who)\\b).*$",
+    "rejectValues": [
+      "it",
+      "that",
+      "this",
+      "them",
+      "him",
+      "her",
+      "back",
+      "later",
+      "now",
+      "please",
+      "maybe",
+      "you"
+    ],
+    "dates": [
+      {
+        "pattern": "\\b(?:yesterday|last night)\\b",
+        "days": -1
+      },
+      {
+        "pattern": "\\b(?:two|2) days ago\\b",
+        "days": -2
+      },
+      {
+        "pattern": "\\blast week\\b",
+        "days": -7
+      },
+      {
+        "pattern": "\\btomorrow\\b",
+        "days": 1
+      },
+      {
+        "pattern": "\\bnext week\\b",
+        "days": 7
+      }
+    ],
+    "searchStopWords": [
+      "the",
+      "a",
+      "an",
+      "and",
+      "or",
+      "but",
+      "of",
+      "to",
+      "in",
+      "on",
+      "at",
+      "for",
+      "with",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "am",
+      "do",
+      "does",
+      "did",
+      "have",
+      "has",
+      "had",
+      "i",
+      "me",
+      "my",
+      "you",
+      "your",
+      "it",
+      "its",
+      "this",
+      "that",
+      "what",
+      "who",
+      "how",
+      "when",
+      "where",
+      "why",
+      "can",
+      "could",
+      "would",
+      "will",
+      "should",
+      "about",
+      "from",
+      "just",
+      "so",
+      "not",
+      "no",
+      "yes",
+      "please",
+      "tell",
+      "know",
+      "think",
+      "user",
+      "user's",
+      "today",
+      "now"
+    ],
+    "prompts": {
+      "line": "- {text}",
+      "relevant": "\n\n(You remember this about the user. It is true: use it to answer, and never say you can't remember things:\n{memories})",
+      "saved": "\n\n(You will remember this from now on: {text} Reply to the user directly, as \"you\", naturally and in one short sentence.)",
+      "updated": "\n\n(You updated what you remember: {text} Reply to the user directly, as \"you\", naturally and in one short sentence.)",
+      "forgotten": "\n\n(You deleted this from your memory: {text} Confirm it to the user in one short sentence.)",
+      "notFound": "\n\n(The user asked you to forget \"{query}\", but you don't remember anything like that. Say so in one short sentence.)",
+      "forgotAll": "\n\n(You deleted everything you remembered about the user. Confirm it in one short sentence.)",
+      "recall": "\n\n(Everything you remember about the user:\n{memories}\nTell the user all of it briefly, every item, speaking to them as \"you\".)",
+      "recallEmpty": "\n\n(You don't remember anything about the user yet. Say so in one short sentence.)",
+      "checkIn": "\n\n({text})"
+    },
+    "toolInstructions": "When the user tells you something about themselves that is worth remembering in future conversations (not small talk or what they ate), call remember_fact with one short sentence about them. When they ask you to forget something, call forget_fact.",
+    "tools": [
+      {
+        "name": "remember_fact",
+        "description": "Save a fact about the user for future conversations, e.g. 'The user works as a nurse'.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fact": {
+              "type": "string",
+              "description": "One short sentence about the user, in the third person"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "fact",
+                "preference",
+                "note"
+              ]
+            }
+          },
+          "required": [
+            "fact"
+          ]
+        }
+      },
+      {
+        "name": "forget_fact",
+        "description": "Delete something the app remembers about the user, when they ask to forget it.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fact": {
+              "type": "string",
+              "description": "What to forget, in a few words"
+            }
+          },
+          "required": [
+            "fact"
+          ]
+        }
+      }
+    ]
+  }
 }
