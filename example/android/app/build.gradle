@@ -22,6 +22,14 @@ android {
     versionName "1.0"
   }
 
+  // The STT bias list (words_flattened.txt) from the same folder iOS bundles
+  // it from, so both platforms use one file.
+  sourceSets {
+    main {
+      assets.srcDirs += ['../../assets/stt_bias_conf']
+    }
+  }
+
   signingConfigs {
     debug {
       storeFile file('debug.keystore')

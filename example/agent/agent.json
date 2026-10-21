@@ -229,9 +229,15 @@
         "action": "forget"
       },
       {
-        "comment": "What do you remember about me?",
-        "match": "\\bwhat (?:do|did) you (?:know|remember) about me\\b|\\bwhat have you (?:saved|remembered)\\b",
+        "comment": "What do you remember about me? / Do you remember my name? (lists what is remembered)",
+        "match": "\\bwhat (?:do|did) you (?:know|remember) about me\\b|\\bwhat have you (?:saved|remembered)\\b|\\b(?:do|did|can) you (?:still )?remember\\b|\\bdon'?t you remember\\b",
         "action": "recall"
+      },
+      {
+        "match": "\\bmy (?:last|family|sur) ?name is ([a-z][a-z'-]{1,30})",
+        "type": "profile",
+        "key": "last name",
+        "text": "The user's last name is {1:title}."
       },
       {
         "match": "\\b(?:my name is|call me|i am called|i'm called)\\s+([a-z][a-z'-]{1,20}(?:\\s+[a-z][a-z'-]{1,20})?)",
@@ -268,6 +274,14 @@
         "type": "preference",
         "key": "favorite {1}",
         "text": "The user's favorite {1} is {2}."
+      },
+      {
+        "comment": "Any \"my X is Y\" not covered above (\"my car is red with green lines\"); a new value replaces the old one",
+        "match": "\\bmy ((?!(?:name|question|point|problem|guess|pleasure|bad|mistake|fault|turn|answer|request|idea|opinion|issue|concern|plan|goal|day|morning|evening|night)\\b)[a-z]+(?: [a-z]+)?) (?:is|are) ([a-z0-9][a-z0-9 ,'-]{1,40})",
+        "type": "fact",
+        "key": "{1}",
+        "confidence": 0.8,
+        "text": "The user's {1} is {2}."
       },
       {
         "comment": "Grief: short-term (7 days), then a plain fact",
@@ -325,8 +339,88 @@
       "now",
       "please",
       "maybe",
-      "you"
+      "you",
+      "secret"
     ],
+    "rejectFirstWords": [
+      "the",
+      "not",
+      "just",
+      "what",
+      "that",
+      "this",
+      "so",
+      "very",
+      "really",
+      "also",
+      "still",
+      "actually",
+      "from",
+      "in",
+      "at",
+      "on",
+      "going",
+      "trying",
+      "why",
+      "how",
+      "who",
+      "when",
+      "where",
+      "which",
+      "hello",
+      "hi",
+      "hey",
+      "yes",
+      "no",
+      "okay",
+      "ok"
+    ],
+    "spelling": {
+      "comment": "Letters spelled out in a row (\"O for Oscar, F for Frank\"): the first letters of the words make the word (speech recognition mangles the letters but not the words). replace: what the memory rules see, \"(spelled: ofer)\"; forModel: what the model gets in place of the spelling, \"Ofer (O-F-E-R)\".",
+      "pair": "\\b([a-z]{1,3})\\s+(?:for|as in|like)\\s+([a-z]{3,})\\b",
+      "minLetters": 2,
+      "replace": "(spelled: {word})",
+      "forModel": "{Word} ({LETTERS})",
+      "joiners": [
+        "and",
+        "then"
+      ]
+    },
+    "fields": [
+      {
+        "id": "lastName",
+        "key": "last name",
+        "label": "last name",
+        "text": "The user's last name is {Value}.",
+        "spelling": "allowed",
+        "verify": true,
+        "required": false,
+        "mentions": "\\b(?:last|family|sur) ?name\\b"
+      },
+      {
+        "id": "firstName",
+        "key": "name",
+        "label": "first name",
+        "text": "The user's first name is {Value}.",
+        "spelling": "allowed",
+        "verify": true,
+        "required": false,
+        "mentions": "\\bname\\b"
+      }
+    ],
+    "fieldsComment": "fields: values the app needs right. key = the memory key (rules with that key feed the field); spelling: off | allowed (a spelled value, \"O for Oscar, F for Frank\", wins over what speech recognition heard) | required (only a spelled value is accepted); verify: read it back and keep it after a yes; required: the model asks for it until it is known and verified (again after askAgainMinutes, default 60), and once it is, nothing is added to the prompt; mentions: a spelled word in a message matching this goes to this field (checked in order, so the more specific field first); answer: optional pattern for a direct answer after we asked (group 1). fieldPrompts ask/spellHint go to the model; spell/readBack/confirmed/retry are said as they are, without the model.",
+    "fieldPrompts": {
+      "ask": "\n\n(After answering, ask the user for their {label}{spellHint}.)",
+      "spellHint": ", spelled letter by letter, like A for Apple",
+      "spell": "Please spell your {label} letter by letter, like A for Apple, B for Boy.",
+      "readBack": "I have your {label} as {Value}: {LETTERS}. Is that right?",
+      "confirmed": "Thank you. I'll remember your {label}, {Value}.",
+      "retry": "Sorry about that. Please spell your {label} letter by letter, like A for Apple, B for Boy."
+    },
+    "confirm": {
+      "yes": "^\\W*(?:yes|yeah|yep|yup|correct|right|that'?s right|that is right|exactly|sure|perfect)\\b",
+      "no": "^\\W*(?:no|nope|wrong|incorrect|not (?:right|quite|correct)|that'?s wrong)\\b"
+    },
     "dates": [
       {
         "pattern": "\\b(?:yesterday|last night)\\b",

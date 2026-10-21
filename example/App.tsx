@@ -92,13 +92,14 @@ import {
   prepareWakewordSpeechSession,
   resumeWakewordDetection,
   shareWakewordRecordings,
-  startWakewordDetection,
 } from './src/wakeword';
 
 const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
 const TTS_VOICE_OPTIONS: TTSVoiceChoice[] = ['Ariana', 'Rich', 'Hanna', 'Kate', 'Jenny', 'Matthew', 'Gloria'];
 
 const SPEECH_INIT_TIMEOUT_MS = 120000;
+// Id of the app's single enrolled speaker (live speaker-verification API).
+const SV_SPEAKER_ID = 'user';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
 const FULL_AI_CHAT_STT_OPTIONS = {
   EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
@@ -597,7 +598,10 @@ function App(): React.JSX.Element {
       Speech,
       selectedTTSModelRef.current,
       enrollmentJsonPath,
+      SV_SPEAKER_ID,
     );
+    console.log('[STT_DIAG] initialized', { withSV: !!enrollmentJsonPath,
+      native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
     await applySelectedTTSVoice();
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
@@ -710,12 +714,32 @@ function App(): React.JSX.Element {
     await stopCurrentNarration();
   }
 
+  // Live speaker verification: enroll (or clear) the speaker in the running wake
+  // word and STT. No Speech.destroyAll()/initAll() and no stopKeywordDetection()
+  // -- both libraries apply the change immediately.
+  async function applySpeakerVerificationChoice(svChoice: SVPromptChoice) {
+    const jsonPath = enrollmentJsonPathRef.current;
+    const enable = svChoice !== 'skip' && typeof jsonPath === 'string' && jsonPath.length > 0;
+    const inst = myInstanceRef.current;
+    if (enable) {
+      console.log('[SV] live addSpeaker', SV_SPEAKER_ID, jsonPath);
+      if (inst) {
+        const wakewordIds = await inst.addSpeaker(SV_SPEAKER_ID, jsonPath);
+        console.log('[SV] wake word speakers:', wakewordIds);
+      }
+      const sttIds = await Speech.addSpeaker(SV_SPEAKER_ID, jsonPath);
+      console.log('[SV] STT speakers:', sttIds);
+    } else {
+      // Skip: make sure no speaker from an earlier run stays enrolled.
+      console.log('[SV] skipped; clearing speakers');
+      if (inst) await inst.setSpeakers([]);
+      await Speech.setSpeakers([]);
+    }
+  }
+
   async function reloadSpeechLibraryForSelectedVoice(enrollmentJsonPath?: string | null) {
     const inst = myInstanceRef.current;
-    // TEMPORARY AUDIO-SESSION TEST: keep wakeword active while speech reloads.
-    // if (inst) {
-    //   await inst.pauseDetection(Platform.OS === 'android' ? true : false);
-    // }
+    if (inst) await inst.pauseDetection(false);
 
     try {
       suppressAndroidPartialResultsRef.current = true;
@@ -731,13 +755,8 @@ function App(): React.JSX.Element {
       );
     } finally {
       suppressAndroidPartialResultsRef.current = false;
+      if (inst) await inst.unPauseDetection();
     }
-
-    // Wakeword was not paused above, so do not issue a redundant unpause.
-    // if (inst) {
-    //   await inst.unPauseDetection();
-    // }
-    void inst;
   }
 
   const processAIChatTurn = async (rawText: string) => {
@@ -1460,28 +1479,13 @@ function App(): React.JSX.Element {
         });
         svChoice = startupFlow.svChoice;
 
-        const needsSpeechReload = svChoice !== 'skip';
-
-        if (needsSpeechReload) {
-          await reloadSpeechLibraryForSelectedVoice(
-            typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0
-              ? enrollmentJsonPathRef.current
-              : null,
-          );
-        }
-
-        // Restart wake word detection with SV enrollment so it only triggers for the enrolled voice.
-        // reloadSpeechLibraryForSelectedVoice only reloads the STT side — the wake word detector
-        // was started at bootstrap with svChoice='skip', so we must restart it here with enrollment.
-        if (svChoice !== 'skip' && myInstanceRef.current && enrollmentJsonPathRef.current) {
-          await attachKeywordListenerOnce(listenerRef, myInstanceRef.current, formatWakeWord, keywordCallback);
-          await startWakewordDetection({
-            instance: myInstanceRef.current,
-            svChoice,
-            enrollmentJsonPath: enrollmentJsonPathRef.current,
-            sleep,
-          });
-          await resumeWakewordDetection(myInstanceRef.current);
+        // Enroll the speaker into the already-running wake word and STT (live API).
+        try {
+          await applySpeakerVerificationChoice(svChoice);
+        } catch (e) {
+          console.error('[SV] applying speaker verification failed:', e);
+          setMessage('Speaker verification could not be enabled. Continuing without it.');
+          svChoice = 'skip';
         }
 
         await speakStartupNarration([
@@ -1554,7 +1558,12 @@ function App(): React.JSX.Element {
     setIsTTSTestMode(false);
     setIsCombinedMode(false);
     setIsSTTOnlyMode(true);
-    try { await Speech.unPauseSpeechRecognition(-1); } catch {}
+    try {
+      console.log('[STT_DIAG] STT-only resume requested');
+      const result = await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_DIAG] STT-only resume', { result,
+        native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    } catch (error) { console.error('[STT_DIAG] STT-only resume failed', error); }
   };
 
   const enterCombinedMode = async () => {
@@ -1568,7 +1577,12 @@ function App(): React.JSX.Element {
     setIsTTSTestMode(false);
     setIsSTTOnlyMode(false);
     setIsCombinedMode(true);
-    try { await Speech.unPauseSpeechRecognition(-1); } catch {}
+    try {
+      console.log('[STT_DIAG] combined resume requested');
+      const result = await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_DIAG] combined resume', { result,
+        native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    } catch (error) { console.error('[STT_DIAG] combined resume failed', error); }
   };
 
   const goBackToModeSelection = async () => {

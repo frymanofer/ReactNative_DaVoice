@@ -79,6 +79,7 @@ export async function initializeSpeechLibrary(
   Speech: typeof SpeechType,
   selectedTTSModel: any,
   enrollmentJsonPath?: string | null,
+  speakerId?: string,
 ) {
   // Suppress STT beeps during model loading by pausing before initAll starts.
   if (Platform.OS === 'android') {
@@ -92,6 +93,7 @@ export async function initializeSpeechLibrary(
       locale: 'en-US',
       model: selectedTTSModel,
       onboardingJsonPath: enrollmentJsonPath,
+      speakerId,
     });
   } else {
     console.log('Calling Speech.initAll WITHOUT');

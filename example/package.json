@@ -15,10 +15,10 @@
     "jetifier": "^2.0.0",
     "react": "19.1.1",
     "react-native": "0.82.0",
-    "react-native-davoice": "1.0.113",
-    "react-native-davoice-llm": "1.0.4",
+    "react-native-davoice": "1.0.114",
+    "react-native-davoice-llm": "1.0.5",
     "react-native-fs": "^2.20.0",
-    "react-native-wakeword": "1.1.163"
+    "react-native-wakeword": "1.1.165"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
