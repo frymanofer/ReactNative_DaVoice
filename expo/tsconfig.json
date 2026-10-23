@@ -1,3 +1,4 @@
 {
-  "extends": "@react-native/typescript-config/tsconfig.json"
+  "extends": "expo/tsconfig.base",
+  "exclude": ["node_modules", "old", "x", "AppSimpleUI.tsx", "*.backup*"]
 }

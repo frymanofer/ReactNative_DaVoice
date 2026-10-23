@@ -9,6 +9,10 @@ export type AIChatHistoryMessage = {
   id: string;
   role: 'user' | 'model';
   text: string;
+  /** Local AI Chat: the tool calls and results that came before this reply
+   * (see react-native-davoice-llm's runToolTurn). Rendered into later prompts
+   * so the model sees that actions are done by calling tools. */
+  toolMessages?: { role: 'user' | 'assistant'; content: string }[];
 };
 
 export type GeminiRequestLogMeta = {
@@ -45,6 +49,11 @@ function extractGeminiText(payload: any): string {
 
 export function normalizeTextForSpeech(text: string): string {
   return text
+    // Markdown the TTS would read aloud: list markers, bold/italic, headings.
+    .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*|__(.+?)__/g, '$1$2')
+    .replace(/(^|\s)[*_](\S(?:[^*_\n]*\S)?)[*_](?=\s|[.,!?:;]|$)/gm, '$1$2')
+    .replace(/^#+\s*/gm, '')
     .replace(/\s*\n+\s*/g, (match, offset, source) => {
       const before = source.slice(0, offset).trimEnd();
       const after = source.slice(offset + match.length).trimStart();
@@ -437,7 +446,7 @@ export async function finishAIChatSpeechFlow({
 
 export async function speakNextAIChatSentence({
   Speech,
-  aiChatStreamSpeakingRef,
+  speakText,
   aiChatSpeechQueueRef,
   setCurrentSpeechSentence,
   setAiChatStatus,
@@ -446,30 +455,59 @@ export async function speakNextAIChatSentence({
   aiChatPendingSentenceBufferRef,
   SPEAKER,
   finishAIChatSpeechFlow,
+  revealSpokenText,
+  aiChatSpeechChainRef,
+  aiChatSpeechPendingRef,
+  aiChatRequestIdRef,
+  speakerLabel = 'Gemini',
 }: any) {
-  if (aiChatStreamSpeakingRef.current) return;
-
-  const nextSentence = aiChatSpeechQueueRef.current.shift();
-  if (nextSentence) {
-    aiChatStreamSpeakingRef.current = true;
-    setCurrentSpeechSentence(`Gemini: ${nextSentence}`);
-    setAiChatStatus('Speaking Gemini reply...');
-    await Speech.speak(normalizeTextForSpeech(nextSentence), SPEAKER, getSelectedSpeakerSpeed());
-    return;
-  }
+  const speak = speakText ?? Speech.speak.bind(Speech);
+  const turn = aiChatRequestIdRef?.current;
+  const isCurrentTurn = () => !aiChatRequestIdRef || aiChatRequestIdRef.current === turn;
+  const finishIfAllSpoken = async () => {
+    if (
+      isCurrentTurn() &&
+      aiChatStreamGenerationDoneRef.current &&
+      aiChatSpeechPendingRef.current === 0 &&
+      aiChatSpeechQueueRef.current.length === 0 &&
+      !aiChatPendingSentenceBufferRef.current.trim()
+    ) {
+      await finishAIChatSpeechFlow();
+    }
+  };
 
   if (aiChatStreamGenerationDoneRef.current) {
-    const trailing = normalizeTextForSpeech(aiChatPendingSentenceBufferRef.current);
-    if (trailing) {
-      aiChatPendingSentenceBufferRef.current = '';
-      aiChatStreamSpeakingRef.current = true;
-      setCurrentSpeechSentence(`Gemini: ${trailing}`);
-      setAiChatStatus('Speaking Gemini reply...');
-      await Speech.speak(trailing, SPEAKER, getSelectedSpeakerSpeed());
-      return;
-    }
-    await finishAIChatSpeechFlow();
+    const trailing = aiChatPendingSentenceBufferRef.current.trim();
+    aiChatPendingSentenceBufferRef.current = '';
+    if (trailing) aiChatSpeechQueueRef.current.push(trailing);
   }
+
+  // Hand every complete sentence to the speech library right away, without
+  // waiting for the previous one to finish: the library queues them.
+  while (aiChatSpeechQueueRef.current.length > 0) {
+    const sentence: string = aiChatSpeechQueueRef.current.shift();
+    const text = normalizeTextForSpeech(sentence);
+    if (!text) continue;
+    const startsAfter: Promise<void> = aiChatSpeechChainRef.current;
+    aiChatSpeechPendingRef.current += 1;
+    const spoken: Promise<void> = Promise.resolve(speak(text, SPEAKER, getSelectedSpeakerSpeed())).catch((error: any) =>
+      console.log('[AIChat] speak failed:', error),
+    );
+    aiChatSpeechChainRef.current = spoken;
+    // Show the sentence when its turn to be spoken comes, so the text never
+    // runs ahead of the voice.
+    void startsAfter.then(() => {
+      if (!isCurrentTurn()) return;
+      setCurrentSpeechSentence(`${speakerLabel}: ${sentence}`);
+      setAiChatStatus(`Speaking ${speakerLabel} reply...`);
+      revealSpokenText?.(sentence);
+    });
+    void spoken.then(async () => {
+      aiChatSpeechPendingRef.current = Math.max(0, aiChatSpeechPendingRef.current - 1);
+      await finishIfAllSpoken();
+    });
+  }
+  await finishIfAllSpoken();
 }
 
 export async function enqueueAIChatSpeechFromDelta({
@@ -478,8 +516,9 @@ export async function enqueueAIChatSpeechFromDelta({
   aiChatPendingSentenceBufferRef,
   aiChatSpeechQueueRef,
   speakNextAIChatSentence,
-  setAiChatResponse,
 }: any) {
+  // The reply text is shown by speakNextAIChatSentence as each sentence goes
+  // to TTS, not here as tokens arrive (it would run ahead of the voice).
   aiChatPendingSentenceBufferRef.current += deltaText;
   const { completed, remainder } = splitCompletedSentences(aiChatPendingSentenceBufferRef.current);
   aiChatPendingSentenceBufferRef.current = remainder;
@@ -487,7 +526,6 @@ export async function enqueueAIChatSpeechFromDelta({
     aiChatSpeechQueueRef.current.push(...completed);
     await speakNextAIChatSentence();
   }
-  setAiChatResponse(aggregateText);
 }
 
 export function resetAIChatSession({

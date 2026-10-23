@@ -3,11 +3,17 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const path = require('path');
 
+// The models the app ships (plugins/withDaVoiceNativeAssets copies
+// assets/models/local into the native app), with the size a real file has at
+// least (a Git LFS pointer is ~130 bytes).
+const MB = 1024 * 1024;
 const FILES = [
-  path.join('assets', 'models', 'model_ex_ariana_fast_davoice_phoneme.dm'),
-  path.join('assets', 'models', 'model_ex_rich_fast_davoice_phoneme.dm'),
+  { file: path.join('assets', 'models', 'local', 'model_ex2_rich_kate.dm'), min: 50 * MB },
+  { file: path.join('assets', 'models', 'local', 'model_ex_ariana_fast_davoice_phoneme.dm'), min: 50 * MB },
+  { file: path.join('assets', 'models', 'local', 'model_ex_hanna_light_davoice_ph.dm'), min: 50 * MB },
+  { file: path.join('assets', 'models', 'local', 'sv.dm'), min: 1 * MB },
+  { file: path.join('assets', 'models', 'local', 'hey_coach_model_28_22012026b.dm'), min: 100 * 1024 },
 ];
-const MIN_REAL_SIZE = 50 * 1024 * 1024; // 50MB
 
 function isLFSPointer(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -37,7 +43,7 @@ function fail(msg) {
   process.exit(1);
 }
 
-function ensureFile(filePath) {
+function ensureFile({ file: filePath, min: MIN_REAL_SIZE }) {
   if (!fs.existsSync(filePath)) {
     fail(`Missing required model file: ${filePath}`);
   }
@@ -48,7 +54,7 @@ function ensureFile(filePath) {
   }
 
   if (!isLFSPointer(filePath)) {
-    fail(`Model file is too small (${size} bytes). Expected ~60MB: ${filePath}`);
+    fail(`Model file is too small (${size} bytes): ${filePath}`);
   }
 
   console.error(`\n⚠️ Git LFS pointer detected for ${filePath} (size=${size} bytes).`);
@@ -82,8 +88,8 @@ function ensureFile(filePath) {
 }
 
 try {
-  for (const filePath of FILES) {
-    ensureFile(filePath);
+  for (const entry of FILES) {
+    ensureFile(entry);
   }
 } catch (e) {
   fail(`ensure-lfs failed: ${e?.message || e}`);

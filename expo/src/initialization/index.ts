@@ -1,10 +1,11 @@
 import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
 import type SpeechType from 'react-native-davoice/speech';
-import type { TTSQualityChoice, TTSVoiceChoice } from '../appflow';
+import type { TTSVoiceChoice } from '../appflow';
 
-export const waitForNextInteraction = (InteractionManager: typeof import('react-native').InteractionManager) =>
+// Yield between UI transitions and speech operations, without waiting indefinitely.
+export const waitForIdle = () =>
   new Promise<void>((resolve) => {
-      setTimeout(resolve, 0);
+    requestIdleCallback(() => resolve(), { timeout: 250 });
   });
 
 export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
@@ -78,6 +79,7 @@ export async function initializeSpeechLibrary(
   Speech: typeof SpeechType,
   selectedTTSModel: any,
   enrollmentJsonPath?: string | null,
+  speakerId?: string,
 ) {
   // Suppress STT beeps during model loading by pausing before initAll starts.
   if (Platform.OS === 'android') {
@@ -91,6 +93,7 @@ export async function initializeSpeechLibrary(
       locale: 'en-US',
       model: selectedTTSModel,
       onboardingJsonPath: enrollmentJsonPath,
+      speakerId,
     });
   } else {
     console.log('Calling Speech.initAll WITHOUT');
@@ -103,45 +106,20 @@ export async function initializeSpeechLibrary(
 export async function promptForTTSModelChoice({
   setShowTTSModelPrompt,
   ttsModelChoiceResolverRef,
-  setTtsQualityChoice,
   setTtsVoiceChoice,
-  selectedTTSVoiceRef,
-  selectedTTSModelRef,
-  ttsModelRichFast,
-  ttsModelRichSlow,
-  ttsModelFast,
-  ttsModelSlow,
-  waitForNextInteraction,
+  waitForIdle,
 }: {
   setShowTTSModelPrompt: (value: boolean) => void;
-  ttsModelChoiceResolverRef: { current: null | ((choice: { quality: TTSQualityChoice; voice: TTSVoiceChoice }) => void) };
-  setTtsQualityChoice: (value: TTSQualityChoice) => void;
+  ttsModelChoiceResolverRef: { current: null | ((choice: { voice: TTSVoiceChoice }) => void) };
   setTtsVoiceChoice: (value: TTSVoiceChoice) => void;
-  selectedTTSVoiceRef: { current: TTSVoiceChoice };
-  selectedTTSModelRef: { current: any };
-  ttsModelRichFast: any;
-  ttsModelRichSlow: any;
-  ttsModelFast: any;
-  ttsModelSlow: any;
-  waitForNextInteraction: () => Promise<void>;
+  waitForIdle: () => Promise<void>;
 }) {
   setShowTTSModelPrompt(true);
-  const selectedModelChoice = await new Promise<{ quality: TTSQualityChoice; voice: TTSVoiceChoice }>((resolve) => {
+  const choice = await new Promise<{ voice: TTSVoiceChoice }>((resolve) => {
     ttsModelChoiceResolverRef.current = resolve;
   });
   setShowTTSModelPrompt(false);
-
-  setTtsQualityChoice(selectedModelChoice.quality);
-  setTtsVoiceChoice(selectedModelChoice.voice);
-  selectedTTSVoiceRef.current = selectedModelChoice.voice;
-  if (selectedModelChoice.voice === 'Rich') {
-    selectedTTSModelRef.current =
-      selectedModelChoice.quality === 'lite' ? ttsModelRichFast : ttsModelRichSlow;
-  } else {
-    selectedTTSModelRef.current =
-      selectedModelChoice.quality === 'lite' ? ttsModelFast : ttsModelSlow;
-  }
-
-  await waitForNextInteraction();
-  return selectedModelChoice;
+  setTtsVoiceChoice(choice.voice);
+  await waitForIdle();
+  return choice;
 }

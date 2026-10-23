@@ -1,13 +1,20 @@
-# Expo Example: DaVoice + Wakeword
+# Expo Example: DaVoice + Wakeword + On-device AI Chat
 
-This folder shows how to use DaVoice and wakeword functionality in an Expo app.
+This folder is the Expo version of `../example`: the same app (wake word, speaker
+verification, speech recognition, text to speech, and Local AI Chat with the on-device LLM
+agent: web search, memory, the calorie tracker), set up for Expo prebuild / EAS Build.
 
-It includes a local Expo config plugin that handles the native setup Expo managed / CNG users cannot do manually on every build:
+The native setup is done by config plugins on every prebuild:
 
-- add Android local Maven repos for `react-native-wakeword` and `react-native-davoice`
-- copy native filename-based model assets into Android native assets
-- copy the same native filename-based model assets into the iOS app bundle resources
-- raise Android `minSdkVersion` to `26` because `react-native-davoice` requires it
+- `react-native-wakeword` and `react-native-davoice-llm` (their own plugins): Android Maven
+  repositories and permissions
+- `plugins/withDaVoiceNativeAssets` (local): the Android Maven repository for
+  `react-native-davoice`, and copies the models loaded by file name (`assets/models/local/`)
+  and the speech recognizer's bias list (`assets/stt_bias_conf/words_flattened.txt`) into the
+  Android assets and the iOS app bundle
+- `expo-build-properties`: Android `minSdkVersion` 29
+- `app.config.js`: the iOS microphone / speech recognition texts, background audio, and the
+  `increased-memory-limit` entitlement the on-device LLM needs
 
 Use this README in one of two ways:
 
@@ -75,13 +82,10 @@ Important:
 
 ### 3. Configure local runtime secrets if needed
 
-If you use Gemini in the demo:
-
-```bash
-cp local.config.example.ts local.config.ts
-```
-
-Then edit `local.config.ts` with your local values.
+`local.config.ts` holds your own keys (Gemini, and optionally a web search engine and the
+USDA food database for Local AI Chat) and is git-ignored. `npm install` creates it from
+`local.config.example.ts` when it is missing (also on EAS, which builds from git); edit it
+with your values.
 
 ### 4. Put native-only models in the required folder
 
@@ -91,11 +95,15 @@ Copy every filename-based native asset into:
 assets/models/local/
 ```
 
-Current examples:
+Current models:
 
-- `assets/models/local/ayuda_model_28_05022026.dm`
-- `assets/models/local/hey_coach_model_28_22012026b.dm`
-- `assets/models/local/sv.dm`
+- `assets/models/local/model_ex2_rich_kate.dm`, `model_ex_ariana_fast_davoice_phoneme.dm`,
+  `model_ex_hanna_light_davoice_ph.dm` (text-to-speech voices)
+- `assets/models/local/hey_coach_model_28_22012026b.dm` (wake word)
+- `assets/models/local/sv.dm` (speaker verification)
+
+The on-device LLM and the agent's small embedding model are downloaded by the app at
+runtime into its documents folder; they are not part of the app.
 
 Rule:
 
@@ -111,15 +119,16 @@ npx expo prebuild --clean
 What the plugin does:
 
 - Android:
-  - sets `minSdkVersion` to `26`
-  - adds:
-    - `maven { url "${project(":react-native-wakeword").projectDir}/libs" }`
-    - `maven { url "${project(":react-native-davoice").projectDir}/libs" }`
-  - copies all `*.dm` and `*.onnx` from `assets/models/local/` into:
-    - `android/app/src/main/assets/`
+  - sets `minSdkVersion` to `29`
+  - adds the Maven repositories of `react-native-wakeword`, `react-native-davoice` and
+    `react-native-davoice-llm`
+  - copies all `*.dm` and `*.onnx` from `assets/models/local/`, and
+    `assets/stt_bias_conf/words_flattened.txt`, into `android/app/src/main/assets/`
 - iOS:
-  - copies all `*.dm` and `*.onnx` from `assets/models/local/` into the generated iOS app bundle resources
-  - adds those files to the generated Xcode project resources
+  - copies the same files into the generated iOS app bundle resources and adds them to the
+    Xcode project
+  - adds the microphone / speech recognition texts, background audio, and the
+    `com.apple.developer.kernel.increased-memory-limit` entitlement
 
 ### 6. Verify generated native output
 
@@ -183,8 +192,11 @@ If you already have your own Expo app, copy only the pieces you need.
 In your app:
 
 ```bash
-npm install react-native-davoice react-native-wakeword expo expo-dev-client expo-build-properties @expo/config-plugins
+npm install react-native-davoice react-native-wakeword react-native-davoice-llm react-native-fs expo expo-dev-client expo-build-properties @expo/config-plugins
 ```
+
+Add `'react-native-davoice-llm'` to your config plugins, and for the on-device LLM on iOS the
+`increased-memory-limit` entitlement (see this folder's `app.config.js`).
 
 ### 2. Copy the local Expo plugin
 
@@ -206,7 +218,7 @@ Examples:
 
 - `sv.dm`
 - `hey_coach_model_28_22012026b.dm`
-- `ayuda_model_28_05022026.dm`
+- your TTS voice models (e.g. `model_ex_ariana_fast_davoice_phoneme.dm`)
 
 ### 4. Add the plugin to your Expo config
 
@@ -218,16 +230,19 @@ plugins: [
     'expo-build-properties',
     {
       android: {
-        minSdkVersion: 26,
+        minSdkVersion: 29,
       },
     },
   ],
   'react-native-wakeword',
+  'react-native-davoice-llm',
   [
     './plugins/withDaVoiceNativeAssets',
     {
       sourceDir: 'assets/models/local',
       iosBundleSubdir: 'DaVoiceModels',
+      // Optional: other files the native libraries read by name.
+      extraFiles: ['assets/stt_bias_conf/words_flattened.txt'],
     },
   ],
 ]
@@ -245,22 +260,31 @@ module.exports = {
     },
     ios: {
       bundleIdentifier: 'com.yourcompany.myvoiceapp',
+      infoPlist: {
+        NSMicrophoneUsageDescription: 'Allow $(PRODUCT_NAME) to access your microphone',
+        NSSpeechRecognitionUsageDescription: 'Allow $(PRODUCT_NAME) to use speech recognition',
+        UIBackgroundModes: ['audio'],
+      },
+      // Only with the on-device LLM (react-native-davoice-llm).
+      entitlements: { 'com.apple.developer.kernel.increased-memory-limit': true },
     },
     plugins: [
       [
         'expo-build-properties',
         {
           android: {
-            minSdkVersion: 26,
+            minSdkVersion: 29,
           },
         },
       ],
       'react-native-wakeword',
+      'react-native-davoice-llm',
       [
         './plugins/withDaVoiceNativeAssets',
         {
           sourceDir: 'assets/models/local',
           iosBundleSubdir: 'DaVoiceModels',
+          extraFiles: ['assets/stt_bias_conf/words_flattened.txt'],
         },
       ],
     ],
@@ -376,10 +400,10 @@ If Android fails to resolve DaVoice dependencies:
 2. Confirm both local Maven repo lines exist
 3. Confirm the installed npm packages actually contain `android/libs`
 
-If Android fails with a manifest merge error mentioning `minSdkVersion 24` vs `26`:
+If Android fails with a manifest merge error mentioning a lower `minSdkVersion` than a library needs:
 
 1. Confirm `expo-build-properties` is installed
-2. Confirm your Expo config sets Android `minSdkVersion` to `26`
+2. Confirm your Expo config sets Android `minSdkVersion` to `29`
 3. Delete generated native folders
 4. Rerun:
 

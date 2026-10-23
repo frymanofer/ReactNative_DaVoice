@@ -1,0 +1,354 @@
+{
+  "version": 1,
+  "description": "Typical calories per common serving. Values are rough averages for a demo, not nutrition advice.",
+  "foods": [
+    {
+      "name": "egg",
+      "calories": 78
+    },
+    {
+      "name": "boiled egg",
+      "calories": 78
+    },
+    {
+      "name": "omelette",
+      "calories": 190
+    },
+    {
+      "name": "banana",
+      "calories": 105
+    },
+    {
+      "name": "apple",
+      "calories": 95
+    },
+    {
+      "name": "orange",
+      "calories": 62
+    },
+    {
+      "name": "pear",
+      "calories": 100
+    },
+    {
+      "name": "peach",
+      "calories": 60
+    },
+    {
+      "name": "mango",
+      "calories": 200
+    },
+    {
+      "name": "cup of grapes",
+      "calories": 100
+    },
+    {
+      "name": "grapes",
+      "calories": 100
+    },
+    {
+      "name": "strawberries",
+      "calories": 50
+    },
+    {
+      "name": "blueberries",
+      "calories": 85
+    },
+    {
+      "name": "carrot",
+      "calories": 25
+    },
+    {
+      "name": "avocado",
+      "calories": 240
+    },
+    {
+      "name": "slice of pizza",
+      "calories": 285
+    },
+    {
+      "name": "pizza",
+      "calories": 285
+    },
+    {
+      "name": "can of coke",
+      "calories": 140
+    },
+    {
+      "name": "coke",
+      "calories": 140
+    },
+    {
+      "name": "coca cola",
+      "calories": 140
+    },
+    {
+      "name": "soda",
+      "calories": 140
+    },
+    {
+      "name": "diet coke",
+      "calories": 1
+    },
+    {
+      "name": "coffee",
+      "calories": 2
+    },
+    {
+      "name": "espresso",
+      "calories": 3
+    },
+    {
+      "name": "latte",
+      "calories": 190
+    },
+    {
+      "name": "cappuccino",
+      "calories": 120
+    },
+    {
+      "name": "tea",
+      "calories": 2
+    },
+    {
+      "name": "water",
+      "calories": 0
+    },
+    {
+      "name": "glass of milk",
+      "calories": 120
+    },
+    {
+      "name": "milk",
+      "calories": 120
+    },
+    {
+      "name": "orange juice",
+      "calories": 110
+    },
+    {
+      "name": "juice",
+      "calories": 110
+    },
+    {
+      "name": "smoothie",
+      "calories": 200
+    },
+    {
+      "name": "protein shake",
+      "calories": 160
+    },
+    {
+      "name": "beer",
+      "calories": 150
+    },
+    {
+      "name": "glass of wine",
+      "calories": 125
+    },
+    {
+      "name": "wine",
+      "calories": 125
+    },
+    {
+      "name": "slice of bread",
+      "calories": 80
+    },
+    {
+      "name": "bread",
+      "calories": 80
+    },
+    {
+      "name": "toast",
+      "calories": 80
+    },
+    {
+      "name": "bagel",
+      "calories": 250
+    },
+    {
+      "name": "croissant",
+      "calories": 230
+    },
+    {
+      "name": "pita",
+      "calories": 165
+    },
+    {
+      "name": "pancake",
+      "calories": 90
+    },
+    {
+      "name": "waffle",
+      "calories": 220
+    },
+    {
+      "name": "donut",
+      "calories": 250
+    },
+    {
+      "name": "muffin",
+      "calories": 400
+    },
+    {
+      "name": "cookie",
+      "calories": 50
+    },
+    {
+      "name": "chocolate bar",
+      "calories": 230
+    },
+    {
+      "name": "chocolate",
+      "calories": 230
+    },
+    {
+      "name": "granola bar",
+      "calories": 120
+    },
+    {
+      "name": "protein bar",
+      "calories": 200
+    },
+    {
+      "name": "yogurt",
+      "calories": 150
+    },
+    {
+      "name": "bowl of oatmeal",
+      "calories": 160
+    },
+    {
+      "name": "oatmeal",
+      "calories": 160
+    },
+    {
+      "name": "cereal",
+      "calories": 200
+    },
+    {
+      "name": "cup of rice",
+      "calories": 205
+    },
+    {
+      "name": "rice",
+      "calories": 205
+    },
+    {
+      "name": "pasta",
+      "calories": 220
+    },
+    {
+      "name": "chicken breast",
+      "calories": 165
+    },
+    {
+      "name": "chicken",
+      "calories": 165
+    },
+    {
+      "name": "steak",
+      "calories": 500
+    },
+    {
+      "name": "salmon",
+      "calories": 360
+    },
+    {
+      "name": "tuna",
+      "calories": 130
+    },
+    {
+      "name": "salad",
+      "calories": 150
+    },
+    {
+      "name": "sandwich",
+      "calories": 350
+    },
+    {
+      "name": "burger",
+      "calories": 500
+    },
+    {
+      "name": "hamburger",
+      "calories": 500
+    },
+    {
+      "name": "cheeseburger",
+      "calories": 550
+    },
+    {
+      "name": "fries",
+      "calories": 365
+    },
+    {
+      "name": "hot dog",
+      "calories": 290
+    },
+    {
+      "name": "burrito",
+      "calories": 450
+    },
+    {
+      "name": "taco",
+      "calories": 170
+    },
+    {
+      "name": "sushi roll",
+      "calories": 300
+    },
+    {
+      "name": "sushi",
+      "calories": 300
+    },
+    {
+      "name": "soup",
+      "calories": 150
+    },
+    {
+      "name": "potato",
+      "calories": 160
+    },
+    {
+      "name": "sweet potato",
+      "calories": 110
+    },
+    {
+      "name": "hummus",
+      "calories": 70
+    },
+    {
+      "name": "falafel",
+      "calories": 57
+    },
+    {
+      "name": "shawarma",
+      "calories": 550
+    },
+    {
+      "name": "slice of cheese",
+      "calories": 110
+    },
+    {
+      "name": "cheese",
+      "calories": 110
+    },
+    {
+      "name": "almonds",
+      "calories": 160
+    },
+    {
+      "name": "nuts",
+      "calories": 170
+    },
+    {
+      "name": "peanut butter",
+      "calories": 95
+    },
+    {
+      "name": "ice cream",
+      "calories": 140
+    }
+  ]
+}

@@ -190,6 +190,8 @@ export async function runSpeakerVerifyEnrollment(
 }
 
 export async function runSpeakerVerificationStartupFlow({
+  beforeEnrollment,
+  afterEnrollment,
   setMessage,
   enrollmentJsonRef,
   enrollmentJsonPathRef,
@@ -209,6 +211,8 @@ export async function runSpeakerVerificationStartupFlow({
   svStopRef,
   svContinueResolverRef,
 }: {
+  beforeEnrollment: () => Promise<void>;
+  afterEnrollment: () => Promise<void>;
   setMessage: (value: string) => void;
   enrollmentJsonRef: { current: string | null };
   enrollmentJsonPathRef: { current: string | null };
@@ -264,25 +268,30 @@ export async function runSpeakerVerificationStartupFlow({
       if (svChoice === 'redo_onboarding' || !enrollmentJson) {
         /*** --> ENROLLMENT HERE ***/
         setSvStatusPhase('onboarding');
-        enrollmentJson = await runSpeakerVerifyEnrollment(setMessage, SV_ONBOARDING_SAMPLE_COUNT, {
-          onStart: (targetSamples) => {
-            setSvOnboardingTarget(targetSamples);
-            setSvOnboardingCollected(0);
-          },
-          onProgress: (collected, targetSamples) => {
-            setSvOnboardingCollected(collected);
-            setSvOnboardingTarget(targetSamples);
-          },
-          onComplete: (targetSamples) => {
-            setSvOnboardingCollected(targetSamples);
-            setSvOnboardingTarget(targetSamples);
-          },
-        });
-        enrollmentJsonRef.current = enrollmentJson;
-        enrollmentJsonPathRef.current = await writeEnrollmentJsonToFile(
-          enrollmentJson,
-          'sv_enrollment.json',
-        );
+        try {
+          await beforeEnrollment();
+          enrollmentJson = await runSpeakerVerifyEnrollment(setMessage, SV_ONBOARDING_SAMPLE_COUNT, {
+            onStart: (targetSamples) => {
+              setSvOnboardingTarget(targetSamples);
+              setSvOnboardingCollected(0);
+            },
+            onProgress: (collected, targetSamples) => {
+              setSvOnboardingCollected(collected);
+              setSvOnboardingTarget(targetSamples);
+            },
+            onComplete: (targetSamples) => {
+              setSvOnboardingCollected(targetSamples);
+              setSvOnboardingTarget(targetSamples);
+            },
+          });
+          enrollmentJsonRef.current = enrollmentJson;
+          enrollmentJsonPathRef.current = await writeEnrollmentJsonToFile(
+            enrollmentJson,
+            'sv_enrollment.json',
+          );
+        } finally {
+          await afterEnrollment();
+        }
       }
       setSvStatusPhase('verifying');
       // Reset score tracking and start elapsed timer

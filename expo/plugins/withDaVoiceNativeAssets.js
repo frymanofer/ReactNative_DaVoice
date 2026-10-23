@@ -16,10 +16,13 @@ function getPluginOptions(options) {
   return {
     sourceDir: options?.sourceDir || DEFAULT_SOURCE_DIR,
     iosBundleSubdir: options?.iosBundleSubdir || 'DaVoiceModels',
+    // Other files the native libraries read from the app bundle / APK assets
+    // by name, e.g. the speech recognizer's bias list words_flattened.txt.
+    extraFiles: options?.extraFiles || [],
   };
 }
 
-function getModelFiles(projectRoot, sourceDir) {
+function getModelFiles(projectRoot, sourceDir, extraFiles = []) {
   const absSourceDir = path.resolve(projectRoot, sourceDir);
   if (!fs.existsSync(absSourceDir)) {
     throw new Error(
@@ -45,6 +48,14 @@ function getModelFiles(projectRoot, sourceDir) {
   };
 
   walk(absSourceDir);
+
+  for (const extra of extraFiles) {
+    const absExtra = path.resolve(projectRoot, extra);
+    if (!fs.existsSync(absExtra)) {
+      throw new Error(`[withDaVoiceNativeAssets] Extra file not found: ${absExtra}`);
+    }
+    entries.push(absExtra);
+  }
 
   const fileNames = entries
     .map((absEntry) => path.basename(absEntry))
@@ -138,7 +149,8 @@ const withDaVoiceNativeAssets = (config, options = {}) => {
     async (modConfig) => {
       const { files, fileNames } = getModelFiles(
         modConfig.modRequest.projectRoot,
-        pluginOptions.sourceDir
+        pluginOptions.sourceDir,
+        pluginOptions.extraFiles
       );
 
       const androidAssetsDir = path.join(
@@ -162,7 +174,8 @@ const withDaVoiceNativeAssets = (config, options = {}) => {
     async (modConfig) => {
       const { files, fileNames } = getModelFiles(
         modConfig.modRequest.projectRoot,
-        pluginOptions.sourceDir
+        pluginOptions.sourceDir,
+        pluginOptions.extraFiles
       );
 
       const projectName = modConfig.modRequest.projectName;
@@ -183,7 +196,8 @@ const withDaVoiceNativeAssets = (config, options = {}) => {
   config = withXcodeProject(config, (xcodeConfig) => {
     const { fileNames } = getModelFiles(
       xcodeConfig.modRequest.projectRoot,
-      pluginOptions.sourceDir
+      pluginOptions.sourceDir,
+      pluginOptions.extraFiles
     );
 
     const iosAppDir = path.join(

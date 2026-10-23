@@ -24,7 +24,6 @@ import {
   Alert,
   InputAccessoryView,
   Keyboard,
-  InteractionManager,
   Image,
   type DimensionValue,
 } from 'react-native';
@@ -56,29 +55,30 @@ import {
   AppModeChoice,
   SV_ONBOARDING_SAMPLE_COUNT,
   SVPromptChoice,
-  TTSQualityChoice,
   TTSVoiceChoice,
 } from './src/appflow';
+import { LocalLLMProvider } from './src/aichat/provider';
+import ModelPicker from './src/local_llm/ModelPicker';
+import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
+import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
+import { isModelReady } from './src/local_llm/LocalLLMLoader';
+import { connectMcpServer } from 'react-native-davoice-llm';
+import type { ToolDefinition } from 'react-native-davoice-llm';
+import CaloriesCard from './src/calories/CaloriesCard';
+// MCP_SERVER_URL / MCP_SERVER_TOKEN for Local AI Chat, from the git-ignored
+// local.config.ts (web search and USDA keys are read in src/agent/LocalAgent.ts).
+import * as LocalConfig from './local.config';
 import {
   initializeSpeechLibrary as initializeSpeechLibraryBase,
   promptForTTSModelChoice as promptForTTSModelChoiceBase,
-  waitForNextInteraction as waitForNextInteractionBase,
+  waitForIdle,
   withTimeout,
 } from './src/initialization';
 import { getAdjustedSpeed, mergeSmartKeepPunct, registerSpeechHandlers } from './src/stt';
 import {
   runSpeakerVerificationStartupFlow,
 } from './src/speaker_verification/onboarding';
-import {
-  ARIANA_SPEAKER_SPEED,
-  playWakewordIntroSpeech,
-  RICH_SPEAKER_SPEED,
-  SPEAKER,
-  ttsModelFast,
-  ttsModelRichFast,
-  ttsModelRichSlow,
-  ttsModelSlow,
-} from './src/tts';
+import { getTTSVoiceConfig, playWakewordIntroSpeech, SPEAKER } from './src/tts';
 import {
   attachKeywordListenerOnce,
   AudioPermissionComponent,
@@ -90,12 +90,17 @@ import {
   initializeWakewordBootstrap,
   instanceConfigs,
   prepareWakewordSpeechSession,
+  resumeWakewordDetection,
   shareWakewordRecordings,
-  startWakewordDetection,
 } from './src/wakeword';
 
+const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
+const TTS_VOICE_OPTIONS: TTSVoiceChoice[] = ['Ariana', 'Rich', 'Hanna', 'Kate', 'Jenny', 'Matthew', 'Gloria'];
+
+const SPEECH_INIT_TIMEOUT_MS = 120000;
+// Id of the app's single enrolled speaker (live speaker-verification API).
+const SV_SPEAKER_ID = 'user';
 const TTS_INPUT_ACCESSORY_ID = 'ttsInputAccessory';
-const waitForNextInteraction = () => waitForNextInteractionBase(InteractionManager);
 const FULL_AI_CHAT_STT_OPTIONS = {
   EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
   EXTRA_MAX_RESULTS: 5,
@@ -103,9 +108,17 @@ const FULL_AI_CHAT_STT_OPTIONS = {
   EXTRA_PREFER_OFFLINE: false,
   REQUEST_PERMISSIONS_AUTO: true,
 };
+// Same demo license used for keyword/speech elsewhere in this file — the
+// LicenseManager secret/algorithm is identical across every DaVoice native
+// library, so one license key validates for all of them (see the
+// local-llm-scaffold memory notes).
+const LOCAL_LLM_DEMO_LICENSE =
+  'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=';
 let calledOnce = false;
 
 function App(): React.JSX.Element {
+  // true: shared TTS2 model; false: per-speaker models, reloaded on voice changes.
+  const useTTS2Only = useRef(false);
   const [isFlashing, setIsFlashing] = useState(false);
   const wakeWords = instanceConfigs.map((config) => formatWakeWord(config.modelName)).join(', ');
 
@@ -126,14 +139,13 @@ function App(): React.JSX.Element {
   const svChoiceResolverRef = useRef<null | ((choice: SVPromptChoice) => void)>(null);
   const svContinueResolverRef = useRef<null | (() => void)>(null);
   const ttsModelChoiceResolverRef = useRef<
-    null | ((choice: { quality: TTSQualityChoice; voice: TTSVoiceChoice }) => void)
+    null | ((choice: { voice: TTSVoiceChoice }) => void)
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
-  const [ttsQualityChoice, setTtsQualityChoice] = useState<TTSQualityChoice>('lite');
-  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>('Ariana');
+  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
-  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>('Ariana');
-  const selectedTTSModelRef = useRef(ttsModelFast);
+  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
+  const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_TTS_VOICE, useTTS2Only.current).model);
   const selectedAppModeRef = useRef<AppModeChoice>('combined');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
@@ -149,6 +161,15 @@ function App(): React.JSX.Element {
   const [didInitSID, setDidInitSID] = useState(false);
 
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+  const applyTTSTextPolicy = (text: string): string => {
+    let ttsText = text.replace(/\bDaVoice's\b/g, 'the voice').replace(/\bDaVoice\b/g, 'The Voice');
+    return ttsText;
+  };
+
+  const speakText = (text: string, speaker: number = SPEAKER, speed?: number) =>
+    Speech.speak(applyTTSTextPolicy(text), speaker, speed);
+
   const svOnboardingProgress = Math.max(
     0,
     Math.min(1, svOnboardingTarget > 0 ? svOnboardingCollected / svOnboardingTarget : 0),
@@ -267,7 +288,7 @@ function App(): React.JSX.Element {
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
-  const [introSpeakerName, setIntroSpeakerName] = useState<'Rich' | 'Ariana'>('Ariana');
+  const [introSpeakerName, setIntroSpeakerName] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
@@ -277,6 +298,13 @@ function App(): React.JSX.Element {
   const [isSTTOnlyMode, setIsSTTOnlyMode] = useState(false);
   const [isCombinedMode, setIsCombinedMode] = useState(false);
   const [lastSentSentence, setLastSentSentence] = useState('');
+  const startupInProgressRef = useRef(true);
+  const narrationActiveRef = useRef(false);
+  const suppressNarrationWakewordStopRef = useRef(false);
+  const narrationInterruptedRef = useRef(false);
+  const creatingSpeakerSignatureRef = useRef(false);
+  const narrationSpeechPendingRef = useRef(false);
+  const narrationStopPromiseRef = useRef<Promise<void> | null>(null);
   const skipNarrationRef = useRef(false);
   const [skipNarration, setSkipNarration] = useState(false);
   const [aiChatLiveTranscript, setAiChatLiveTranscript] = useState('');
@@ -287,6 +315,19 @@ function App(): React.JSX.Element {
   const [isAIChatHistoryVisible, setIsAIChatHistoryVisible] = useState(false);
   const [isAIChatLoading, setIsAIChatLoading] = useState(false);
   const [isAIChatHelpVisible, setIsAIChatHelpVisible] = useState(false);
+  const [isModelPickerVisible, setIsModelPickerVisible] = useState(false);
+  const [localModelName, setLocalModelName] = useState('');
+  const [localModelStatus, setLocalModelStatus] = useState('');
+  // Latest status for async chat turns (the state value can be stale inside them).
+  const localModelStatusRef = useRef('');
+  localModelStatusRef.current = localModelStatus;
+  const localModelWarmUpSeqRef = useRef(0);
+
+  useEffect(() => {
+    getSelectedModel()
+      .then((model) => setLocalModelName(model.displayName))
+      .catch(() => undefined);
+  }, []);
   const [isTTSTestHelpVisible, setIsTTSTestHelpVisible] = useState(false);
   const [isAndroidKeyboardVisible, setIsAndroidKeyboardVisible] = useState(false);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
@@ -306,6 +347,33 @@ function App(): React.JSX.Element {
   const aiChatAwaitingSpeechFinishRef = useRef(false);
   const aiChatRequestIdRef = useRef(0);
   const geminiConversationRef = useRef<GeminiChatMessage[]>([]);
+  const localLLMProviderRef = useRef<LocalLLMProvider | null>(null);
+  // The streamed reply's full text, shown once it has all been spoken.
+  const aiChatFullReplyRef = useRef('');
+  // Sentences handed to the speech library and not yet finished (it queues them).
+  const aiChatSpeechChainRef = useRef<Promise<void>>(Promise.resolve());
+  const aiChatSpeechPendingRef = useRef(0);
+  const getLocalLLMProvider = (): LocalLLMProvider => {
+    if (!localLLMProviderRef.current) {
+      // The agent (web search, fillers, the calorie tracker's tools) is set
+      // up in src/agent/LocalAgent.ts.
+      localLLMProviderRef.current = new LocalLLMProvider('demo_user', LOCAL_LLM_DEMO_LICENSE);
+    }
+    return localLLMProviderRef.current;
+  };
+
+  // While the user is still talking, feed each partial transcript to the
+  // local model's prefill, so when the silence timeout sends the turn only
+  // the last few words remain to be processed. Runs in parallel with speech
+  // recognition; the native side keeps only the newest request.
+  useEffect(() => {
+    if (!isFullAIChatMode || selectedAppModeRef.current !== 'local_ai_chat') return;
+    if (aiChatInFlightRef.current) return;
+    const partial = aiChatLiveTranscript.trim();
+    if (!partial) return;
+    void getLocalLLMProvider().prefillForTurn(aiChatMessages, partial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiChatLiveTranscript]);
   const lastAIChatSubmitAtRef = useRef(0);
   const aiChatBlockedUntilRef = useRef(0);
   const lastAIChatSubmittedTextRef = useRef('');
@@ -416,6 +484,11 @@ function App(): React.JSX.Element {
   }
 
   const finishAIChatSpeechFlow = async () => {
+    // Everything was spoken: show the reply with its original formatting.
+    if (aiChatFullReplyRef.current) {
+      setAiChatResponse(aiChatFullReplyRef.current);
+      aiChatFullReplyRef.current = '';
+    }
     if (Platform.OS === 'android') {
       aiChatStreamingActiveRef.current = false;
       aiChatStreamGenerationDoneRef.current = false;
@@ -449,6 +522,7 @@ function App(): React.JSX.Element {
   const speakNextAIChatSentence = async () =>
     speakNextAIChatSentenceBase({
       Speech,
+      speakText,
       aiChatStreamSpeakingRef,
       aiChatSpeechQueueRef,
       setCurrentSpeechSentence,
@@ -458,7 +532,21 @@ function App(): React.JSX.Element {
       aiChatPendingSentenceBufferRef,
       SPEAKER,
       finishAIChatSpeechFlow,
+      // The reply on screen grows a sentence at a time as each one goes to TTS.
+      revealSpokenText: (sentence: string) =>
+        setAiChatResponse((shown) => (shown ? `${shown} ${sentence}` : sentence)),
+      aiChatSpeechChainRef,
+      aiChatSpeechPendingRef,
+      aiChatRequestIdRef,
+      speakerLabel: selectedAppModeRef.current === 'local_ai_chat' ? 'Local AI' : 'Gemini',
     });
+
+  // Says a short phrase while the local AI waits on something online (a food
+  // lookup, a remote MCP tool), queued like any reply sentence.
+  const sayWhileWaitingOnline = (filler: string) => {
+    aiChatSpeechQueueRef.current.push(filler);
+    void speakNextAIChatSentence();
+  };
 
   const enqueueAIChatSpeechFromDelta = async (deltaText: string, aggregateText: string) =>
     enqueueAIChatSpeechFromDeltaBase({
@@ -467,7 +555,6 @@ function App(): React.JSX.Element {
       aiChatPendingSentenceBufferRef,
       aiChatSpeechQueueRef,
       speakNextAIChatSentence,
-      setAiChatResponse,
     });
 
   const resetAIChatSession = () =>
@@ -511,14 +598,16 @@ function App(): React.JSX.Element {
       Speech,
       selectedTTSModelRef.current,
       enrollmentJsonPath,
+      SV_SPEAKER_ID,
     );
+    console.log('[STT_DIAG] initialized', { withSV: !!enrollmentJsonPath,
+      native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    await applySelectedTTSVoice();
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
-      if (aiChatStreamingActiveRef.current) {
-        aiChatStreamSpeakingRef.current = false;
-        await speakNextAIChatSentence();
-        return;
-      }
+      // Streamed replies finish when every queued sentence has been spoken
+      // (speakNextAIChatSentence tracks them).
+      if (aiChatStreamingActiveRef.current) return;
       if (aiChatAwaitingSpeechFinishRef.current) {
         aiChatAwaitingSpeechFinishRef.current = false;
         await finishAIChatSpeechFlow();
@@ -527,79 +616,130 @@ function App(): React.JSX.Element {
     await Speech.pauseSpeechRecognition();
   }
 
+  async function applySelectedTTSVoice() {
+    if (!getTTSVoiceConfig(selectedTTSVoiceRef.current, useTTS2Only.current).usesTTS2) return;
+    const voice = selectedTTSVoiceRef.current;
+    const result = await Speech.changeVoice(voice);
+    if (result !== 0) {
+      console.warn(`[TTS] Speech.changeVoice("${voice}") failed or is unsupported on this platform.`);
+    }
+  }
+
   async function promptForTTSModelChoice() {
-    return promptForTTSModelChoiceBase({
+    const choice = await promptForTTSModelChoiceBase({
       setShowTTSModelPrompt,
       ttsModelChoiceResolverRef,
-      setTtsQualityChoice,
       setTtsVoiceChoice,
-      selectedTTSVoiceRef,
-      selectedTTSModelRef,
-      ttsModelRichFast,
-      ttsModelRichSlow,
-      ttsModelFast,
-      ttsModelSlow,
-      waitForNextInteraction,
+      waitForIdle,
     });
+    const previousModel = selectedTTSModelRef.current;
+    selectedTTSVoiceRef.current = choice.voice;
+    selectedTTSModelRef.current = getTTSVoiceConfig(choice.voice, useTTS2Only.current).model;
+    if (selectedTTSModelRef.current !== previousModel && speechLibraryInitializedRef.current) {
+      // Finish replacing the model before the chosen speaker narrates the next step.
+      await reloadSpeechLibraryForSelectedVoice(enrollmentJsonPathRef.current);
+    } else if (speechLibraryInitializedRef.current) {
+      await applySelectedTTSVoice();
+    }
+    return choice;
   }
 
   async function speakStartupNarration(
     lines: string[],
-    { keepDetectionPaused = false }: { keepDetectionPaused?: boolean } = {},
+    { interruptOnWakeword = true }: { interruptOnWakeword?: boolean } = {},
   ) {
-    const inst = myInstanceRef.current;
-    if (inst) {
-      try {
-        await inst.pauseDetection(Platform.OS === 'android' ? true : false);
-      } catch (e) {
-        console.warn('pauseDetection before startup narration failed (ignored):', e);
-      }
-    }
-
+    narrationActiveRef.current = true;
+    suppressNarrationWakewordStopRef.current = !interruptOnWakeword;
+    narrationInterruptedRef.current = false;
     try {
-      await Speech.pauseSpeechRecognition();
-    } catch (e) {
-      console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
-    }
-
-    if (!skipNarrationRef.current) {
-      for (const line of lines) {
-        if (skipNarrationRef.current) break;
-        setMessage(line);
-        try {
-          await Speech.speak(line, SPEAKER, getSelectedSpeakerSpeed());
-        } catch {}
-        if (skipNarrationRef.current) break;
-      }
-    }
-
-    // Wake word detection stays paused when the caller is about to move straight into
-    // another mic-exclusive flow (e.g. speaker verification) — resuming it here would let
-    // a false wake-word trigger during that flow steal the mic and unpause STT.
-    if (inst && !keepDetectionPaused) {
       try {
-        await inst.unPauseDetection();
+        await Speech.pauseSpeechRecognition();
       } catch (e) {
-        console.warn('unPauseDetection after startup narration failed (ignored):', e);
+        console.warn('pauseSpeechRecognition before startup narration failed (ignored):', e);
+      }
+      await applySelectedTTSVoice();
+      if (!skipNarrationRef.current) {
+        for (const line of lines) {
+          if (skipNarrationRef.current || narrationInterruptedRef.current) break;
+          setMessage(line);
+          narrationSpeechPendingRef.current = true;
+          try {
+            await speakText(line, SPEAKER, getSelectedSpeakerSpeed());
+          } catch (error) {
+            if (!skipNarrationRef.current && !narrationInterruptedRef.current) throw error;
+          } finally {
+            // stopSpeaking releases the JS speak waiter before native stop completes.
+            await narrationStopPromiseRef.current;
+            narrationSpeechPendingRef.current = false;
+          }
+        }
+      }
+    } finally {
+      // Consume queued playback-tail detections before allowing screen navigation.
+      await sleep(500);
+      narrationActiveRef.current = false;
+      suppressNarrationWakewordStopRef.current = false;
+    }
+  }
+
+  async function stopCurrentNarration() {
+    if (narrationStopPromiseRef.current) {
+      await narrationStopPromiseRef.current;
+      return;
+    }
+    // Early Skip or a wake word while idle must not stop an initializing model.
+    if (!narrationSpeechPendingRef.current) return;
+    narrationInterruptedRef.current = true;
+    const stopPromise = Promise.resolve().then(async () => {
+      try {
+        await Speech.stopSpeaking();
+      } catch (error) {
+        console.warn('[Narration] Failed to stop playback:', error);
+      }
+    });
+    narrationStopPromiseRef.current = stopPromise;
+    try {
+      await stopPromise;
+    } finally {
+      if (narrationStopPromiseRef.current === stopPromise) {
+        narrationStopPromiseRef.current = null;
       }
     }
   }
 
   async function handleSkipNarration() {
+    if (skipNarrationRef.current) return;
     skipNarrationRef.current = true;
     setSkipNarration(true);
-    try { await Speech.stopSpeaking(); } catch {}
+    await stopCurrentNarration();
+  }
+
+  // Live speaker verification: enroll (or clear) the speaker in the running wake
+  // word and STT. No Speech.destroyAll()/initAll() and no stopKeywordDetection()
+  // -- both libraries apply the change immediately.
+  async function applySpeakerVerificationChoice(svChoice: SVPromptChoice) {
+    const jsonPath = enrollmentJsonPathRef.current;
+    const enable = svChoice !== 'skip' && typeof jsonPath === 'string' && jsonPath.length > 0;
+    const inst = myInstanceRef.current;
+    if (enable) {
+      console.log('[SV] live addSpeaker', SV_SPEAKER_ID, jsonPath);
+      if (inst) {
+        const wakewordIds = await inst.addSpeaker(SV_SPEAKER_ID, jsonPath);
+        console.log('[SV] wake word speakers:', wakewordIds);
+      }
+      const sttIds = await Speech.addSpeaker(SV_SPEAKER_ID, jsonPath);
+      console.log('[SV] STT speakers:', sttIds);
+    } else {
+      // Skip: make sure no speaker from an earlier run stays enrolled.
+      console.log('[SV] skipped; clearing speakers');
+      if (inst) await inst.setSpeakers([]);
+      await Speech.setSpeakers([]);
+    }
   }
 
   async function reloadSpeechLibraryForSelectedVoice(enrollmentJsonPath?: string | null) {
     const inst = myInstanceRef.current;
-    if (inst) {
-      try {
-        await inst.pauseDetection(Platform.OS === 'android' ? true : false);
-      } catch (e) {
-        console.warn('pauseDetection before reloading selected voice failed (ignored):', e);
-      }
-    }
+    if (inst) await inst.pauseDetection(false);
 
     try {
       suppressAndroidPartialResultsRef.current = true;
@@ -610,19 +750,12 @@ function App(): React.JSX.Element {
       await Speech.destroyAll();
       await withTimeout(
         initializeSpeechLibrary(enrollmentJsonPath),
-        15000,
+        SPEECH_INIT_TIMEOUT_MS,
         'Speech.initAll selected voice',
       );
     } finally {
       suppressAndroidPartialResultsRef.current = false;
-    }
-
-    if (inst) {
-      try {
-        await inst.unPauseDetection();
-      } catch (e) {
-        console.warn('unPauseDetection after reloading selected voice failed (ignored):', e);
-      }
+      if (inst) await inst.unPauseDetection();
     }
   }
 
@@ -638,7 +771,8 @@ function App(): React.JSX.Element {
     if (!userText || aiChatInFlightRef.current) return;
 
     const now = Date.now();
-    if (now < aiChatBlockedUntilRef.current) {
+    // Gemini's rate-limit cooldown doesn't apply to the on-device model.
+    if (selectedAppModeRef.current !== 'local_ai_chat' && now < aiChatBlockedUntilRef.current) {
       const waitSeconds = Math.ceil((aiChatBlockedUntilRef.current - now) / 1000);
       setAiChatStatus(
         `This demo uses Google Gemini as its backend LLM. Gemini is cooling down after rate limiting. Please try again in ${waitSeconds}s.`,
@@ -671,7 +805,13 @@ function App(): React.JSX.Element {
     aiChatRequestIdRef.current = requestId;
     setAiChatTranscript(userText);
     setAiChatLiveTranscript(userText);
-    setAiChatStatus('Sending transcript to Gemini...');
+    setAiChatStatus(
+      selectedAppModeRef.current === 'local_ai_chat' ? 'Sending transcript to the local AI...' : 'Sending transcript to Gemini...',
+    );
+    setAiChatResponse('');
+    aiChatFullReplyRef.current = '';
+    aiChatSpeechChainRef.current = Promise.resolve();
+    aiChatSpeechPendingRef.current = 0;
     setAiChatMessages((prev) => [
       ...prev,
       {
@@ -690,86 +830,178 @@ function App(): React.JSX.Element {
     try {
       await Speech.pauseSpeechRecognition();
 
-      const nextHistory = [
-        ...geminiConversationRef.current,
-        { role: 'user' as const, parts: [{ text: userText }] },
-      ];
-      const networkRequestId = geminiNetworkRequestCountRef.current + 1;
-      geminiNetworkRequestCountRef.current = networkRequestId;
-      console.log(
-        `[AIChat] preparing Gemini request #${networkRequestId} for turn #${requestId}`,
-        { userText }
-      );
+      const useLocalLLM = selectedAppModeRef.current === 'local_ai_chat';
 
       let aiReply = '';
-      const shouldUseStreaming = GEMINI_ENABLE_STREAMING && aiChatStreamingSupportedRef.current;
-      if (shouldUseStreaming) {
+      // nextHistory only applies to the Gemini path below (the local LLM
+      // keeps its own history via aiChatMessages).
+      let shouldUseStreaming = false;
+      let nextHistory: GeminiChatMessage[] | null = null;
+
+      const localModel = useLocalLLM ? await getSelectedModel() : null;
+      if (localModel && !isModelReady(localModel.id)) {
+        // The model is still downloading or loading. Say so right away
+        // instead of holding the turn (and the mic) until it is ready.
+        const status = localModelStatusRef.current;
+        const progress = /^Downloading (\d+)%/.exec(status);
+        if (status.startsWith('Failed')) {
+          warmUpLocalModel(aiChatMessages); // retry the download/load
+          aiReply = `The on-device model, ${localModel.displayName}, failed to load, so I am trying again. Please ask me again in a moment.`;
+        } else if (progress) {
+          aiReply = `The on-device model, ${localModel.displayName}, is still downloading. It is ${progress[1]} percent done. Please ask me again when it is ready.`;
+        } else {
+          aiReply = `The on-device model, ${localModel.displayName}, is still loading. Please ask me again in a moment.`;
+        }
+      } else if (useLocalLLM) {
+        setAiChatStatus('Generating local AI reply...');
+        // Downloads (if needed) + licenses + loads the on-device model, then
+        // generates a reply. Any failure here — model not yet downloaded/
+        // hosted, license rejected, engine not vendored — is caught below and
+        // spoken aloud via TTS instead of silently failing.
+        //
+        // Streams tokens into the same sentence queue the Gemini streaming
+        // path uses, so TTS starts on the first complete sentence instead of
+        // waiting for the whole reply to be generated.
+        shouldUseStreaming = true;
         aiChatStreamingActiveRef.current = true;
         aiChatStreamGenerationDoneRef.current = false;
         aiChatStreamSpeakingRef.current = false;
         aiChatPendingSentenceBufferRef.current = '';
         aiChatSpeechQueueRef.current = [];
-        let streamDeliveredChunks = false;
-        setAiChatStatus('Streaming Gemini reply...');
-
-        const streamResult = await generateGeminiReplyStream(
-          nextHistory,
-          {
-            requestId: networkRequestId,
-            userText,
-          },
-          async (deltaText, aggregateText) => {
-            if (aiChatRequestIdRef.current !== requestId) return;
-            streamDeliveredChunks = true;
-            setAiChatStatus('Streaming Gemini reply...');
+        // The agent searches the web for time-sensitive questions ("who is
+        // the president...") and looks up unknown foods online; meanwhile it
+        // sends a short filler to say, so the wait isn't silent. Fillers
+        // aren't part of the reply or the history.
+        const turn = await getLocalLLMProvider().generateReplyStream(
+          aiChatMessages,
+          userText,
+          async (delta, done) => {
+            if (done || !delta || aiChatRequestIdRef.current !== requestId) return;
+            aiReply += delta;
+            const aggregateText = aiReply;
+            setAiChatStatus('Streaming local AI reply...');
             setAiChatMessages((prev) =>
               prev.map((message) =>
-                message.id === `model-${requestId}`
-                  ? { ...message, text: aggregateText }
-                  : message
+                message.id === `model-${requestId}` ? { ...message, text: aggregateText } : message
               )
             );
-            await enqueueAIChatSpeechFromDelta(deltaText, aggregateText);
+            await enqueueAIChatSpeechFromDelta(delta, aggregateText);
+          },
+          (event) => {
+            if (aiChatRequestIdRef.current !== requestId) return;
+            if (event.type === 'filler') {
+              // Search fillers start the reply's speech queue; tool fillers
+              // ("Sure, let me log that."), lookups and MCP tools are queued
+              // like a sentence.
+              if (event.reason === 'webSearch' || event.reason === 'webSearchFailed') {
+                void enqueueAIChatSpeechFromDelta(event.text, event.text);
+              } else {
+                sayWhileWaitingOnline(event.text);
+              }
+            } else if (event.type === 'status' && event.status === 'searching') {
+              setAiChatStatus('Searching the web...');
+            } else if (event.type === 'webSearch') {
+              setAiChatStatus(
+                event.failed
+                  ? 'Could not search online; answering from memory...'
+                  : `Searched online (${event.source}); generating reply...`,
+              );
+            }
           },
         );
-        aiReply = streamResult.text;
-        if (!streamResult.usedStreaming) {
-          aiChatStreamingSupportedRef.current = false;
-          aiChatStreamingActiveRef.current = false;
+        if (turn.toolMessages.length > 0) {
+          setAiChatMessages((prev) =>
+            prev.map((message) =>
+              message.id === `model-${requestId}` ? { ...message, toolMessages: turn.toolMessages } : message,
+            ),
+          );
         }
-
-        if (!streamDeliveredChunks && aiReply) {
-          if (streamResult.usedStreaming) {
-            await enqueueAIChatSpeechFromDelta(aiReply, aiReply);
-            setAiChatMessages((prev) =>
-              prev.map((message) =>
-                message.id === `model-${requestId}`
-                  ? { ...message, text: aiReply }
-                  : message
-              )
-            );
-          }
-        }
+        console.log(`[AIChat][LOCAL_LLM] "${userText}"${turn.webSearch ? ` (searched ${turn.webSearch.source})` : ''}`);
+        console.log('[AIChat][LOCAL_LLM][FULL_REPLY_BEGIN]');
+        console.log(aiReply);
+        console.log('[AIChat][LOCAL_LLM][FULL_REPLY_END]');
       } else {
-        aiReply = await generateGeminiReply(nextHistory, {
-          requestId: networkRequestId,
-          userText,
-        });
-      }
+        nextHistory = [
+          ...geminiConversationRef.current,
+          { role: 'user' as const, parts: [{ text: userText }] },
+        ];
+        const networkRequestId = geminiNetworkRequestCountRef.current + 1;
+        geminiNetworkRequestCountRef.current = networkRequestId;
+        console.log(
+          `[AIChat] preparing Gemini request #${networkRequestId} for turn #${requestId}`,
+          { userText }
+        );
 
-      console.log(`[AIChat] Gemini reply #${networkRequestId}:`, aiReply);
-      console.log('[AIChat][FULL_REPLY_BEGIN]');
-      console.log(aiReply);
-      console.log('[AIChat][FULL_REPLY_END]');
+        shouldUseStreaming = GEMINI_ENABLE_STREAMING && aiChatStreamingSupportedRef.current;
+        if (shouldUseStreaming) {
+          aiChatStreamingActiveRef.current = true;
+          aiChatStreamGenerationDoneRef.current = false;
+          aiChatStreamSpeakingRef.current = false;
+          aiChatPendingSentenceBufferRef.current = '';
+          aiChatSpeechQueueRef.current = [];
+          let streamDeliveredChunks = false;
+          setAiChatStatus('Streaming Gemini reply...');
+
+          const streamResult = await generateGeminiReplyStream(
+            nextHistory,
+            {
+              requestId: networkRequestId,
+              userText,
+            },
+            async (deltaText, aggregateText) => {
+              if (aiChatRequestIdRef.current !== requestId) return;
+              streamDeliveredChunks = true;
+              setAiChatStatus('Streaming Gemini reply...');
+              setAiChatMessages((prev) =>
+                prev.map((message) =>
+                  message.id === `model-${requestId}`
+                    ? { ...message, text: aggregateText }
+                    : message
+                )
+              );
+              await enqueueAIChatSpeechFromDelta(deltaText, aggregateText);
+            },
+          );
+          aiReply = streamResult.text;
+          if (!streamResult.usedStreaming) {
+            aiChatStreamingSupportedRef.current = false;
+            aiChatStreamingActiveRef.current = false;
+          }
+
+          if (!streamDeliveredChunks && aiReply) {
+            if (streamResult.usedStreaming) {
+              await enqueueAIChatSpeechFromDelta(aiReply, aiReply);
+              setAiChatMessages((prev) =>
+                prev.map((message) =>
+                  message.id === `model-${requestId}`
+                    ? { ...message, text: aiReply }
+                    : message
+                )
+              );
+            }
+          }
+        } else {
+          aiReply = await generateGeminiReply(nextHistory, {
+            requestId: networkRequestId,
+            userText,
+          });
+        }
+
+        console.log(`[AIChat] Gemini reply #${networkRequestId}:`, aiReply);
+        console.log('[AIChat][FULL_REPLY_BEGIN]');
+        console.log(aiReply);
+        console.log('[AIChat][FULL_REPLY_END]');
+      }
 
       if (aiChatRequestIdRef.current !== requestId) return;
 
-      geminiConversationRef.current = [
-        ...nextHistory,
-        { role: 'model' as const, parts: [{ text: aiReply }] },
-      ];
+      if (nextHistory) {
+        geminiConversationRef.current = [
+          ...nextHistory,
+          { role: 'model' as const, parts: [{ text: aiReply }] },
+        ];
+      }
 
-      setAiChatResponse(aiReply);
       setAiChatMessages((prev) =>
         prev.map((message) =>
           message.id === `model-${requestId}`
@@ -779,25 +1011,37 @@ function App(): React.JSX.Element {
       );
 
       if (shouldUseStreaming && aiChatStreamingActiveRef.current) {
+        // Sentences appear as they are spoken; the full text when speech ends.
+        aiChatFullReplyRef.current = aiReply;
         aiChatStreamGenerationDoneRef.current = true;
         aiChatAwaitingSpeechFinishRef.current = true;
         await speakNextAIChatSentence();
       } else {
         aiChatStreamingActiveRef.current = false;
-        setCurrentSpeechSentence(`Gemini: ${aiReply}`);
-        setAiChatStatus('Speaking Gemini reply...');
+        setAiChatResponse(aiReply);
+        const replySpeakerLabel = useLocalLLM ? 'Local AI' : 'Gemini';
+        setCurrentSpeechSentence(`${replySpeakerLabel}: ${aiReply}`);
+        setAiChatStatus(`Speaking ${replySpeakerLabel} reply...`);
         aiChatAwaitingSpeechFinishRef.current = true;
-        await Speech.speak(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
+        await speakText(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
       }
     } catch (error) {
+      const useLocalLLM = selectedAppModeRef.current === 'local_ai_chat';
       const message = String((error as any)?.message ?? error);
-      const friendlyMessage = buildFriendlyGeminiErrorMessage(message);
-      console.log('[AIChat] Gemini error:', message);
+      // Local LLM errors (not-yet-hosted model, rejected license, engine not
+      // vendored, etc.) are read aloud verbatim rather than run through
+      // Gemini's quota/rate-limit-specific friendly-message mapping — the
+      // user explicitly wants "if there is an error the TTS will say the
+      // error" for this mode.
+      const friendlyMessage = useLocalLLM
+        ? `Local AI chat error: ${message}`
+        : buildFriendlyGeminiErrorMessage(message);
+      console.log(useLocalLLM ? '[AIChat] Local LLM error:' : '[AIChat] Gemini error:', message);
       aiChatStreamingActiveRef.current = false;
       aiChatStreamGenerationDoneRef.current = false;
       aiChatStreamSpeakingRef.current = false;
       aiChatAwaitingSpeechFinishRef.current = false;
-      if (/quota|rate limit|429|too many requests/i.test(message)) {
+      if (!useLocalLLM && /quota|rate limit|429|too many requests/i.test(message)) {
         aiChatBlockedUntilRef.current = Date.now() + AI_CHAT_RATE_LIMIT_BACKOFF_MS;
         setAiChatStatus('Gemini is rate limited right now. Please try again in about 30 seconds.');
       }
@@ -809,17 +1053,18 @@ function App(): React.JSX.Element {
             : msg
         )
       );
-      setCurrentSpeechSentence(`Gemini: ${friendlyMessage}`);
+      const errorSpeakerLabel = useLocalLLM ? 'Local AI' : 'Gemini';
+      setCurrentSpeechSentence(`${errorSpeakerLabel}: ${friendlyMessage}`);
       setAiChatStatus('Speaking demo status update...');
       aiChatAwaitingSpeechFinishRef.current = true;
       try {
-        await Speech.speak(
+        await speakText(
           normalizeTextForSpeech(friendlyMessage),
           SPEAKER,
           getSelectedSpeakerSpeed(),
         );
       } catch (speechError) {
-        console.log('[AIChat] failed to speak Gemini fallback message:', speechError);
+        console.log('[AIChat] failed to speak fallback message:', speechError);
         aiChatAwaitingSpeechFinishRef.current = false;
         await finishAIChatSpeechFlow();
       }
@@ -842,10 +1087,11 @@ function App(): React.JSX.Element {
   };
 
   const getSelectedSpeakerSpeed = (): number =>
-    selectedTTSVoiceRef.current === 'Rich' ? RICH_SPEAKER_SPEED : ARIANA_SPEAKER_SPEED;
+    getTTSVoiceConfig(selectedTTSVoiceRef.current, useTTS2Only.current).speed;
   const isFirstKeywordCallbackRef = useRef(true);
   registerSpeechHandlers({
     Speech,
+    speakText,
     suppressAndroidPartialResultsRef,
     showAppModePrompt,
     isTTSTestMode,
@@ -909,6 +1155,13 @@ function App(): React.JSX.Element {
     // THIS IS THE PLACE TO PLAY WITH ASR/STT and TTS
     //
     const keywordCallback = async (keywordIndex: any) => {
+      if (creatingSpeakerSignatureRef.current) return;
+      if (startupInProgressRef.current || narrationActiveRef.current) {
+        // Before the wake-word test, detection only interrupts current narration.
+        if (suppressNarrationWakewordStopRef.current) return;
+        await stopCurrentNarration();
+        return;
+      }
       const isFirstCall = isFirstKeywordCallbackRef.current;
       console.log(
         `[keywordCallback] ${isFirstCall ? 'first call' : 'subsequent call'}`,
@@ -956,15 +1209,15 @@ function App(): React.JSX.Element {
           setShowAppModePrompt,
           appModeChoiceResolverRef,
           selectedAppModeRef,
-          waitForNextInteraction,
+          waitForIdle,
           setCurrentSpeechSentence,
           setIsSpeakerIdentificationActive,
           speechLibraryInitializedRef,
           speakModeSelectionNarration: async () => {
-            await speakStartupNarration([`${cleanWakeWord} detected.`], { keepDetectionPaused: true });
+            await speakStartupNarration([`${cleanWakeWord} detected.`]);
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
-              'Now there are four options. Full AI Chat, Or several options to test Speech to Text and Text to Speech.',
+              'Now you can test the voice capabilities in five different ways. You can select a Local AI Chat that runs fully on this device, a full AI Chat using remote Gemini, or simply test Speech to Text and Text to Speech individually or a combination of both.',
             ]);
           },
         });
@@ -1015,7 +1268,7 @@ function App(): React.JSX.Element {
         return;
       }
 
-      if (selectedAppModeRef.current === 'full_ai_chat') {
+      if (selectedAppModeRef.current === 'full_ai_chat' || selectedAppModeRef.current === 'local_ai_chat') {
         setAiChatStatus('Preparing chat mode...');
         setAiChatTranscript('');
         setAiChatResponse('');
@@ -1023,9 +1276,10 @@ function App(): React.JSX.Element {
         return;
       }
 
-      const selectedSpeakerName: 'Rich' | 'Ariana' = selectedTTSVoiceRef.current;
+      const selectedSpeakerName: TTSVoiceChoice = selectedTTSVoiceRef.current;
       await playWakewordIntroSpeech({
         Speech,
+        speakText,
         beginSpeechUiEpoch,
         setMessageGuarded,
         setIntroSpeakerName,
@@ -1035,7 +1289,7 @@ function App(): React.JSX.Element {
         selectedSpeakerName,
         getSelectedSpeakerSpeed,
         SPEAKER,
-        waitForNextInteraction,
+        waitForIdle,
         resetSpeechTranscriptState,
         sleep,
         clearSpeechSentenceUI,
@@ -1050,7 +1304,7 @@ function App(): React.JSX.Element {
       /*
       setTimeout(async () => {
         await Speech.pauseSpeechRecognition();
-         await Speech.speak(introLine, SPEAKER, SPEAKER_SPEED);
+         await speakText(introLine, SPEAKER, SPEAKER_SPEED);
         await Speech.unPauseSpeechRecognition(-1);
 //      }, 45000);
       }, 20000);
@@ -1104,12 +1358,12 @@ function App(): React.JSX.Element {
             clearTimeout(voiceDemoBootstrapTimeoutRef.current);
           }
           voiceDemoBootstrapTimeoutRef.current = setTimeout(() => {
-            console.warn('[Demo] voice demo bootstrap timed out; continuing with UI');
-            setMessage(`Say the wake word "${wakeWords}" to continue.`);
-          }, 10000);
+            console.warn('[Demo] voice demo bootstrap is still running');
+            setMessage('Still preparing the voice demo...');
+          }, 60000);
         }
 
-        const { speechInitCompleted } = await initializeWakewordBootstrap({
+        const { speechInitCompleted, failureReason } = await initializeWakewordBootstrap({
           PlatformOS: Platform.OS,
           defaultAudioRoutingConfig,
           setMessage,
@@ -1117,14 +1371,15 @@ function App(): React.JSX.Element {
           listenerRef,
           myInstanceRef,
           keywordLicense:
-            'MTc4NTUzMTYwMDAwMA==-Gt6Mg+w5CfzNDxZrI738PMlcYrH+5GAotaD43oVeOiA=',
+            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
           speechLicense:
-            'MTc4NTUzMTYwMDAwMA==-Gt6Mg+w5CfzNDxZrI738PMlcYrH+5GAotaD43oVeOiA=',
+            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,
           sleep,
           initializeSpeechLibrary,
+          speechInitTimeoutMs: SPEECH_INIT_TIMEOUT_MS,
           withTimeout,
           suppressAndroidPartialResultsRef,
           speechLibraryInitializedRef,
@@ -1138,29 +1393,54 @@ function App(): React.JSX.Element {
         }
 
         if (!speechInitCompleted) {
-          setMessage(`Say the wake word "${wakeWords}" to continue.`);
+          if (failureReason === 'invalid-license') {
+            return;
+          }
+          setMessage('Speech setup failed. Restart the app to retry.');
           return;
         }
 
-        await speakStartupNarration([
-//          'Hey there! My name is Ariana. My voice which was cloned for my application, which is called Lunafit App, is now being used to walk you through this demonstration, step by step.',
-          'Hey there! My name is Ariana. In this application we will use my cloned voice to walk you through this demonstration step by step.',
-          'First, please choose which voice you want to use? You can stay with me, Ariana, or switch to Rich.',
-        ], { keepDetectionPaused: true });
-
+        // Bootstrap already resumed detection after loading the speech packages.
         const narratorVoice = selectedTTSVoiceRef.current;
+        const otherVoices = TTS_VOICE_OPTIONS
+          .filter((voice) => voice !== narratorVoice)
+          .join(' or ');
+
+        /*if (narratorVoice === 'Rich') { 
+          await speakStartupNarration([
+            `Hey there. My name is ${voiceToUse}`,
+            `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
+            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
+            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+          ]);
+        } else {*/
+          await speakStartupNarration([
+            `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
+            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
+            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+          ]);
+        /*}*/
+/*
+        await speakStartupNarration([
+          `Hey there,, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
+          `First,, please choose which voice you want to use? You can stay with me,, ${narratorVoice},, or switch to ${alternativeVoice}?`,
+        ]);
+
+        await speakStartupNarration([
+          `Hey there! My name is ${narratorVoice}! In this application we will use my cloned voice to walk you through this demonstration step by step.`,
+          `First, please choose which voice you want to use? You can stay with me, ${narratorVoice}, or switch to ${alternativeVoice}?`,
+        ]);
+
+*/
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          selectedTTSVoiceRef.current === narratorVoice
-            ? 'Awesome! Thanks for choosing to stay with me.'
-            : `Awesome! You chose ${selectedTTSVoiceRef.current}.`,
+          `You selected ${selectedTTSVoiceRef.current}.`,
           'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
-        ], { keepDetectionPaused: true });
+        ]);
 
-        // Belt-and-suspenders: speakStartupNarration above already paused STT, but make sure
-        // it's still paused right before speaker verification starts — nothing should unpause
-        // it between here and the end of the SV flow (wake word stays paused too, see above).
+        // Pause STT before verification; wake-word detection stays active except
+        // while a new speaker signature is being recorded.
         try {
           await Speech.pauseSpeechRecognition();
         } catch (e) {
@@ -1168,6 +1448,17 @@ function App(): React.JSX.Element {
         }
 
         const startupFlow = await runSpeakerVerificationStartupFlow({
+          beforeEnrollment: async () => {
+            creatingSpeakerSignatureRef.current = true;
+            await myInstanceRef.current?.pauseDetection(false);//Platform.OS === 'android' ? true : false);
+          },
+          afterEnrollment: async () => {
+            try {
+              await myInstanceRef.current?.unPauseDetection();
+            } finally {
+              creatingSpeakerSignatureRef.current = false;
+            }
+          },
           setMessage,
           enrollmentJsonRef,
           enrollmentJsonPathRef,
@@ -1189,36 +1480,20 @@ function App(): React.JSX.Element {
         });
         svChoice = startupFlow.svChoice;
 
-        const needsSpeechReload =
-          svChoice !== 'skip' ||
-          selectedTTSVoiceRef.current !== 'Ariana' ||
-          ttsQualityChoice !== 'lite';
-
-        if (needsSpeechReload) {
-          await reloadSpeechLibraryForSelectedVoice(
-            typeof enrollmentJsonPathRef.current === 'string' && enrollmentJsonPathRef.current.length > 0
-              ? enrollmentJsonPathRef.current
-              : null,
-          );
-        }
-
-        // Restart wake word detection with SV enrollment so it only triggers for the enrolled voice.
-        // reloadSpeechLibraryForSelectedVoice only reloads the STT side — the wake word detector
-        // was started at bootstrap with svChoice='skip', so we must restart it here with enrollment.
-        if (svChoice !== 'skip' && myInstanceRef.current && enrollmentJsonPathRef.current) {
-          await attachKeywordListenerOnce(listenerRef, myInstanceRef.current, formatWakeWord, keywordCallback);
-          await startWakewordDetection({
-            instance: myInstanceRef.current,
-            svChoice,
-            enrollmentJsonPath: enrollmentJsonPathRef.current,
-            sleep,
-          });
+        // Enroll the speaker into the already-running wake word and STT (live API).
+        try {
+          await applySpeakerVerificationChoice(svChoice);
+        } catch (e) {
+          console.error('[SV] applying speaker verification failed:', e);
+          setMessage('Speaker verification could not be enabled. Continuing without it.');
+          svChoice = 'skip';
         }
 
         await speakStartupNarration([
           svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
-          `Now please say the wake word, ${wakeWords}, to continue.`,
-        ]);
+          `Now please say the wake word ${wakeWords} to continue.`,
+        ], { interruptOnWakeword: false });
+        startupInProgressRef.current = false;
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
 
       } catch (error) {
@@ -1227,7 +1502,7 @@ function App(): React.JSX.Element {
             clearTimeout(voiceDemoBootstrapTimeoutRef.current);
             voiceDemoBootstrapTimeoutRef.current = null;
           }
-          setMessage(`Say the wake word "${wakeWords}" to continue.`);
+          setMessage('Voice setup failed. Restart the app to retry.');
         }
         console.error('Error during keyword detection initialization:', error);
       }
@@ -1284,7 +1559,12 @@ function App(): React.JSX.Element {
     setIsTTSTestMode(false);
     setIsCombinedMode(false);
     setIsSTTOnlyMode(true);
-    try { await Speech.unPauseSpeechRecognition(-1); } catch {}
+    try {
+      console.log('[STT_DIAG] STT-only resume requested');
+      const result = await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_DIAG] STT-only resume', { result,
+        native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    } catch (error) { console.error('[STT_DIAG] STT-only resume failed', error); }
   };
 
   const enterCombinedMode = async () => {
@@ -1298,7 +1578,12 @@ function App(): React.JSX.Element {
     setIsTTSTestMode(false);
     setIsSTTOnlyMode(false);
     setIsCombinedMode(true);
-    try { await Speech.unPauseSpeechRecognition(-1); } catch {}
+    try {
+      console.log('[STT_DIAG] combined resume requested');
+      const result = await Speech.unPauseSpeechRecognition(-1);
+      console.log('[STT_DIAG] combined resume', { result,
+        native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    } catch (error) { console.error('[STT_DIAG] combined resume failed', error); }
   };
 
   const goBackToModeSelection = async () => {
@@ -1338,7 +1623,67 @@ function App(): React.JSX.Element {
     }
   };
 
+  // Loads the selected on-device model in the background as soon as Local AI
+  // Chat opens (or the model changes), never in the middle of a turn. Only
+  // the latest warm-up updates the status, if the user switches models
+  // quickly.
+  // Optional remote MCP server (MCP_SERVER_URL / MCP_SERVER_TOKEN in the
+  // git-ignored local.config.ts): its tools join the calorie tools. Connected
+  // once, before the first warm-up, because the tool list is part of the
+  // system prompt the engine caches. A failure only logs; the app tools work.
+  const mcpToolsRef = useRef<Promise<ToolDefinition[]> | null>(null);
+  const loadMcpTools = (): Promise<ToolDefinition[]> => {
+    if (!mcpToolsRef.current) {
+      const config = LocalConfig as { MCP_SERVER_URL?: string; MCP_SERVER_TOKEN?: string };
+      const url = config.MCP_SERVER_URL?.trim();
+      mcpToolsRef.current = !url
+        ? Promise.resolve([])
+        : connectMcpServer({
+            url,
+            headers: config.MCP_SERVER_TOKEN ? { Authorization: `Bearer ${config.MCP_SERVER_TOKEN}` } : undefined,
+            timeoutMs: 8000,
+          })
+            .then((server) => {
+              console.log(`[AIChat] MCP server connected (${server.client.protocolEra}): ${server.tools.map((t) => t.name).join(', ')}`);
+              return server.tools;
+            })
+            .catch((error) => {
+              console.log('[AIChat] MCP server unavailable:', String(error?.message ?? error));
+              return [];
+            });
+    }
+    return mcpToolsRef.current;
+  };
+
+  const warmUpLocalModel = (history: AIChatHistoryMessage[] = []) => {
+    const seq = ++localModelWarmUpSeqRef.current;
+    const isLatest = () => seq === localModelWarmUpSeqRef.current;
+    setLocalModelStatus('Loading...');
+    loadMcpTools()
+      .then(async (mcpTools) => {
+        // They run on a remote server: the agent says a filler while they run.
+        if (mcpTools.length > 0) await getLocalLLMProvider().setExternalTools(mcpTools);
+        return getLocalLLMProvider().warmUp(history, (fraction) => {
+          if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
+        });
+      })
+      .then(async (model) => {
+        if (!isLatest()) return;
+        setLocalModelName(model.displayName);
+        setLocalModelStatus('Ready');
+        const deleted = await deleteUnusedModelFiles(await listModels());
+        if (deleted.length > 0) console.log('[AIChat] deleted unused model files:', deleted);
+      })
+      .catch((error) => {
+        console.log('[AIChat] local model warm-up failed:', error);
+        if (isLatest()) setLocalModelStatus(`Failed: ${String(error?.message ?? error)}`);
+      });
+  };
+
   const enterFullAIChatMode = async () => {
+    if (selectedAppModeRef.current === 'local_ai_chat') {
+      warmUpLocalModel();
+    }
     beginSpeechUiEpoch();
     //resetSpeechTranscriptState();
     resetAIChatSession();
@@ -1357,22 +1702,23 @@ function App(): React.JSX.Element {
     setIsTTSTestMode(false);
     setIsAIChatHistoryVisible(false);
     setIsFullAIChatMode(true);
-    setMessage('Full AI Chat is active. Start speaking.');
+    setMessage(
+      selectedAppModeRef.current === 'local_ai_chat'
+        ? 'Local AI Chat is active. Start speaking.'
+        : 'Full AI Chat is active. Start speaking.',
+    );
 
     if (Platform.OS === 'android') {
-      // Pause wake word detection so it releases the microphone before STT starts.
+      // TEMPORARY AUDIO-SESSION TEST: keep wakeword active while STT starts.
       const inst = myInstanceRef.current;
-      if (inst) {
-        try {
-          await inst.pauseDetection(true);
-        } catch (e) {
-          console.warn('[AIChat] pauseDetection before enterFullAIChatMode failed (ignored):', e);
-        }
-      }
+      // if (inst) {
+      //   await inst.pauseDetection(true);
+      // }
+      void inst;
 
       try {
         await Promise.race([
-          waitForNextInteraction(),
+          waitForIdle(),
           sleep(250),
         ]);
         await restartFullAIChatMicrophone('enterFullAIChatMode');
@@ -1391,7 +1737,7 @@ function App(): React.JSX.Element {
       // await Speech.speak("Hello, I am rich!", SPEAKER, getSelectedSpeakerSpeed());
 
       try {
-        await waitForNextInteraction();
+        await waitForIdle();
         resetSpeechTranscriptState();
         console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
         await Speech.unPauseSpeechRecognition(-1);
@@ -1415,7 +1761,7 @@ function App(): React.JSX.Element {
     setIsManualTTSSpeaking(true);
     setCurrentSpeechSentenceGuarded(speechUiEpoch, `Speaking now: ${text}`);
     try {
-      await Speech.speak(text, SPEAKER, getSelectedSpeakerSpeed());
+      await speakText(text, SPEAKER, getSelectedSpeakerSpeed());
       clearSpeechSentenceUI(speechUiEpoch);
     } finally {
       setIsManualTTSSpeaking(false);
@@ -1440,7 +1786,7 @@ function App(): React.JSX.Element {
   const shouldShowFullAIChatScreen =
     isFullAIChatMode ||
     (
-      selectedAppModeRef.current === 'full_ai_chat' &&
+      (selectedAppModeRef.current === 'full_ai_chat' || selectedAppModeRef.current === 'local_ai_chat') &&
       !showAppModePrompt &&
       !showTTSModelPrompt &&
       !showSVPrompt &&
@@ -1525,7 +1871,10 @@ function App(): React.JSX.Element {
     );
   };
 
-  const aiChatTitle = '*Limited* **Gemini 3.1** Flash Lite Chat';
+  const isLocalAIChat = selectedAppModeRef.current === 'local_ai_chat';
+  const aiChatTitle = isLocalAIChat
+    ? 'Local AI Chat (on-device)'
+    : '*Limited* **Gemini 3.1** Flash Lite Chat';
 
   if (shouldShowFullAIChatScreen) {
     return (
@@ -1554,9 +1903,29 @@ function App(): React.JSX.Element {
               </View>
               {isAIChatHelpVisible && (
                 <Text style={styles.svPromptSubtitle}>
-                  Speak naturally and the app will send your STT text to Gemini 2.5 Flash, then speak the reply with the selected voice.
+                  {isLocalAIChat
+                    ? 'Speak naturally and the app will send your STT text to the on-device LLM, then speak the reply with the selected voice. Runs fully offline once the model is downloaded and loaded; any error is read aloud.'
+                    : 'Speak naturally and the app will send your STT text to Gemini 2.5 Flash, then speak the reply with the selected voice.'}
                 </Text>
               )}
+              {isLocalAIChat && (
+                <View style={[styles.speechSummaryBlock, styles.localModelRow]}>
+                  <View style={styles.localModelInfo}>
+                    <Text style={styles.speechSentenceLabel}>Model</Text>
+                    <Text style={styles.speechSentenceText}>{localModelName || '...'}</Text>
+                    {!!localModelStatus && (
+                      <Text style={styles.speechSentenceLabel}>{localModelStatus}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.localModelChangeButton}
+                    activeOpacity={0.7}
+                    onPress={() => setIsModelPickerVisible(true)}>
+                    <Text style={styles.localModelChangeText}>Change</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {isLocalAIChat && <CaloriesCard />}
               <View style={styles.speechSummaryBlock}>
                 <Text style={styles.speechSentenceLabel}>Status</Text>
                 <Text style={styles.speechSentenceText}>
@@ -1572,9 +1941,9 @@ function App(): React.JSX.Element {
                 </Text>
               </View>
               <View style={styles.speechSummaryBlock}>
-                <Text style={styles.speechSentenceLabel}>Gemini Reply</Text>
+                <Text style={styles.speechSentenceLabel}>{isLocalAIChat ? 'Local AI Reply' : 'Gemini Reply'}</Text>
                 <Text style={styles.speechSentenceText}>
-                  {aiChatResponse || 'Gemini response will appear here.'}
+                  {aiChatResponse || (isLocalAIChat ? 'The local AI reply will appear here.' : 'Gemini response will appear here.')}
                 </Text>
               </View>
               <View style={styles.ttsTestActionRow}>
@@ -1593,6 +1962,15 @@ function App(): React.JSX.Element {
               </View>
             </View>
         </ScrollView>
+        <ModelPicker
+          visible={isModelPickerVisible}
+          isBusy={isAIChatLoading}
+          onClose={() => setIsModelPickerVisible(false)}
+          onModelSelected={(model) => {
+            setLocalModelName(model.displayName);
+            warmUpLocalModel(aiChatMessages);
+          }}
+        />
       </View>
     );
   }
@@ -1723,51 +2101,26 @@ function App(): React.JSX.Element {
   if (showTTSModelPrompt) {
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
-            <Text style={styles.svPromptTitle}>Choose Voice Model</Text>
-            <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>Quality</Text>
-              <View style={styles.svButtonRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    ttsQualityChoice === 'lite' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsQualityChoice('lite')}>
-                  <Text style={styles.svButtonText}>Lite</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    ttsQualityChoice === 'heavy' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsQualityChoice('heavy')}>
-                  <Text style={styles.svButtonText}>Heavy</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <Text style={styles.svPromptTitle}>Choose Your Voice</Text>
+            <Text style={styles.svPromptSubtitle}>
+              Select a voice from model_ex2_rich_kate.dm before the demo starts.
+            </Text>
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Voice</Text>
-              <View style={styles.svButtonRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    ttsVoiceChoice === 'Ariana' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsVoiceChoice('Ariana')}>
-                  <Text style={styles.svButtonText}>Ariana</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.svButton,
-                    ttsVoiceChoice === 'Rich' ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setTtsVoiceChoice('Rich')}>
-                  <Text style={styles.svButtonText}>Rich</Text>
-                </TouchableOpacity>
+              <View style={styles.ttsVoiceGrid}>
+                {TTS_VOICE_OPTIONS.map((voice) => (
+                  <TouchableOpacity
+                    key={voice}
+                    style={[
+                      styles.svButton,
+                      styles.ttsVoiceButton,
+                      ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => setTtsVoiceChoice(voice)}>
+                    <Text style={styles.svButtonText}>{voice}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
             <View style={styles.svButtonRow}>
@@ -1776,7 +2129,6 @@ function App(): React.JSX.Element {
                 activeOpacity={0.7}
                 onPress={() => {
                   ttsModelChoiceResolverRef.current?.({
-                    quality: ttsQualityChoice,
                     voice: ttsVoiceChoice,
                   });
                   ttsModelChoiceResolverRef.current = null;
@@ -1795,6 +2147,7 @@ function App(): React.JSX.Element {
             <View style={styles.appModeStack}>
               {(
                 [
+                  { key: 'local_ai_chat', label: 'Local AI Chat',        desc: 'STT → on-device LLM → TTS' },
                   { key: 'full_ai_chat',  label: 'Full AI Chat',         desc: 'STT → Gemini → TTS' },
                   { key: 'combined',      label: 'Combined STT + TTS',   desc: 'Speak → hear it back' },
                   { key: 'stt_only',      label: 'STT Only',             desc: 'Show transcript, no playback' },
@@ -1815,7 +2168,7 @@ function App(): React.JSX.Element {
                       selectedAppModeRef.current = key;
                       modeAlreadyEnteredRef.current = true;
                       setShowAppModePrompt(false);
-                      if (key === 'full_ai_chat') {
+                      if (key === 'full_ai_chat' || key === 'local_ai_chat') {
                         setAiChatStatus('Preparing chat mode...');
                         setAiChatTranscript('');
                         setAiChatResponse('');
@@ -1829,7 +2182,7 @@ function App(): React.JSX.Element {
                     }
                     selectedAppModeRef.current = key;
                     setShowAppModePrompt(false);
-                    if (key === 'full_ai_chat') { await enterFullAIChatMode(); return; }
+                    if (key === 'full_ai_chat' || key === 'local_ai_chat') { await enterFullAIChatMode(); return; }
                     if (key === 'stt_only') { await enterSTTOnlyMode(); return; }
                     if (key === 'type_to_tts') { await enterTTSTestMode(); return; }
                     await enterCombinedMode();
@@ -2156,7 +2509,7 @@ function App(): React.JSX.Element {
                       activeOpacity={0.7}
                       onPress={async () => {
                         const mode = selectedAppModeRef.current;
-                        if (mode === 'full_ai_chat') { await enterFullAIChatMode(); return; }
+                        if (mode === 'full_ai_chat' || mode === 'local_ai_chat') { await enterFullAIChatMode(); return; }
                         if (mode === 'stt_only') { await enterSTTOnlyMode(); return; }
                         if (mode === 'type_to_tts') { await enterTTSTestMode(); return; }
                         await enterCombinedMode();
@@ -2604,6 +2957,26 @@ const styles = StyleSheet.create({
   speechSentenceCardTTSIOS: {
     marginTop: -80,
   },
+  localModelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  localModelInfo: {
+    flex: 1,
+  },
+  localModelChangeButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  localModelChangeText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   speechSentenceLabel: {
     fontSize: 12,
     fontWeight: '700',
@@ -2805,6 +3178,17 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 14,
   },
+  ttsVoiceButton: {
+    width: '47%',
+    paddingHorizontal: 8,
+  },
+  ttsVoiceGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
   appModeStack: {
     width: '100%',
     gap: 12,
@@ -2958,7 +3342,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   androidKeyboardAccessoryWrapper: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 100,
     elevation: 100,
   },
