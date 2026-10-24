@@ -80,7 +80,65 @@
     "autoTools": [
       "get_calories_today"
     ],
-    "defaultComment": "When no rule matches, the turn has no tools and the model just answers (\"Hello, how are you?\"). It becomes \"auto\" when the app, an MCP server or memory adds tools only the model can choose; then autoTools limits this skill to reading."
+    "defaultComment": "When no rule matches, the turn has no tools and the model just answers (\"Hello, how are you?\"). It becomes \"auto\" when the app, an MCP server or memory adds tools only the model can choose; then autoTools limits this skill to reading.",
+    "fillers": {
+      "log_food": [
+        "Sure, let me log that.",
+        "Got it, adding that now.",
+        "Okay, logging that for you."
+      ],
+      "delete_food": [
+        "Okay, let me remove that.",
+        "Sure, taking that off the list."
+      ],
+      "remove_calories": [
+        "Okay, updating your total."
+      ],
+      "set_calories_today": [
+        "Okay, updating your total."
+      ],
+      "undo_last_change": [
+        "Okay, undoing that."
+      ],
+      "get_calories_today": [
+        "Let me check your total.",
+        "One moment, checking your tracker."
+      ]
+    },
+    "fillersComment": "Said as soon as a rule routes the turn to the tool, before the model runs (per tool; \"*\" = any of this skill's tools). Leave a tool out for no filler.",
+    "examples": {
+      "log_food": [
+        "I ate a sandwich.",
+        "I had pizza for lunch.",
+        "I just drank a can of coke.",
+        "For breakfast I had oatmeal.",
+        "I snacked on some chips.",
+        "I finished a burger and fries.",
+        "Add a banana.",
+        "Log a glass of milk.",
+        "I had a coffee with milk.",
+        "Dinner was pasta with meatballs."
+      ],
+      "get_calories_today": [
+        "How many calories have I had today?",
+        "What's my calorie total?",
+        "How am I doing with my calories?",
+        "How much have I eaten today?"
+      ],
+      "delete_food": [
+        "Remove the banana.",
+        "Delete the coke from my list.",
+        "I didn't eat the sandwich.",
+        "Take the pizza off."
+      ],
+      "undo_last_change": [
+        "Undo that.",
+        "That was wrong, undo it.",
+        "Cancel the last change."
+      ]
+    },
+    "examplesMinScore": 0.62,
+    "examplesComment": "Example sentences per tool for the router (used when no rule matched); a tool needs examplesMinScore similarity (with an embedding model)."
   },
   "tools": [
     {

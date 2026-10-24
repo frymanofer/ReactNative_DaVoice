@@ -156,6 +156,200 @@
       ]
     }
   },
+  "router": {
+    "comment": "Decides what a turn needs before the model answers. Layers, cheapest first: rules (exact commands only), semantic (the closest route by example sentences), classifier (trained on the device from the same examples), llm (the loaded model answers one word), then relevance (web results that don't match the question are dropped). Learning: sentences the model decided, searches that found nothing relevant, and router.feedback corrections become examples. Without an embedding model (configure {router: {embeddingModel: path}}) word overlap is used, with the lexical* thresholds. default: what to do when nothing decides: \"rules\" (webSearch.rules), \"none\", or a route id.",
+    "rules": [
+      {
+        "match": "^\\W*(?:please\\s+)?(?:search(?: the web| online| the internet)?|look up|google)\\b",
+        "route": "webSearch"
+      }
+    ],
+    "routes": [
+      {
+        "id": "webSearch",
+        "action": {
+          "webSearch": true
+        },
+        "examples": [
+          "What's the weather today?",
+          "What's the weather going to be like tomorrow?",
+          "Will it rain this weekend?",
+          "What's the latest news?",
+          "What are today's headlines?",
+          "Who won the game last night?",
+          "What's the score of the Lakers game?",
+          "Who won the election?",
+          "What is the price of bitcoin right now?",
+          "How is the stock market doing today?",
+          "What's the exchange rate for the euro?",
+          "Is Joe Biden still the president?",
+          "Who is the president of the United States?",
+          "Who is the current prime minister of the UK?",
+          "Who is the CEO of Apple now?",
+          "When does the new iPhone come out?",
+          "What movies are playing this week?",
+          "What happened in the world today?",
+          "Is there traffic on the highway right now?",
+          "What time does the store close today?",
+          "Who is the richest person in the world?",
+          "What's the release date of the next season?",
+          "Did the Fed raise interest rates?",
+          "What's the temperature outside?",
+          "Who won the champions league this year?",
+          "What's going on with the strike?",
+          "Is the airport open today?",
+          "What are the latest covid rules?"
+        ]
+      },
+      {
+        "id": "personal",
+        "action": {
+          "webSearch": false
+        },
+        "examples": [
+          "It's my mother's birthday tomorrow.",
+          "My son has an exam tomorrow.",
+          "I have a job interview today.",
+          "My grandfather died yesterday.",
+          "I'm going to the doctor tomorrow.",
+          "My wife is sick today.",
+          "I got a new job this week.",
+          "My car is red and blue.",
+          "I'm feeling tired today.",
+          "We are moving house next month.",
+          "My daughter's wedding is this weekend.",
+          "I have a meeting with my boss tomorrow.",
+          "I'm flying to Paris tomorrow.",
+          "My dog is sick.",
+          "I just finished my workout.",
+          "Today is my birthday.",
+          "My brother is visiting this week.",
+          "I failed my driving test yesterday.",
+          "I'm so stressed about work right now.",
+          "My favorite color is blue.",
+          "I live in Tel Aviv.",
+          "My name is Ofer.",
+          "I started a new diet today.",
+          "I have a dentist appointment tomorrow.",
+          "My friend is getting married tomorrow.",
+          "I didn't sleep well last night."
+        ]
+      },
+      {
+        "id": "general",
+        "action": {
+          "webSearch": false
+        },
+        "examples": [
+          "How many calories are in an apple?",
+          "What is photosynthesis?",
+          "Who wrote Hamlet?",
+          "What's the capital of France?",
+          "How far is the moon from the earth?",
+          "Why is the sky blue?",
+          "How do I boil an egg?",
+          "What does DNA stand for?",
+          "Explain how a car engine works.",
+          "How many legs does a spider have?",
+          "What is the speed of light?",
+          "Who painted the Mona Lisa?",
+          "How do vaccines work?",
+          "What is the tallest mountain in the world?",
+          "How do I convert Celsius to Fahrenheit?",
+          "What causes earthquakes?",
+          "Give me a recipe for pancakes.",
+          "How much protein is in an egg?",
+          "What's a good way to fall asleep faster?",
+          "Translate hello into Spanish.",
+          "What year did World War Two end?",
+          "How many ounces in a pound?"
+        ]
+      },
+      {
+        "id": "chat",
+        "action": {
+          "webSearch": false
+        },
+        "examples": [
+          "Hello, how are you?",
+          "Hi there!",
+          "Good morning!",
+          "Thank you so much.",
+          "Tell me a joke.",
+          "Tell me a story.",
+          "What's your name?",
+          "Who are you?",
+          "You're funny.",
+          "That's great!",
+          "OK.",
+          "Never mind.",
+          "I love you.",
+          "Can you help me?",
+          "What can you do?",
+          "Goodbye!",
+          "Let's talk.",
+          "Are you a robot?",
+          "Sing me a song.",
+          "What do you think about that?",
+          "Wow, really?",
+          "Cool.",
+          "Which website did you look at?",
+          "Why did you say that?",
+          "What did you just say?",
+          "Can you repeat that?",
+          "Where did you get that from?",
+          "Are you sure?"
+        ]
+      }
+    ],
+    "semantic": {
+      "enabled": true,
+      "minScore": 0.55,
+      "minMargin": 0.05,
+      "topK": 2,
+      "lexicalMinScore": 0.45,
+      "lexicalMinMargin": 0.1,
+      "lowScore": 0.4,
+      "strongMargin": 0.12,
+      "lexicalLowScore": 0.3,
+      "lexicalStrongMargin": 0.2
+    },
+    "classifier": {
+      "enabled": true,
+      "minConfidence": 0.6,
+      "minSimilarity": 0.35,
+      "lexicalMinSimilarity": 0.3,
+      "epochs": 80,
+      "learningRate": 2.0,
+      "l2": 0.001
+    },
+    "llm": {
+      "enabled": true,
+      "maxTokens": 8,
+      "question": "(Before you answer: what kind of message is this? Reply with one word only: search if it needs current information from the internet, such as news, weather, sports, prices or who holds an office; personal if I am telling you about my own life, plans, family or feelings; knowledge if it is a general question you can answer yourself; chat if it is small talk.)",
+      "labels": {
+        "search": "webSearch",
+        "personal": "personal",
+        "knowledge": "general",
+        "chat": "chat"
+      }
+    },
+    "relevance": {
+      "enabled": true,
+      "minScore": 0.25,
+      "lexicalMinScore": 0.08,
+      "onNoneRelevant": "answerWithout"
+    },
+    "learning": {
+      "enabled": true,
+      "fromLLM": true,
+      "fromEmptySearch": true,
+      "emptySearchRoute": "general",
+      "maxLearned": 500,
+      "weight": 1.0
+    },
+    "default": "rules"
+  },
   "onlineToolFillers": [
     "Let me check that online.",
     "One moment, I'm getting that from the server.",

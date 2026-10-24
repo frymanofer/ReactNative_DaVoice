@@ -890,8 +890,9 @@ function App(): React.JSX.Element {
           (event) => {
             if (aiChatRequestIdRef.current !== requestId) return;
             if (event.type === 'filler') {
-              // Search fillers start the reply's speech queue; lookups and
-              // MCP tools happen mid-turn and are queued like a sentence.
+              // Search fillers start the reply's speech queue; tool fillers
+              // ("Sure, let me log that."), lookups and MCP tools are queued
+              // like a sentence.
               if (event.reason === 'webSearch' || event.reason === 'webSearchFailed') {
                 void enqueueAIChatSpeechFromDelta(event.text, event.text);
               } else {
@@ -3341,7 +3342,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   androidKeyboardAccessoryWrapper: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 100,
     elevation: 100,
   },
