@@ -97,8 +97,8 @@ assets/models/local/
 
 Current models:
 
-- `assets/models/local/model_ex2_rich_kate.dm`, `model_ex_ariana_fast_davoice_phoneme.dm`,
-  `model_ex_hanna_light_davoice_ph.dm` (text-to-speech voices)
+- `assets/models/local/model_ex2_rich_kate.dm` (text-to-speech voices: Ariana, Rich, Kate,
+  Jenny, Matthew, Gloria) and `model_ex_hanna_light_davoice_ph.dm` (Hanna)
 - `assets/models/local/hey_coach_model_28_22012026b.dm` (wake word)
 - `assets/models/local/sv.dm` (speaker verification)
 
@@ -218,7 +218,7 @@ Examples:
 
 - `sv.dm`
 - `hey_coach_model_28_22012026b.dm`
-- your TTS voice models (e.g. `model_ex_ariana_fast_davoice_phoneme.dm`)
+- your TTS voice models (e.g. `model_ex2_rich_kate.dm`)
 
 ### 4. Add the plugin to your Expo config
 

@@ -78,7 +78,7 @@ import { getAdjustedSpeed, mergeSmartKeepPunct, registerSpeechHandlers } from '.
 import {
   runSpeakerVerificationStartupFlow,
 } from './src/speaker_verification/onboarding';
-import { getTTSVoiceConfig, playWakewordIntroSpeech, SPEAKER } from './src/tts';
+import { getTTSVoiceConfig, playWakewordIntroSpeech, SPEAKER, spokenVoiceName, ttsSpeakerName } from './src/tts';
 import {
   attachKeywordListenerOnce,
   AudioPermissionComponent,
@@ -95,7 +95,7 @@ import {
 } from './src/wakeword';
 
 const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
-const TTS_VOICE_OPTIONS: TTSVoiceChoice[] = ['Ariana', 'Rich', 'Hanna', 'Kate', 'Jenny', 'Matthew', 'Gloria'];
+const TTS_VOICE_OPTIONS: TTSVoiceChoice[] = ['Ariana', 'Rich', 'Hanna', 'Hanna2', 'Kate', 'Jenny', 'Matthew', 'Gloria'];
 
 const SPEECH_INIT_TIMEOUT_MS = 120000;
 // Id of the app's single enrolled speaker (live speaker-verification API).
@@ -618,7 +618,7 @@ function App(): React.JSX.Element {
 
   async function applySelectedTTSVoice() {
     if (!getTTSVoiceConfig(selectedTTSVoiceRef.current, useTTS2Only.current).usesTTS2) return;
-    const voice = selectedTTSVoiceRef.current;
+    const voice = ttsSpeakerName(selectedTTSVoiceRef.current);
     const result = await Speech.changeVoice(voice);
     if (result !== 0) {
       console.warn(`[TTS] Speech.changeVoice("${voice}") failed or is unsupported on this platform.`);
@@ -1404,6 +1404,7 @@ function App(): React.JSX.Element {
         const narratorVoice = selectedTTSVoiceRef.current;
         const otherVoices = TTS_VOICE_OPTIONS
           .filter((voice) => voice !== narratorVoice)
+          .map(spokenVoiceName)
           .join(' or ');
 
         /*if (narratorVoice === 'Rich') { 
@@ -1411,13 +1412,13 @@ function App(): React.JSX.Element {
             `Hey there. My name is ${voiceToUse}`,
             `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
             `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+            `First, please choose which voice you want to use. You can stay with me, ${spokenVoiceName(narratorVoice)}, or switch to ${otherVoices}.`,
           ]);
         } else {*/
           await speakStartupNarration([
-            `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
+            `Hey there, My name is ${spokenVoiceName(narratorVoice)}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
             `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+            `First, please choose which voice you want to use. You can stay with me, ${spokenVoiceName(narratorVoice)}, or switch to ${otherVoices}.`,
           ]);
         /*}*/
 /*
@@ -1435,7 +1436,7 @@ function App(): React.JSX.Element {
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          `You selected ${selectedTTSVoiceRef.current}.`,
+          `You selected ${spokenVoiceName(selectedTTSVoiceRef.current)}.`,
           'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
         ]);
 

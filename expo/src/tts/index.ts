@@ -30,8 +30,23 @@ import type { TTSVoiceChoice } from '../appflow';
 // plugins/withDaVoiceNativeAssets (from assets/models/local) and loaded by file
 // name; a require() would also bundle them a second time through Metro.
 const sharedTTS2Model = 'model_ex2_rich_kate.dm';
-const arianaModel = 'model_ex_ariana_fast_davoice_phoneme.dm';
 const hannaModel = 'model_ex_hanna_light_davoice_ph.dm';
+
+// Voices of the shared model whose speaker name in the model differs from the
+// label in the picker (Speech.changeVoice takes the model's name).
+const TTS2_SPEAKER_NAMES: Partial<Record<TTSVoiceChoice, string>> = {
+  Hanna2: 'Hanna',
+};
+
+/** The speaker's name inside the shared model, for Speech.changeVoice. */
+export function ttsSpeakerName(voice: TTSVoiceChoice): string {
+  return TTS2_SPEAKER_NAMES[voice] ?? voice;
+}
+
+/** The voice's name as the app says it ("Hanna 2", not "Hanna2"). */
+export function spokenVoiceName(voice: TTSVoiceChoice): string {
+  return voice === 'Hanna2' ? 'Hanna 2' : voice;
+}
 
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
   if (useTTS2Only) {
@@ -39,6 +54,7 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
       Ariana: ARIANA_SPEAKER_SPEED_NEW_MODEL,
       Rich: RICH_SPEAKER_SPEED_NEW_MODEL,
       Hanna: HANNA_SPEAKER_SPEED_NEW_MODEL,
+      Hanna2: HANNA_SPEAKER_SPEED_NEW_MODEL,
       Kate: KATE_SPEAKER_SPEED_NEW_MODEL,
       Jenny: KATE_SPEAKER_SPEED_NEW_MODEL,
       Matthew: KATE_SPEAKER_SPEED_NEW_MODEL,
@@ -52,8 +68,11 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
     Jenny: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Matthew: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Gloria: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Ariana: { model: arianaModel, speed: ARIANA_SPEAKER_SPEED, usesTTS2: false },
+    // Ariana is a voice of the shared model (her own model is no longer used).
+    Ariana: { model: sharedTTS2Model, speed: ARIANA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Hanna: { model: hannaModel, speed: HANNA_SPEAKER_SPEED, usesTTS2: false },
+    // Hanna's voice in the shared model (on trial next to her own model above).
+    Hanna2: { model: sharedTTS2Model, speed: HANNA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
   };
   return voices[voice];
 }
@@ -79,7 +98,7 @@ export async function playWakewordIntroSpeech({
   const speechUiEpoch = beginSpeechUiEpoch();
   await Speech.pauseSpeechRecognition();
   const introLine =
-    `My name is ${selectedSpeakerName}, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.`;
+    `My name is ${spokenVoiceName(selectedSpeakerName)}, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.`;
   // setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
   // setIntroSpeakerName(selectedSpeakerName);
   // setIntroScript(introLine);
