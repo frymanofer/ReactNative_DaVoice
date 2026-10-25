@@ -9,7 +9,6 @@ const path = require('path');
 const MB = 1024 * 1024;
 const FILES = [
   { file: path.join('assets', 'models', 'local', 'model_ex2_rich_kate.dm'), min: 50 * MB },
-  { file: path.join('assets', 'models', 'local', 'model_ex_hanna_light_davoice_ph.dm'), min: 50 * MB },
   { file: path.join('assets', 'models', 'local', 'sv.dm'), min: 1 * MB },
   { file: path.join('assets', 'models', 'local', 'hey_coach_model_28_22012026b.dm'), min: 100 * 1024 },
 ];
