@@ -89,6 +89,7 @@ export async function ensureModelLoaded(
     if (previous) await previous.catch(() => undefined);
     await ensureModelLoadedOnce(model, licenseKey, options, onDownloadProgress);
     if (activeLoad === load) activeLoadDone = true;
+    console.log(`[LocalLLM] "${model.displayName}" ready=${activeLoadDone}`);
   })().catch((error) => {
     if (activeLoad === load) {
       activeLoad = null;
@@ -111,6 +112,7 @@ async function ensureModelLoadedOnce(
     await downloadModel(model, onDownloadProgress);
   }
 
+  console.log(`[LocalLLM] loading "${model.displayName}"`);
   const bridge = localLLMBridge();
   const licensed = await bridge.setLicense(licenseKey);
   if (!licensed) {
@@ -130,6 +132,7 @@ async function ensureModelLoadedOnce(
     cacheTypeK: options?.cacheTypeK,
     cacheTypeV: options?.cacheTypeV,
   });
+  console.log(`[LocalLLM] native load done for "${model.displayName}"`);
 }
 
 /** The model the native engine has (or is loading), if any. */

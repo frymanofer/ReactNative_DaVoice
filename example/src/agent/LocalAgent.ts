@@ -48,6 +48,31 @@ function agentSettings(): AgentConfig {
   };
 }
 
+// The router's sentence-embedding model (all-MiniLM-L6-v2, 25 MB): the agent
+// decides what a turn needs (web search, a calorie tool, neither) by
+// comparing the user's words with example sentences. Downloaded once; until
+// then the router compares words directly.
+const EMBEDDING_MODEL_URL =
+  'https://huggingface.co/second-state/All-MiniLM-L6-v2-Embedding-GGUF/resolve/main/all-MiniLM-L6-v2-Q8_0.gguf';
+const EMBEDDING_MODEL_PATH = `${RNFS.DocumentDirectoryPath}/models/all-MiniLM-L6-v2-Q8_0.gguf`;
+
+async function setUpRouterEmbeddings(agent: Agent): Promise<void> {
+  try {
+    if (!(await RNFS.exists(EMBEDDING_MODEL_PATH))) {
+      await RNFS.mkdir(`${RNFS.DocumentDirectoryPath}/models`);
+      const tmp = `${EMBEDDING_MODEL_PATH}.download`;
+      const { promise } = RNFS.downloadFile({ fromUrl: EMBEDDING_MODEL_URL, toFile: tmp, background: true });
+      const result = await promise;
+      if (result.statusCode !== 200) throw new Error(`HTTP ${result.statusCode}`);
+      await RNFS.moveFile(tmp, EMBEDDING_MODEL_PATH);
+    }
+    await agent.configure({ router: { embeddingModel: EMBEDDING_MODEL_PATH } });
+    console.log('[DavoiceAgent] router embedding model set');
+  } catch (error) {
+    console.log('[DavoiceAgent] router embedding model not available (word overlap is used):', error);
+  }
+}
+
 const listeners = new Set<(event: AgentEvent) => void>();
 let agentPromise: Promise<Agent> | null = null;
 
@@ -58,6 +83,9 @@ export function getLocalAgent(): Promise<Agent> {
       if (event.type === 'log') console.log(`[DavoiceAgent] ${event.level}: ${event.message}`);
       for (const listener of [...listeners]) listener(event);
     },
+  }).then((agent) => {
+    void setUpRouterEmbeddings(agent); // in the background: turns work meanwhile
+    return agent;
   }).catch((error) => {
     agentPromise = null;
     throw error;

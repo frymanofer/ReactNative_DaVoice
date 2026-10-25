@@ -27,8 +27,6 @@ export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPress
 import type { TTSVoiceChoice } from '../appflow';
 
 const sharedTTS2Model = require('../../assets/models/model_ex2_rich_kate.dm');
-const arianaModel = require('../../assets/models/model_ex_ariana_fast_davoice_phoneme.dm');
-const hannaModel = require('../../assets/models/model_ex_hanna_light_davoice_ph.dm');
 
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
   if (useTTS2Only) {
@@ -49,8 +47,9 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
     Jenny: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Matthew: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Gloria: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Ariana: { model: arianaModel, speed: ARIANA_SPEAKER_SPEED, usesTTS2: false },
-    Hanna: { model: hannaModel, speed: HANNA_SPEAKER_SPEED, usesTTS2: false },
+    // Every voice is a speaker of the shared model.
+    Ariana: { model: sharedTTS2Model, speed: ARIANA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Hanna: { model: sharedTTS2Model, speed: HANNA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
   };
   return voices[voice];
 }
