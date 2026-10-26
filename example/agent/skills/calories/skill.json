@@ -136,7 +136,12 @@
         "Log my breakfast: toast and jam.",
         "Can you log another egg for me, please?",
         "Add another coffee.",
-        "One more banana."
+        "One more banana.",
+        "I had three eggs this morning.",
+        "I ate two slices of toast for breakfast.",
+        "I had a bowl of soup for dinner.",
+        "We had pancakes for breakfast.",
+        "I had two apples as a snack."
       ],
       "get_calories_today": [
         "How many calories have I had today?",
@@ -271,7 +276,42 @@
       "What is in my list?",
       "I was just looking at the list."
     ],
-    "noToolExamplesComment": "Sentences about the tracker that need no tool (describing the list, talking about earlier entries): the router's calories.none route."
+    "noToolExamplesComment": "Sentences about the tracker that need no tool (describing the list, talking about earlier entries): the router's calories.none route.",
+    "claimCheck": {
+      "claims": [
+        "I've logged two eggs for you.",
+        "I have added a banana to your tracker.",
+        "I will remove the egg from your list.",
+        "I've removed the coffee.",
+        "I deleted the banana from today's list.",
+        "I've corrected the entry.",
+        "I've updated your calorie total.",
+        "I have undone the last change.",
+        "I'll log that for you.",
+        "Okay, logging one egg now.",
+        "I have reset your total to zero.",
+        "Done, it's been added.",
+        "I'll change that entry.",
+        "I've put it in your log."
+      ],
+      "notClaims": [
+        "There are three eggs logged today.",
+        "You have logged two eggs and a banana.",
+        "Your total for today is 261 calories.",
+        "An egg has about 78 calories.",
+        "The list shows a banana and two eggs.",
+        "You logged one egg earlier.",
+        "I can't see any coffee in your list.",
+        "Would you like to know your total?",
+        "I haven't changed your tracker.",
+        "Nothing was changed.",
+        "I didn't log anything."
+      ],
+      "minScore": 0.45,
+      "margin": 0.05,
+      "replacement": "I haven't changed your tracker."
+    },
+    "claimCheckComment": "A reply sentence claiming a change (closer to claims than notClaims by margin, and at least minScore) is not said in a turn where no tool changed anything; replacement is said if nothing is left."
   },
   "tools": [
     {

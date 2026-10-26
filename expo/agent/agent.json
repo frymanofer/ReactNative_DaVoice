@@ -1,7 +1,7 @@
 {
   "version": 1,
   "persona": {
-    "systemPrompt": "You are a helpful voice assistant. Keep all answers under four sentences. Do not use markdown, bullet points, or numbered lists. Do not begin a sentence with \"Certainly\" or \"Of course\". Spell out abbreviations when reading aloud."
+    "systemPrompt": "You are a helpful voice assistant. Keep all answers under four sentences. Do not use markdown, bullet points, or numbered lists. Do not begin a sentence with \"Certainly\" or \"Of course\". Spell out abbreviations when reading aloud. When asked where you looked something up, answer from the results earlier in this conversation."
   },
   "prompts": {
     "currentDate": "Today's date is {date}.",
@@ -10,7 +10,8 @@
     "webSearchFailed": "\n\n(A web search for this question failed, for example because the device is offline. The app already told the user that. Say what was true as of your training data, using words like \"as of my training\". Never say it is true today, and never put today's date on it. Keep it to two sentences.)",
     "externalToolsNote": "The other tools listed below come from a connected service; use them when they help.",
     "toolNotAllowed": "Not done: the user did not ask for this. Do not mention it; just answer what the user said.",
-    "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)"
+    "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
+    "noToolRetry": "Reply to what I said above, in plain words."
   },
   "webSearch": {
     "rules": {
@@ -262,7 +263,10 @@
           "What's a good way to fall asleep faster?",
           "Translate hello into Spanish.",
           "What year did World War Two end?",
-          "How many ounces in a pound?"
+          "How many ounces in a pound?",
+          "How many calories does a banana have?",
+          "Is an egg healthy?",
+          "How much protein is in chicken?"
         ]
       },
       {
@@ -293,12 +297,31 @@
           "What do you think about that?",
           "Wow, really?",
           "Cool.",
-          "Which website did you look at?",
           "Why did you say that?",
           "What did you just say?",
           "Can you repeat that?",
-          "Where did you get that from?",
           "Are you sure?"
+        ]
+      },
+      {
+        "id": "sources",
+        "comment": "Where the agent looked things up: answered from what it actually searched (the last web search or food lookup), without the model. {sources} and {query} are filled in; 'none' when nothing was looked up.",
+        "action": {
+          "webSearch": false,
+          "reply": {
+            "text": "I looked on {sources} for {query}.",
+            "none": "I haven't looked anything up online yet."
+          }
+        },
+        "examples": [
+          "Which website did you look at?",
+          "Where did you get that from?",
+          "Where did you look that up?",
+          "What was your source?",
+          "Which site did you check?",
+          "Where did you find that information?",
+          "What did you search?",
+          "Did you look it up online?"
         ]
       }
     ],
@@ -312,7 +335,9 @@
       "lowScore": 0.4,
       "strongMargin": 0.12,
       "lexicalLowScore": 0.3,
-      "lexicalStrongMargin": 0.2
+      "lexicalStrongMargin": 0.2,
+      "exactMatch": 0.9,
+      "lexicalExactMatch": 0.9
     },
     "classifier": {
       "enabled": true,
@@ -326,13 +351,19 @@
     "llm": {
       "enabled": true,
       "maxTokens": 8,
-      "question": "(Before you answer: what kind of message is this? Reply with one word only: search if it needs current information from the internet, such as news, weather, sports, prices or who holds an office; personal if I am telling you about my own life, plans, family or feelings; knowledge if it is a general question you can answer yourself; chat if it is small talk.)",
+      "question": "(Before you answer: what kind of message is this? Reply with one word only: search if it is a question that needs current information from the internet, such as news, weather, sports, prices or who holds an office; food if I am telling you something I ate or drank, even a food you have never heard of; correction if I am correcting something you logged; remove if I am asking to remove something I logged or saying I did not eat it; total if I am asking how many calories I have had today; personal if I am telling you about my own life, plans, family or feelings; knowledge if it is a general question you can answer yourself; chat if it is small talk.)",
       "labels": {
         "search": "webSearch",
+        "food": "calories.log_food",
+        "total": "calories.get_calories_today",
         "personal": "personal",
         "knowledge": "general",
-        "chat": "chat"
-      }
+        "chat": "chat",
+        "remove": "calories.delete_food",
+        "correction": "calories.correct_entry"
+      },
+      "dataToolMinScore": 0.65,
+      "dataToolMinScoreComment": "The model's pick of a tool that changes data is taken only when it is also the router's top candidate with at least this score; otherwise no tool."
     },
     "relevance": {
       "enabled": true,
@@ -346,9 +377,17 @@
       "fromEmptySearch": true,
       "emptySearchRoute": "general",
       "maxLearned": 500,
-      "weight": 1.0
+      "weight": 1.0,
+      "onlyCandidates": true
     },
-    "default": "rules"
+    "default": "rules",
+    "followUp": {
+      "enabled": true,
+      "keepScore": 0.7,
+      "replaces": [
+        "calories.correct_entry"
+      ]
+    }
   },
   "onlineToolFillers": [
     "Let me check that online.",

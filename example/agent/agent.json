@@ -1,7 +1,7 @@
 {
   "version": 1,
   "persona": {
-    "systemPrompt": "You are a helpful voice assistant. Keep all answers under four sentences. Do not use markdown, bullet points, or numbered lists. Do not begin a sentence with \"Certainly\" or \"Of course\". Spell out abbreviations when reading aloud."
+    "systemPrompt": "You are a helpful voice assistant. Keep all answers under four sentences. Do not use markdown, bullet points, or numbered lists. Do not begin a sentence with \"Certainly\" or \"Of course\". Spell out abbreviations when reading aloud. When asked where you looked something up, answer from the results earlier in this conversation."
   },
   "prompts": {
     "currentDate": "Today's date is {date}.",
@@ -297,12 +297,31 @@
           "What do you think about that?",
           "Wow, really?",
           "Cool.",
-          "Which website did you look at?",
           "Why did you say that?",
           "What did you just say?",
           "Can you repeat that?",
-          "Where did you get that from?",
           "Are you sure?"
+        ]
+      },
+      {
+        "id": "sources",
+        "comment": "Where the agent looked things up: answered from what it actually searched (the last web search or food lookup), without the model. {sources} and {query} are filled in; 'none' when nothing was looked up.",
+        "action": {
+          "webSearch": false,
+          "reply": {
+            "text": "I looked on {sources} for {query}.",
+            "none": "I haven't looked anything up online yet."
+          }
+        },
+        "examples": [
+          "Which website did you look at?",
+          "Where did you get that from?",
+          "Where did you look that up?",
+          "What was your source?",
+          "Which site did you check?",
+          "Where did you find that information?",
+          "What did you search?",
+          "Did you look it up online?"
         ]
       }
     ],
@@ -332,7 +351,7 @@
     "llm": {
       "enabled": true,
       "maxTokens": 8,
-      "question": "(Before you answer: what kind of message is this? Reply with one word only: search if it needs current information from the internet, such as news, weather, sports, prices or who holds an office; food if I am telling you something I ate or drank; correction if I am correcting something you logged; remove if I am asking to remove something I logged or saying I did not eat it; total if I am asking how many calories I have had today; personal if I am telling you about my own life, plans, family or feelings; knowledge if it is a general question you can answer yourself; chat if it is small talk.)",
+      "question": "(Before you answer: what kind of message is this? Reply with one word only: search if it is a question that needs current information from the internet, such as news, weather, sports, prices or who holds an office; food if I am telling you something I ate or drank, even a food you have never heard of; correction if I am correcting something you logged; remove if I am asking to remove something I logged or saying I did not eat it; total if I am asking how many calories I have had today; personal if I am telling you about my own life, plans, family or feelings; knowledge if it is a general question you can answer yourself; chat if it is small talk.)",
       "labels": {
         "search": "webSearch",
         "food": "calories.log_food",
