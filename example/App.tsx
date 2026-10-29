@@ -58,6 +58,26 @@ import {
   TTSVoiceChoice,
 } from './src/appflow';
 import { LocalLLMProvider } from './src/aichat/provider';
+import {
+  CLONED_VOICES_PATH,
+  DEFAULT_VOICE_VOLUME_PERCENT,
+  MAX_RECORDING_SECONDS,
+  MAX_VOICE_VOLUME_PERCENT,
+  MIN_VOICE_VOLUME_PERCENT,
+  VOICE_VOLUME_STEP,
+  RECOMMENDED_RECORDING_SECONDS,
+  VOICE_CLONE_READING_TEXT,
+  cancelVoiceRecording,
+  createClonedVoice,
+  deleteClonedVoice,
+  getVoiceRecordingStatus,
+  loadClonedVoices,
+  pickVoiceAudioFile,
+  startVoiceRecording,
+  stopVoiceRecording,
+  voiceNameProblem,
+} from './src/tts/voiceClone';
+import type { VoiceCloneResult } from 'react-native-davoice/speech';
 import ModelPicker from './src/local_llm/ModelPicker';
 import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
@@ -143,6 +163,27 @@ function App(): React.JSX.Element {
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
   const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
+  // Voice cloning (src/tts/voiceClone.ts): the cloned voices found in
+  // CLONED_VOICES_PATH, and the "Clone a new Voice" screen.
+  const [clonedVoices, setClonedVoices] = useState<string[]>([]);
+  const clonedVoicesRef = useRef<string[]>([]);
+  const [showVoiceCloneScreen, setShowVoiceCloneScreen] = useState(false);
+  const [cloneName, setCloneName] = useState('');
+  const [cloneSource, setCloneSource] = useState<'mic' | 'file'>('mic');
+  // Voice volume in percent (100 = the recording's loudness), sent as volume = percent / 100.
+  const [cloneVolumePercent, setCloneVolumePercent] = useState(DEFAULT_VOICE_VOLUME_PERCENT);
+  const [cloneRecording, setCloneRecording] = useState(false);
+  const [cloneRecordSeconds, setCloneRecordSeconds] = useState(0);
+  const [cloneRecordPeak, setCloneRecordPeak] = useState(0);
+  const [cloneAudio, setCloneAudio] = useState<{ path: string; label: string } | null>(null);
+  const [cloneBusy, setCloneBusy] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  const [cloneResult, setCloneResult] = useState<VoiceCloneResult | null>(null);
+  const cloneStatusTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // "Use Microphone" scrolls the clone screen down to the record button.
+  const cloneScrollRef = useRef<ScrollView | null>(null);
+  const cloneRecordButtonRef = useRef<View | null>(null);
+  const cloneScrollToRecordPendingRef = useRef(false);
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
   const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
   const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_TTS_VOICE, useTTS2Only.current).model);
@@ -602,6 +643,8 @@ function App(): React.JSX.Element {
     );
     console.log('[STT_DIAG] initialized', { withSV: !!enrollmentJsonPath,
       native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    // Cloned voices: a (re)load forgets the folder, so set it again.
+    updateClonedVoices(await loadClonedVoices());
     await applySelectedTTSVoice();
     Speech.onFinishedSpeaking = async () => {
       console.log('onFinishedSpeaking(): ✅ Finished speaking (last WAV done).');
@@ -616,6 +659,11 @@ function App(): React.JSX.Element {
     await Speech.pauseSpeechRecognition();
   }
 
+  function updateClonedVoices(names: string[]) {
+    clonedVoicesRef.current = names;
+    setClonedVoices(names);
+  }
+
   async function applySelectedTTSVoice() {
     if (!getTTSVoiceConfig(selectedTTSVoiceRef.current, useTTS2Only.current).usesTTS2) return;
     const voice = selectedTTSVoiceRef.current;
@@ -624,6 +672,204 @@ function App(): React.JSX.Element {
       console.warn(`[TTS] Speech.changeVoice("${voice}") failed or is unsupported on this platform.`);
     }
   }
+
+  // ---- Voice cloning screen ----
+  const cloneRecordingRef = useRef(false);
+  const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+  function openVoiceCloneScreen() {
+    setCloneName('');
+    setCloneSource('mic');
+    setCloneVolumePercent(DEFAULT_VOICE_VOLUME_PERCENT);
+    setCloneAudio(null);
+    setCloneError(null);
+    setCloneResult(null);
+    setCloneRecordSeconds(0);
+    setCloneRecordPeak(0);
+    setShowVoiceCloneScreen(true);
+  }
+
+  async function closeVoiceCloneScreen() {
+    if (cloneRecordingRef.current) await stopCloneRecording(true);
+    setShowVoiceCloneScreen(false);
+  }
+
+  async function startCloneRecording() {
+    if (cloneRecordingRef.current) return;
+    setCloneError(null);
+    setCloneResult(null);
+    setCloneAudio(null);
+    try {
+      // The wake word releases the microphone while the sample is recorded
+      // (speech recognition is already paused on this screen).
+      await myInstanceRef.current?.pauseDetection(true);
+      await startVoiceRecording();
+      cloneRecordingRef.current = true;
+      setCloneRecording(true);
+      setCloneRecordSeconds(0);
+      setCloneRecordPeak(0);
+      cloneStatusTimerRef.current = setInterval(async () => {
+        try {
+          const status = await getVoiceRecordingStatus();
+          setCloneRecordSeconds(status.seconds);
+          setCloneRecordPeak(status.peak);
+          if (status.seconds >= MAX_RECORDING_SECONDS) void stopCloneRecording(false);
+        } catch {
+          // the next tick tries again
+        }
+      }, 200);
+    } catch (error) {
+      await myInstanceRef.current?.unPauseDetection().catch(() => undefined);
+      setCloneError(`Recording could not start: ${errorText(error)}`);
+    }
+  }
+
+  async function stopCloneRecording(discard: boolean) {
+    if (!cloneRecordingRef.current) return;
+    cloneRecordingRef.current = false;
+    if (cloneStatusTimerRef.current) {
+      clearInterval(cloneStatusTimerRef.current);
+      cloneStatusTimerRef.current = null;
+    }
+    setCloneRecording(false);
+    try {
+      if (discard) {
+        await cancelVoiceRecording();
+      } else {
+        const recording = await stopVoiceRecording();
+        setCloneAudio({ path: recording.path, label: `Microphone recording (${recording.seconds.toFixed(1)} s)` });
+        if (recording.seconds < 4) {
+          setCloneError(`The recording is very short. Record about ${RECOMMENDED_RECORDING_SECONDS} seconds for a good voice.`);
+        }
+      }
+    } catch (error) {
+      setCloneError(`Recording failed: ${errorText(error)}`);
+    } finally {
+      await myInstanceRef.current?.unPauseDetection().catch(() => undefined);
+    }
+  }
+
+  async function pickCloneFile() {
+    setCloneError(null);
+    setCloneResult(null);
+    try {
+      const file = await pickVoiceAudioFile();
+      if (file) setCloneAudio({ path: file.path, label: file.name });
+    } catch (error) {
+      setCloneError(`The file could not be opened: ${errorText(error)}`);
+    }
+  }
+
+  async function createVoiceFromSample() {
+    const problem = voiceNameProblem(cloneName, TTS_VOICE_OPTIONS);
+    if (problem) {
+      setCloneError(problem);
+      return;
+    }
+    if (!cloneAudio) {
+      setCloneError(cloneSource === 'mic' ? 'Record your voice first.' : 'Choose an audio file first.');
+      return;
+    }
+    setCloneBusy(true);
+    setCloneError(null);
+    setCloneResult(null);
+    try {
+      const result = await createClonedVoice(cloneAudio.path, cloneName, cloneVolumePercent / 100);
+      setCloneResult(result);
+      updateClonedVoices(await loadClonedVoices());
+    } catch (error) {
+      setCloneError(`The voice could not be created: ${errorText(error)}`);
+    } finally {
+      setCloneBusy(false);
+    }
+  }
+
+  // A new volume needs a new voice: clear the result so "Create Voice" shows
+  // again (the same name replaces the voice).
+  function changeCloneVolume(delta: number) {
+    setCloneVolumePercent((percent) =>
+      Math.min(MAX_VOICE_VOLUME_PERCENT, Math.max(MIN_VOICE_VOLUME_PERCENT, percent + delta)));
+    setCloneResult(null);
+  }
+
+  async function listenToClonedVoice() {
+    if (!cloneResult) return;
+    try {
+      await Speech.changeVoice(cloneResult.voice);
+      await speakText(`Hi! I am ${cloneResult.voice}. This is my new cloned voice.`, SPEAKER, getTTSVoiceConfig(cloneResult.voice, useTTS2Only.current).speed);
+    } catch (error) {
+      setCloneError(`The voice could not be played: ${errorText(error)}`);
+    }
+  }
+
+  // Scrolls the clone screen so the record button sits near the bottom of the
+  // screen, with the text to read above it. False when it isn't laid out yet.
+  function scrollToCloneRecordButton(): boolean {
+    const scroll = cloneScrollRef.current;
+    const button = cloneRecordButtonRef.current;
+    const content = (scroll as any)?.getInnerViewRef?.();
+    if (!scroll || !button || !content) return false;
+    button.measureLayout(
+      content,
+      (_x, y, _width, height) => {
+        scroll.scrollTo({ y: Math.max(0, y + height + 32 - windowHeight), animated: true });
+      },
+      () => undefined,
+    );
+    return true;
+  }
+
+  function chooseMicrophoneSample() {
+    // The record button appears after this render (or is already there).
+    cloneScrollToRecordPendingRef.current = true;
+    setTimeout(() => {
+      if (cloneScrollToRecordPendingRef.current && scrollToCloneRecordButton()) {
+        cloneScrollToRecordPendingRef.current = false;
+      }
+    }, 100);
+  }
+
+  async function playCloneSample() {
+    if (!cloneAudio) return;
+    try {
+      // The whole sample, as recorded or uploaded.
+      await Speech.playWav(cloneAudio.path, false);
+    } catch (error) {
+      setCloneError(`The recording could not be played: ${errorText(error)}`);
+    }
+  }
+
+  function confirmDeleteClonedVoice(name: string) {
+    Alert.alert('Delete Cloned Voice', `Delete the voice "${name}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void removeClonedVoice(name) },
+    ]);
+  }
+
+  async function removeClonedVoice(name: string) {
+    try {
+      updateClonedVoices(await deleteClonedVoice(name));
+      setTtsVoiceChoice((current) => (current === name ? DEFAULT_TTS_VOICE : current));
+      if (selectedTTSVoiceRef.current === name) {
+        // The narrator was using it: back to the default voice.
+        selectedTTSVoiceRef.current = DEFAULT_TTS_VOICE;
+        await applySelectedTTSVoice();
+      }
+    } catch (error) {
+      Alert.alert('Delete Cloned Voice', `The voice could not be deleted: ${errorText(error)}`);
+    }
+  }
+
+  function chooseClonedVoice() {
+    if (!cloneResult) return;
+    setTtsVoiceChoice(cloneResult.voice);
+    setShowVoiceCloneScreen(false);
+  }
+
+  useEffect(() => () => {
+    if (cloneStatusTimerRef.current) clearInterval(cloneStatusTimerRef.current);
+    if (cloneRecordingRef.current) void cancelVoiceRecording();
+  }, []);
 
   async function promptForTTSModelChoice() {
     const choice = await promptForTTSModelChoiceBase({
@@ -1402,9 +1648,9 @@ function App(): React.JSX.Element {
 
         // Bootstrap already resumed detection after loading the speech packages.
         const narratorVoice = selectedTTSVoiceRef.current;
-        const otherVoices = TTS_VOICE_OPTIONS
-          .filter((voice) => voice !== narratorVoice)
-          .join(' or ');
+        const cloningChoices = clonedVoicesRef.current.length > 0
+          ? 'You can either clone a new voice, select from your cloned voices, or select from the built-in voices.'
+          : 'You can either clone a new voice, or select from the built-in voices.';
 
         /*if (narratorVoice === 'Rich') { 
           await speakStartupNarration([
@@ -1417,7 +1663,7 @@ function App(): React.JSX.Element {
           await speakStartupNarration([
             `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
             `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
+            `First, please choose which voice you want to use. ${cloningChoices}`,
           ]);
         /*}*/
 /*
@@ -1819,7 +2065,10 @@ function App(): React.JSX.Element {
 
   const renderPromptScreen = (
     content: React.ReactNode,
-    options?: { keyboardShouldPersistTaps?: 'always' | 'never' | 'handled' },
+    options?: {
+      keyboardShouldPersistTaps?: 'always' | 'never' | 'handled';
+      scrollRef?: React.RefObject<ScrollView | null>;
+    },
   ) => (
     <View style={styles.linearGradient}>
       <StatusBar
@@ -1828,6 +2077,7 @@ function App(): React.JSX.Element {
         translucent
       />
       <ScrollView
+        ref={options?.scrollRef}
         style={styles.screenScroll}
         contentContainerStyle={[styles.screenScrollContent, { paddingTop: contentTopPadding }]}
         keyboardShouldPersistTaps={options?.keyboardShouldPersistTaps}>
@@ -2098,15 +2348,265 @@ function App(): React.JSX.Element {
     );
   }
 
+  if (showVoiceCloneScreen) {
+    const existingClone = clonedVoices.find((voice) => voice.toLowerCase() === cloneName.trim().toLowerCase());
+    const recordMinutes = Math.floor(cloneRecordSeconds / 60);
+    const recordClock = `${recordMinutes}:${String(Math.floor(cloneRecordSeconds % 60)).padStart(2, '0')}`;
+    const levelWidth: DimensionValue = `${Math.round(Math.min(1, cloneRecordPeak) * 100)}%`;
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
+        <Text style={styles.svPromptTitle}>Clone a New Voice</Text>
+        <Text style={styles.svPromptSubtitle}>
+          Record one person speaking for about {RECOMMENDED_RECORDING_SECONDS} seconds, or upload a recording of one person speaking.
+        </Text>
+
+        <View style={[styles.ttsOptionSection, styles.cloneSection]}>
+          <Text style={styles.ttsOptionLabel}>Voice Name</Text>
+          <TextInput
+            style={styles.cloneInput}
+            placeholder="For example: Dana"
+            placeholderTextColor="rgba(255, 255, 255, 0.45)"
+            value={cloneName}
+            onChangeText={(text) => {
+              setCloneName(text);
+              setCloneError(null);
+            }}
+            autoCapitalize="words"
+            autoCorrect={false}
+            maxLength={30}
+            returnKeyType="done"
+            editable={!cloneBusy}
+          />
+          <Text style={styles.cloneHint}>
+            {existingClone
+              ? `Replaces your cloned voice "${existingClone}".`
+              : 'The voice appears under this name in the voice list. Letters, digits, spaces and dashes.'}
+          </Text>
+        </View>
+
+        <View style={styles.ttsOptionSection}>
+          <Text style={styles.ttsOptionLabel}>Voice Sample</Text>
+          <View style={styles.svButtonRow}>
+            {([
+              { key: 'mic', label: 'Use Microphone' },
+              { key: 'file', label: 'Upload a File' },
+            ] as const).map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={[
+                  styles.svButton,
+                  styles.cloneSourceButton,
+                  cloneSource === option.key ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                ]}
+                activeOpacity={0.7}
+                disabled={cloneRecording || cloneBusy}
+                onPress={() => {
+                  setCloneSource(option.key);
+                  setCloneAudio(null);
+                  setCloneError(null);
+                  setCloneResult(null);
+                  if (option.key === 'mic') chooseMicrophoneSample();
+                }}>
+                <Text style={styles.svButtonText}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {cloneSource === 'mic' ? (
+          <View style={styles.ttsOptionSection}>
+            <Text style={styles.cloneHint}>
+              In a quiet room, read this text aloud in your natural voice, at a steady distance from the phone:
+            </Text>
+            <Text style={styles.cloneReadingText}>{VOICE_CLONE_READING_TEXT}</Text>
+            <View style={styles.cloneRecordRow}>
+              <Text style={styles.cloneRecordClock}>{recordClock}</Text>
+              <View style={styles.cloneLevelTrack}>
+                <View
+                  style={[
+                    styles.cloneLevelFill,
+                    { width: levelWidth },
+                    cloneRecordPeak > 0.97 ? styles.cloneLevelClipping : null,
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.cloneHint}>
+              {cloneRecording
+                ? cloneRecordPeak > 0.97
+                  ? 'Too loud: move the phone a little further away.'
+                  : cloneRecordSeconds < RECOMMENDED_RECORDING_SECONDS
+                    ? `Keep reading: about ${RECOMMENDED_RECORDING_SECONDS} seconds is best.`
+                    : 'Good. Stop when you finish the sentence.'
+                : `Recording stops by itself after ${MAX_RECORDING_SECONDS} seconds.`}
+            </Text>
+            <View
+              ref={cloneRecordButtonRef}
+              collapsable={false}
+              onLayout={() => {
+                if (cloneScrollToRecordPendingRef.current && scrollToCloneRecordButton()) {
+                  cloneScrollToRecordPendingRef.current = false;
+                }
+              }}>
+              <TouchableOpacity
+                style={[styles.svButton, styles.cloneWideButton, cloneRecording ? styles.cloneStopButton : styles.cloneRecordButton]}
+                activeOpacity={0.7}
+                disabled={cloneBusy}
+                onPress={() => (cloneRecording ? stopCloneRecording(false) : startCloneRecording())}>
+                <Text style={styles.svButtonText}>
+                  {cloneRecording ? 'Stop Recording' : cloneAudio ? 'Record Again' : 'Start Recording'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.ttsOptionSection}>
+            <Text style={styles.cloneHint}>
+              A recording of one person speaking, without music: wav, mp3, m4a, aac, flac or ogg.
+            </Text>
+            <TouchableOpacity
+              style={[styles.svButton, styles.cloneWideButton, styles.ttsOptionButtonIdle]}
+              activeOpacity={0.7}
+              disabled={cloneBusy}
+              onPress={pickCloneFile}>
+              <Text style={styles.svButtonText}>{cloneAudio ? 'Choose Another File' : 'Choose Audio File'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {cloneAudio && !cloneRecording ? (
+          <View style={styles.cloneSampleRow}>
+            <Text style={styles.cloneSampleText}>Sample: {cloneAudio.label}</Text>
+            <TouchableOpacity
+              style={[styles.svButton, styles.cloneSmallButton, styles.ttsOptionButtonIdle]}
+              activeOpacity={0.7}
+              disabled={cloneBusy}
+              onPress={playCloneSample}>
+              <Text style={styles.svButtonText}>Play Recording</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        <View style={styles.ttsOptionSection}>
+          <Text style={styles.ttsOptionLabel}>Voice Volume</Text>
+          <View style={styles.cloneVolumeRow}>
+            <TouchableOpacity
+              style={[styles.svButton, styles.cloneVolumeButton, styles.ttsOptionButtonIdle,
+                cloneVolumePercent <= MIN_VOICE_VOLUME_PERCENT && styles.cloneDisabled]}
+              activeOpacity={0.7}
+              disabled={cloneBusy || cloneVolumePercent <= MIN_VOICE_VOLUME_PERCENT}
+              onPress={() => changeCloneVolume(-VOICE_VOLUME_STEP)}>
+              <Text style={styles.svButtonText}>−</Text>
+            </TouchableOpacity>
+            <Text style={styles.cloneVolumeValue}>{cloneVolumePercent}%</Text>
+            <TouchableOpacity
+              style={[styles.svButton, styles.cloneVolumeButton, styles.ttsOptionButtonIdle,
+                cloneVolumePercent >= MAX_VOICE_VOLUME_PERCENT && styles.cloneDisabled]}
+              activeOpacity={0.7}
+              disabled={cloneBusy || cloneVolumePercent >= MAX_VOICE_VOLUME_PERCENT}
+              onPress={() => changeCloneVolume(VOICE_VOLUME_STEP)}>
+              <Text style={styles.svButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.cloneHint}>
+            {cloneVolumePercent === DEFAULT_VOICE_VOLUME_PERCENT
+              ? 'Same loudness as the recording.'
+              : `${Math.abs(cloneVolumePercent - 100)}% ${cloneVolumePercent > 100 ? 'louder' : 'quieter'} than the recording.`}
+          </Text>
+        </View>
+
+        {cloneError ? <Text style={styles.cloneErrorText}>{cloneError}</Text> : null}
+
+        {cloneResult ? (
+          <View style={styles.cloneResultBox}>
+            <Text style={styles.cloneResultTitle}>Voice "{cloneResult.voice}" is ready.</Text>
+            {cloneResult.warnings.length > 0 ? (
+              <Text style={styles.cloneWarningText}>
+                The recording has little clear speech, so the voice may not sound its best. For a better voice, record again for about {RECOMMENDED_RECORDING_SECONDS} seconds in a quiet room.
+              </Text>
+            ) : null}
+            <View style={[styles.svButtonRow, styles.cloneResultButtons]}>
+              <TouchableOpacity
+                style={[styles.svButton, styles.cloneSourceButton, styles.ttsOptionButtonIdle]}
+                activeOpacity={0.7}
+                onPress={listenToClonedVoice}>
+                <Text style={styles.svButtonText}>Listen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.svButton, styles.cloneSourceButton, styles.ttsOptionButtonSelected]}
+                activeOpacity={0.7}
+                onPress={chooseClonedVoice}>
+                <Text style={styles.svButtonText}>Use This Voice</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.svButton, styles.cloneWideButton, styles.ttsContinueButton, (cloneBusy || cloneRecording) && styles.cloneDisabled]}
+            activeOpacity={0.7}
+            disabled={cloneBusy || cloneRecording}
+            onPress={createVoiceFromSample}>
+            <Text style={styles.svButtonText}>{cloneBusy ? 'Creating Voice...' : 'Create Voice'}</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.svButton, styles.cloneWideButton, styles.svButtonNo]}
+          activeOpacity={0.7}
+          disabled={cloneBusy}
+          onPress={closeVoiceCloneScreen}>
+          <Text style={styles.svButtonText}>Back to Voices</Text>
+        </TouchableOpacity>
+        <Text style={styles.cloneFolderText}>Cloned voices folder: {CLONED_VOICES_PATH}</Text>
+      </View>,
+      { keyboardShouldPersistTaps: 'handled', scrollRef: cloneScrollRef },
+    );
+  }
+
   if (showTTSModelPrompt) {
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
             <Text style={styles.svPromptTitle}>Choose Your Voice</Text>
             <Text style={styles.svPromptSubtitle}>
-              Select a voice from model_ex2_rich_kate.dm before the demo starts.
+              Clone a new voice, select one of your cloned voices, or select a built-in voice before the demo starts.
             </Text>
+            <TouchableOpacity
+              style={[styles.svButton, styles.cloneWideButton, styles.cloneNewVoiceButton]}
+              activeOpacity={0.7}
+              onPress={openVoiceCloneScreen}>
+              <Text style={styles.svButtonText}>Clone a new Voice</Text>
+            </TouchableOpacity>
             <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>Voice</Text>
+              <Text style={styles.ttsOptionLabel}>Cloned Voices</Text>
+              {clonedVoices.length > 0 ? (
+                <View style={styles.ttsVoiceGrid}>
+                  {clonedVoices.map((voice) => (
+                    <TouchableOpacity
+                      key={`cloned-${voice}`}
+                      style={[
+                        styles.svButton,
+                        styles.ttsVoiceButton,
+                        ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => setTtsVoiceChoice(voice)}>
+                      <Text style={styles.svButtonText}>{voice}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.cloneHint}>No cloned voices yet.</Text>
+              )}
+              {clonedVoices.includes(ttsVoiceChoice) ? (
+                <TouchableOpacity
+                  style={[styles.svButton, styles.cloneWideButton, styles.cloneDeleteButton]}
+                  activeOpacity={0.7}
+                  onPress={() => confirmDeleteClonedVoice(ttsVoiceChoice)}>
+                  <Text style={styles.svButtonText}>Delete "{ttsVoiceChoice}"</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <View style={styles.ttsOptionSection}>
+              <Text style={styles.ttsOptionLabel}>Built-in Voices</Text>
               <View style={styles.ttsVoiceGrid}>
                 {TTS_VOICE_OPTIONS.map((voice) => (
                   <TouchableOpacity
@@ -3226,6 +3726,160 @@ const styles = StyleSheet.create({
   ttsContinueButton: {
     backgroundColor: '#2E86DE',
     minWidth: 180,
+  },
+  cloneNewVoiceButton: {
+    backgroundColor: '#AF52DE',
+    marginTop: 18,
+    marginBottom: 18,
+  },
+  cloneSection: {
+    marginTop: 18,
+  },
+  cloneWideButton: {
+    width: '100%',
+    paddingHorizontal: 18,
+    marginTop: 10,
+  },
+  cloneSourceButton: {
+    flex: 1,
+    paddingHorizontal: 10,
+  },
+  cloneInput: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#ffffff',
+    fontSize: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  cloneHint: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  cloneReadingText: {
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#ffffff',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  cloneRecordRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cloneRecordClock: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    minWidth: 52,
+  },
+  cloneLevelTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+  },
+  cloneLevelFill: {
+    height: '100%',
+    backgroundColor: '#34C759',
+  },
+  cloneLevelClipping: {
+    backgroundColor: '#FF3B30',
+  },
+  cloneRecordButton: {
+    backgroundColor: '#FF3B30',
+  },
+  cloneStopButton: {
+    backgroundColor: '#FF9500',
+  },
+  cloneDisabled: {
+    opacity: 0.5,
+  },
+  cloneDeleteButton: {
+    backgroundColor: 'rgba(255, 59, 48, 0.85)',
+  },
+  cloneSampleRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  cloneSmallButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  cloneVolumeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  cloneVolumeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    minWidth: 52,
+  },
+  cloneVolumeValue: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    minWidth: 64,
+    textAlign: 'center',
+  },
+  cloneSampleText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#ffffff',
+  },
+  cloneErrorText: {
+    width: '100%',
+    marginBottom: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#FF6B6B',
+  },
+  cloneWarningText: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#FFB340',
+  },
+  cloneResultBox: {
+    width: '100%',
+    marginTop: 6,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(52, 199, 89, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 199, 89, 0.4)',
+  },
+  cloneResultTitle: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  cloneResultButtons: {
+    marginTop: 12,
+  },
+  cloneFolderText: {
+    marginTop: 14,
+    fontSize: 11,
+    lineHeight: 16,
+    color: 'rgba(255, 255, 255, 0.45)',
+    textAlign: 'center',
   },
   svScoreContainer: {
     marginTop: 28,

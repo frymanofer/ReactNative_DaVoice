@@ -14,6 +14,7 @@ export const RICH_SPEAKER_SPEED_NEW_MODEL = 0.95;
 export const ARIANA_SPEAKER_SPEED_NEW_MODEL = 1.0;
 export const HANNA_SPEAKER_SPEED_NEW_MODEL = 1.0;
 export const KATE_SPEAKER_SPEED_NEW_MODEL = 1.0;
+export const CLONED_VOICE_SPEED = 1.0;
 
 // const SPEAKER_SPEED = ARIANA_SPEAKER_SPEED;
 //const SPEAKER_SPEED = 0.75;
@@ -24,16 +25,21 @@ export const SPEAKER_SPEED = 1.0;// 0.85;
 export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
-import type { TTSVoiceChoice } from '../appflow';
+import type { BundledTTSVoice, TTSVoiceChoice } from '../appflow';
 
 // Expo: the model is shipped in the native app by
 // plugins/withDaVoiceNativeAssets (from assets/models/local) and loaded by file
 // name; a require() would also bundle them a second time through Metro.
 const sharedTTS2Model = 'model_ex2_rich_kate.dm';
 
+// Voice encoder for Speech.createVoiceClone(audioPath, outputPath, voiceEmbedder):
+// turns a recording (wav/mp3/m4a/...) into a <name>.emd voice for this English
+// model; Speech.setExternalVoicesPath(folder) then makes it selectable.
+export const voiceEmbedder = require('../../assets/models/embedder_en.dm');
+
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
   if (useTTS2Only) {
-    const speeds: Record<TTSVoiceChoice, number> = {
+    const speeds: Record<BundledTTSVoice, number> = {
       Ariana: ARIANA_SPEAKER_SPEED_NEW_MODEL,
       Rich: RICH_SPEAKER_SPEED_NEW_MODEL,
       Hanna: HANNA_SPEAKER_SPEED_NEW_MODEL,
@@ -42,9 +48,9 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
       Matthew: KATE_SPEAKER_SPEED_NEW_MODEL,
       Gloria: KATE_SPEAKER_SPEED_NEW_MODEL,
     };
-    return { model: sharedTTS2Model, speed: speeds[voice], usesTTS2: true };
+    return { model: sharedTTS2Model, speed: speeds[voice as BundledTTSVoice] ?? CLONED_VOICE_SPEED, usesTTS2: true };
   }
-  const voices = {
+  const voices: Record<BundledTTSVoice, { model: any; speed: number; usesTTS2: boolean }> = {
     Rich: { model: sharedTTS2Model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Kate: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Jenny: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
@@ -54,7 +60,8 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
     Ariana: { model: sharedTTS2Model, speed: ARIANA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     Hanna: { model: sharedTTS2Model, speed: HANNA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
   };
-  return voices[voice];
+  // A cloned voice (an .emd in the cloned voices folder) is a voice of the shared model too.
+  return voices[voice as BundledTTSVoice] ?? { model: sharedTTS2Model, speed: CLONED_VOICE_SPEED, usesTTS2: true };
 }
 
 export async function playWakewordIntroSpeech({

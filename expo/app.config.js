@@ -69,6 +69,8 @@ module.exports = {
           extraFiles: ['assets/stt_bias_conf/words_flattened.txt'],
         },
       ],
+      // Voice cloning: the microphone recording and the audio file picker.
+      './plugins/withVoiceRecorder',
     ],
   },
 };

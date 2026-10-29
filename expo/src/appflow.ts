@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 
-export type TTSVoiceChoice = 'Ariana' | 'Rich' | 'Hanna' | 'Kate' | 'Jenny' | 'Matthew' | 'Gloria';
+// The voices bundled in the TTS model.
+export type BundledTTSVoice = 'Ariana' | 'Rich' | 'Hanna' | 'Kate' | 'Jenny' | 'Matthew' | 'Gloria';
+// A bundled voice, or the name of a cloned voice (src/tts/voiceClone.ts).
+export type TTSVoiceChoice = BundledTTSVoice | (string & {});
 export type TTSQualityChoice = 'lite' | 'heavy';
 export type AppModeChoice = 'local_ai_chat' | 'full_ai_chat' | 'type_to_tts' | 'stt_only' | 'combined';
 export type SVPromptChoice = 'use_existing' | 'redo_onboarding' | 'skip';

@@ -12,6 +12,9 @@ The native setup is done by config plugins on every prebuild:
   `react-native-davoice`, and copies the models loaded by file name (`assets/models/local/`)
   and the speech recognizer's bias list (`assets/stt_bias_conf/words_flattened.txt`) into the
   Android assets and the iOS app bundle
+- `plugins/withVoiceRecorder` (local): voice cloning's microphone recording and audio file
+  picker, the app's own native module `VoiceRecorder` (`plugins/voice-recorder/`, the same
+  files as `../example`), added to the Android and iOS app
 - `expo-build-properties`: Android `minSdkVersion` 29
 - `app.config.js`: the iOS microphone / speech recognition texts, background audio, and the
   `increased-memory-limit` entitlement the on-device LLM needs

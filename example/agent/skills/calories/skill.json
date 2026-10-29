@@ -141,7 +141,10 @@
         "I ate two slices of toast for breakfast.",
         "I had a bowl of soup for dinner.",
         "We had pancakes for breakfast.",
-        "I had two apples as a snack."
+        "I had two apples as a snack.",
+        "Can you log that?",
+        "Please log that for me.",
+        "Add that to my list."
       ],
       "get_calories_today": [
         "How many calories have I had today?",
@@ -181,7 +184,11 @@
         "I never asked you to add that.",
         "Why did you log that? I didn't ask for it.",
         "That's not what I wanted, remove what you just added.",
-        "Stop logging things I didn't ask for."
+        "Stop logging things I didn't ask for.",
+        "I did not say pizza.",
+        "I never said rice, where did you get that?",
+        "Where did you see that I said cheese?",
+        "I didn't say that, why did you log it?"
       ],
       "correct_entry": [
         "I said one egg, not two.",
@@ -260,7 +267,9 @@
           "tell me"
         ],
         "margin": 0.05,
-        "message": "What did you eat or drink?"
+        "message": "What did you eat or drink?",
+        "fromUserWords": 2,
+        "fromUserWordsComment": "The food must be in the user's own words: this turn or the user's message before it (\"log that\"). A food the model made up is never logged; the message is said instead."
       }
     },
     "argumentChecksComment": "A tool argument checked by meaning before the tool runs: closer to invalid than valid examples (by margin) -> message is said instead.",
@@ -503,7 +512,20 @@
       "instead",
       "rather"
     ],
-    "correctionCuesComment": "In a correction, the food (and count) right after one of these words is the logged one to fix ('a tea, not a coffee', 'one egg, not two'); another food named is the new one. The user's words win over the model's arguments."
+    "correctionCuesComment": "In a correction, the food (and count) right after one of these words is the logged one to fix ('a tea, not a coffee', 'one egg, not two'); another food named is the new one. The user's words win over the model's arguments.",
+    "modifierCuts": [
+      "with",
+      "and",
+      "in",
+      "on",
+      "for",
+      "plus",
+      "from",
+      "at"
+    ],
+    "modifierCutsComment": "A food's main part ends before these words ('coffee with milk' -> coffee); the known food must be the last word(s) of that part ('strawberry yogurt' -> yogurt, never strawberries). No known food there: it is looked up online, not guessed.",
+    "routingMask": "food",
+    "routingMaskComment": "With the embedding model, every known food name becomes this word in the routing examples and in the user's words, so the router decides by what the user wants, not by which food was named ('I did not say yogurt' is a complaint, not a log)."
   },
   "onlineLookup": {
     "timeoutMs": 6000,
@@ -565,6 +587,15 @@
     "statusSetTotal": "Done: today's total replaced",
     "statusUndone": "Done: the last change was undone",
     "statusCorrected": "Done: the entry was corrected",
-    "correctNotFound": "I couldn't find {food} in today's list. The list has: {list}. Which one should I fix?"
+    "correctNotFound": "I couldn't find {food} in today's list. The list has: {list}. Which one should I fix?",
+    "replyLogged": "Logged {item}, {calories} calories. Your total today is {total} calories.",
+    "replyLoggedOnline": "Logged {item}, {calories} calories according to {source}. Your total today is {total} calories.",
+    "replyLoggedCalories": "Logged {calories} calories. Your total today is {total} calories.",
+    "replyDeleted": "Removed {item} from today's list. Your total today is {total} calories.",
+    "replyRemoved": "Took off {calories} calories. Your total today is {total} calories.",
+    "replySetTotal": "Your total today is now {total} calories.",
+    "replyCorrected": "Changed {replaced} to {item}. Your total today is {total} calories.",
+    "replyUndone": "Undone. Your total today is {total} calories.",
+    "replyComment": "reply*: what the agent says when the tool is done, filled from the tool's own result (the model does not reword it, so no number can come out wrong, and no second model round is spent). Leave one out to let the model word that reply."
   }
 }
