@@ -22,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
         PackageList(this).packages.apply {
           // Manually add non-autolinkable packages here if needed
           add(WakewordRecordingSharePackage())
+          add(VoiceRecorderPackage())
         }
 
       override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG

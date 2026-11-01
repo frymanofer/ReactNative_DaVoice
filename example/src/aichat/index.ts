@@ -488,20 +488,18 @@ export async function speakNextAIChatSentence({
     const sentence: string = aiChatSpeechQueueRef.current.shift();
     const text = normalizeTextForSpeech(sentence);
     if (!text) continue;
-    const startsAfter: Promise<void> = aiChatSpeechChainRef.current;
     aiChatSpeechPendingRef.current += 1;
+    // Resolves when everything queued so far has been spoken.
     const spoken: Promise<void> = Promise.resolve(speak(text, SPEAKER, getSelectedSpeakerSpeed())).catch((error: any) =>
       console.log('[AIChat] speak failed:', error),
     );
     aiChatSpeechChainRef.current = spoken;
-    // Show the sentence when its turn to be spoken comes, so the text never
-    // runs ahead of the voice.
-    void startsAfter.then(() => {
-      if (!isCurrentTurn()) return;
+    // Show the reply as it is generated, sentence by sentence.
+    if (isCurrentTurn()) {
       setCurrentSpeechSentence(`${speakerLabel}: ${sentence}`);
       setAiChatStatus(`Speaking ${speakerLabel} reply...`);
       revealSpokenText?.(sentence);
-    });
+    }
     void spoken.then(async () => {
       aiChatSpeechPendingRef.current = Math.max(0, aiChatSpeechPendingRef.current - 1);
       await finishIfAllSpoken();
