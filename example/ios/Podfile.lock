@@ -8,7 +8,7 @@ PODS:
   - hermes-engine (0.82.0):
     - hermes-engine/Pre-built (= 0.82.0)
   - hermes-engine/Pre-built (0.82.0)
-  - KeyWordRNBridge (1.0.39):
+  - KeyWordRNBridge (1.0.40):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
   - LLMRNBridge (1.0.7):
@@ -2591,7 +2591,7 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 8642d8f14a548ab718ec112e9bebdfdd154138b5
-  KeyWordRNBridge: 82822808de68c27e1edd9553499ecb4a93d48ad4
+  KeyWordRNBridge: 7ff382437246f43b852ba39cc3aa97bf056a1173
   LLMRNBridge: a44959244b406f66570f16f0b0ceb0d16e43094f
   onnxruntime-c: 07cfff40dda7e1c54a4350bb2ad226c63150fce3
   onnxruntime-objc: b22c5d4517e9804e47c66f1f122ec4a6aa923f86
