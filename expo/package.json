@@ -20,10 +20,10 @@
     "jetifier": "^2.0.0",
     "react": "19.2.3",
     "react-native": "0.85.3",
-    "react-native-davoice": "1.0.122",
-    "react-native-davoice-llm": "1.0.6",
+    "react-native-davoice": "1.0.132",
+    "react-native-davoice-llm": "1.0.7",
     "react-native-fs": "^2.20.0",
-    "react-native-wakeword": "1.1.165"
+    "react-native-wakeword": "1.1.169"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

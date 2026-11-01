@@ -133,7 +133,7 @@ const FULL_AI_CHAT_STT_OPTIONS = {
 // library, so one license key validates for all of them (see the
 // local-llm-scaffold memory notes).
 const LOCAL_LLM_DEMO_LICENSE =
-  'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=';
+  'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=';
 let calledOnce = false;
 
 function App(): React.JSX.Element {
@@ -1617,9 +1617,9 @@ function App(): React.JSX.Element {
           listenerRef,
           myInstanceRef,
           keywordLicense:
-            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
+            'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=',
           speechLicense:
-            'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=',
+            'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=',
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,
