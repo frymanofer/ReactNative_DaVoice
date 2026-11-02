@@ -423,3 +423,17 @@ For Expo users, the minimum recipe is:
 3. place filename-based native models under `assets/models/local/`
 4. run `expo prebuild`
 5. build with Expo or EAS
+
+## Speaker verification onboarding
+
+To get the best results of Speaker Verification signature please use the following in your onboarding:
+
+> [Wake Word], Please send a message to my friend. How's the weather going to be today? Please set a timer for three minutes. Can you play some music for me?
+
+And if you want to make it even stronger add:
+
+> Every morning, I enjoy a fresh cup of coffee while watching the beautiful sunrise.
+
+For example - the following is a perfect onboarding:
+
+> "Hey Coach, Please send a message to my friend. How's the weather going to be today? Please set a timer for three minutes. Can you play some music for me? Every morning, I enjoy a fresh cup of coffee while watching the beautiful sunrise."

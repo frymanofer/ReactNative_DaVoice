@@ -10,6 +10,8 @@ secrets/
 local.config.ts
 # Not part of the app: old models (the app ships assets/models/local/ only), scratch
 assets/models/*.dm
+# ...except the voice encoder voice cloning loads with require() (src/tts/index.ts)
+!assets/models/embedder_en.dm
 assets/models/*.onnx
 old/
 x

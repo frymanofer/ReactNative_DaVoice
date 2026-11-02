@@ -64,6 +64,18 @@ The example supports speaker onboarding and reuse of a saved speaker signature. 
 
 That makes it possible to gate wake-word flows or speech-to-text flows by the onboarded speaker.
 
+To get the best results of Speaker Verification signature please use the following in your onboarding:
+
+> [Wake Word], Please send a message to my friend. How's the weather going to be today? Please set a timer for three minutes. Can you play some music for me?
+
+And if you want to make it even stronger add:
+
+> Every morning, I enjoy a fresh cup of coffee while watching the beautiful sunrise.
+
+For example - the following is a perfect onboarding:
+
+> "Hey Coach, Please send a message to my friend. How's the weather going to be today? Please set a timer for three minutes. Can you play some music for me? Every morning, I enjoy a fresh cup of coffee while watching the beautiful sunrise."
+
 ### 3. React Native speech to text on device
 
 After wake word detection, the app transitions into real-time speech recognition. The example demonstrates flow control between wake word and STT, including pausing detection to reduce conflicts and improve user experience.
