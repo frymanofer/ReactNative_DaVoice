@@ -15,6 +15,7 @@ import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
 import type { Agent, AgentEvent, AgentHistoryMessage, ToolDefinition, ToolTurnMessage, TurnResult } from 'react-native-davoice-llm';
+import { cancel as cancelGeneration, generateStream } from 'react-native-davoice-llm';
 import { getLocalAgent } from '../agent/LocalAgent';
 
 export interface LLMProvider {
@@ -145,10 +146,32 @@ export class LocalLLMProvider implements LLMProvider {
   async warmUp(
     history: AIChatHistoryMessage[] = [],
     onDownloadProgress?: (fractionComplete: number) => void,
+    onWarming?: () => void,
   ): Promise<LocalLLMModelConfig> {
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey, undefined, onDownloadProgress);
-    await this.prefillForTurn(history, '');
+    onWarming?.();
+    // Answer once, on the agent's real prompt for a short "Hello": the system
+    // prompt (persona, tools) is in the model's cache and the first decode has
+    // run, so the user's first turn starts right away. A few tokens are enough.
+    try {
+      const agent = await this.agentFor(model);
+      const prompt = await agent.call<string>('prompt', {
+        text: 'Hello',
+        history: toAgentHistory(history),
+        date: currentDateText(),
+      });
+      const started = Date.now();
+      let tokens = 0;
+      await generateStream(prompt, (_token, done) => {
+        if (!done && ++tokens === 4) cancelGeneration();
+      });
+      console.log(`[LocalLLM] warm-up answered (${tokens} tokens) in ${Date.now() - started} ms`);
+    } catch (error) {
+      // Only a speed-up: a failure here must not block the chat.
+      console.log('[LocalLLM] warm-up generation skipped:', error);
+      await this.prefillForTurn(history, '');
+    }
     return model;
   }
 

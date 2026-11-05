@@ -2040,9 +2040,16 @@ function App(): React.JSX.Element {
       .then(async (mcpTools) => {
         // They run on a remote server: the agent says a filler while they run.
         if (mcpTools.length > 0) await getLocalLLMProvider().setExternalTools(mcpTools);
-        return getLocalLLMProvider().warmUp(history, (fraction) => {
-          if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
-        });
+        return getLocalLLMProvider().warmUp(
+          history,
+          (fraction) => {
+            if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
+          },
+          // Loaded; answering once so the first turn has no delay ("Ready" after).
+          () => {
+            if (isLatest()) setLocalModelStatus('Warming up...');
+          },
+        );
       })
       .then(async (model) => {
         if (!isLatest()) return;
