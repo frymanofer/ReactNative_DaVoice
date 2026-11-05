@@ -1,8 +1,9 @@
 import RNFS from 'react-native-fs';
 import { Agent } from 'react-native-davoice-llm';
-import type { AgentConfig, AgentEvent } from 'react-native-davoice-llm';
+import type { AgentConfig, AgentEvent, AgentRemoteRequest } from 'react-native-davoice-llm';
 
 import { agentPackFor } from './AgentPack';
+import { answerRemoteRequest } from '../aichat/remote';
 import { llmReplyInstruction } from '../appflow';
 import { getTTSLanguage } from '../tts';
 // Local AI Chat's web search engine and API keys, from the git-ignored
@@ -91,6 +92,12 @@ export function getLocalAgent(): Promise<Agent> {
     onEvent: (event) => {
       if (event.type === 'log') console.log(`[DavoiceAgent] ${event.level}: ${event.message}`);
       for (const listener of [...listeners]) listener(event);
+    },
+    // The remote assistant (Gemini) for models that hand over to it (see
+    // LocalLLMModelConfig.remoteAssistant).
+    onRequest: async (request) => {
+      if (request.type === 'remote') return answerRemoteRequest(request as AgentRemoteRequest);
+      throw new Error(`The app does not answer "${request.type}" requests.`);
     },
   }).then((agent) => {
     void setUpRouterEmbeddings(agent); // in the background: turns work meanwhile

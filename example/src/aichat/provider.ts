@@ -10,6 +10,7 @@ import { generateGeminiReply, generateGeminiReplyStream } from './index';
 import type { LocalLLMModelConfig } from '../local_llm/types';
 import { ensureModelLoaded, isModelReady } from '../local_llm/LocalLLMLoader';
 import { getSelectedModel } from '../local_llm/ModelRegistry';
+import { LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
 import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
@@ -116,13 +117,19 @@ export class LocalLLMProvider implements LLMProvider {
     return true;
   }
 
-  /** The agent, set up for `model`'s chat template. */
+  /** The agent, set up for `model`'s chat template and remote assistant. */
   private async agentFor(model: LocalLLMModelConfig): Promise<Agent> {
     const agent = await getLocalAgent();
     // Set once per model, even when calls race (warm-up and a prefill).
     if (this.chatTemplateFor !== model.id) {
       this.chatTemplateFor = model.id;
-      this.chatTemplateSet = agent.configure({ chatTemplate: model.chatTemplate });
+      this.chatTemplateSet = agent.configure({
+        chatTemplate: model.chatTemplate,
+        // Gemini (src/aichat/remote.ts); 15 s, then the phone answers.
+        remote: model.remoteAssistant && LOCAL_LLM_USE_REMOTE_ASSISTANT ? { enabled: true, timeoutMs: 15000 } : false,
+        // false: the model decides every turn with every tool (no router, no skill rules).
+        intentRouter: model.usesRouter !== false,
+      });
     }
     await this.chatTemplateSet;
     return agent;

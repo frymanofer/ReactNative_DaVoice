@@ -11,7 +11,8 @@
     "externalToolsNote": "The other tools listed below come from a connected service; use them when they help.",
     "toolNotAllowed": "Not done: the user did not ask for this. Do not mention it; just answer what the user said.",
     "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
-    "noToolRetry": "Reply to what I said above, in plain words."
+    "noToolRetry": "Reply to what I said above, in plain words.",
+    "noReply": "Sorry, I didn't get that. Could you say it again?"
   },
   "webSearch": {
     "rules": {
@@ -395,6 +396,30 @@
     "Give me a second to look that up.",
     "Let me fetch that for you."
   ],
+  "remote": {
+    "comment": "With configure remote (the DaVoice Agent model): fillers said while the remote assistant (Gemini) answers; what is said when it fails (errors: offline, busy, timeout, unavailable; else failed); the router routes it answers directly (undecided: the router decided nothing), quietRoutes without a filler; the model's own can't-do replies, handed over instead of said.",
+    "fillers": [
+      "One moment, let me check.",
+      "Give me a second to think about that.",
+      "Let me look into that for you.",
+      "Just a moment.",
+      "Let me find out."
+    ],
+    "failed": "Sorry, Gemini couldn't answer that right now. Please try again in a moment.",
+    "errors": {
+      "offline": "I can't reach Gemini. Please check your internet connection and try again.",
+      "busy": "Gemini is busy right now. Please try again in a moment.",
+      "timeout": "Gemini is taking too long to answer. Please try again in a moment.",
+      "unavailable": "Gemini is unavailable right now. Please try again later."
+    },
+    "routes": ["personal", "general", "undecided"],
+    "quietRoutes": ["chat"],
+    "cannotReplies": [
+      "\\bcan(?:'|’)?t do that\\b",
+      "\\bnot able to do that\\b",
+      "not something I can do"
+    ]
+  },
   "memory": {
     "comment": "What the assistant remembers about each user (speaker) across conversations. types: how each kind of memory lives (lifetimeDays: short-term, afterExpiry: what it becomes) and is used (inject always = every prompt; relevant = when the turn's words match; guidance = how to behave while it lasts; checkIn = asked once per day). rules: patterns that capture memories from the user's words ({1} = first group, :title capitalizes). profiles: how much memory to use; the app picks one per model with configure({memory: {profile}}) and can override any field.",
     "defaultProfile": "small",

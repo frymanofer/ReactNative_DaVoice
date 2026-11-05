@@ -63,6 +63,12 @@ export interface LocalLLMModelConfig {
   sizeBytes?: number;
   /** When set, a download whose SHA-256 differs is deleted and reported as failed. */
   sha256?: string;
+  /** Hands what it can't do well to the remote assistant (Gemini, src/aichat/remote.ts):
+   * everything but the tool actions (agent.json "remote"). Offline, it answers itself. */
+  remoteAssistant?: boolean;
+  /** False: no intent router; the model itself decides every turn (which tool, a question, the
+   * remote assistant or a reply), as the fine-tuned DaVoice Agent is trained to. Default true. */
+  usesRouter?: boolean;
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }

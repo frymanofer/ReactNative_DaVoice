@@ -70,17 +70,19 @@ export function normalizeTextForSpeech(text: string): string {
     .trim();
 }
 
-function buildGeminiRequestBody(history: GeminiChatMessage[]) {
+/** `systemExtra` follows the system prompt (e.g. the remote assistant's role and context, src/aichat/remote.ts). */
+function buildGeminiRequestBody(history: GeminiChatMessage[], systemExtra = '', useSearch = true) {
+  const system = [GEMINI_SYSTEM_PROMPT, systemExtra, llmReplyInstruction(getTTSLanguage())]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' ');
   return {
     system_instruction: {
-      parts: [{ text: `${GEMINI_SYSTEM_PROMPT} ${llmReplyInstruction(getTTSLanguage())}`.trim() }],
+      parts: [{ text: system }],
     },
     contents: history,
-    tools: [
-      {
-        google_search: {},
-      },
-    ],
+    // Google Search grounding (its quota is separate from the model's).
+    ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
       temperature: 0.7,
       maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
@@ -160,6 +162,8 @@ export function stripWakeWordPrefix(text: string, wakeWord: string): string {
 export async function generateGeminiReply(
   history: GeminiChatMessage[],
   meta: GeminiRequestLogMeta,
+  systemExtra = '',
+  useSearch = true,
 ): Promise<string> {
   const transcriptPreview =
     meta.userText.length > 120 ? `${meta.userText.slice(0, 120)}...` : meta.userText;
@@ -179,7 +183,7 @@ export async function generateGeminiReply(
     JSON.stringify(history, null, 2),
   );
 
-  const requestBody = buildGeminiRequestBody(history);
+  const requestBody = buildGeminiRequestBody(history, systemExtra, useSearch);
 
   console.log(
     `[AIChat] Gemini request #${meta.requestId} request body`,

@@ -52,6 +52,8 @@ import {
   stripWakeWordPrefix,
 } from './src/aichat';
 import {
+  APP_LANGUAGES,
+  AppLanguage,
   AppModeChoice,
   SV_ONBOARDING_SAMPLE_COUNT,
   SVPromptChoice,
@@ -59,7 +61,7 @@ import {
 } from './src/appflow';
 import { LocalLLMProvider } from './src/aichat/provider';
 import {
-  CLONED_VOICES_PATH,
+  clonedVoicesPath,
   DEFAULT_VOICE_VOLUME_PERCENT,
   MAX_RECORDING_SECONDS,
   MAX_VOICE_VOLUME_PERCENT,
@@ -98,7 +100,8 @@ import { getAdjustedSpeed, mergeSmartKeepPunct, registerSpeechHandlers } from '.
 import {
   runSpeakerVerificationStartupFlow,
 } from './src/speaker_verification/onboarding';
-import { getTTSVoiceConfig, playWakewordIntroSpeech, SPEAKER } from './src/tts';
+import { getTTSVoiceConfig, playWakewordIntroSpeech, setTTSLanguage, SPEAKER } from './src/tts';
+import { loadVoiceAbilities, STYLE_TAG_HINT, voiceStyleExamples } from './src/tts/voiceStyles';
 import {
   attachKeywordListenerOnce,
   AudioPermissionComponent,
@@ -114,8 +117,13 @@ import {
   shareWakewordRecordings,
 } from './src/wakeword';
 
-const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
-const TTS_VOICE_OPTIONS: TTSVoiceChoice[] = ['Ariana', 'Rich', 'Hanna', 'Kate', 'Jenny', 'Matthew', 'Gloria'];
+const DEFAULT_ENGLISH_TTS_VOICE: TTSVoiceChoice = 'Rich';
+const DEFAULT_BRAZILIAN_TTS_VOICE: TTSVoiceChoice = 'Rich';
+// Built-in voices are discovered from the loaded .dm through Speech.getAllVoices().
+
+function defaultTTSVoiceForLanguage(language: AppLanguage): TTSVoiceChoice {
+  return language === 'pt-BR' ? DEFAULT_BRAZILIAN_TTS_VOICE : DEFAULT_ENGLISH_TTS_VOICE;
+}
 
 const SPEECH_INIT_TIMEOUT_MS = 120000;
 // Id of the app's single enrolled speaker (live speaker-verification API).
@@ -162,9 +170,15 @@ function App(): React.JSX.Element {
     null | ((choice: { voice: TTSVoiceChoice }) => void)
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
-  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
+  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_ENGLISH_TTS_VOICE);
+  const [ttsVoiceOptions, setTtsVoiceOptions] = useState<TTSVoiceChoice[]>([]);
+  // Emotion / style variants of each built-in voice (src/tts/voiceStyles.ts);
+  // voices without any are not listed.
+  const [voiceAbilities, setVoiceAbilities] = useState<Record<string, string[]>>({});
+  const [showStyleExamples, setShowStyleExamples] = useState(false);
+  const [playingStyleExample, setPlayingStyleExample] = useState<string | null>(null);
   // Voice cloning (src/tts/voiceClone.ts): the cloned voices found in
-  // CLONED_VOICES_PATH, and the "Clone a new Voice" screen.
+  // clonedVoicesPath(), and the "Clone a new Voice" screen.
   const [clonedVoices, setClonedVoices] = useState<string[]>([]);
   const clonedVoicesRef = useRef<string[]>([]);
   const [showVoiceCloneScreen, setShowVoiceCloneScreen] = useState(false);
@@ -185,8 +199,8 @@ function App(): React.JSX.Element {
   const cloneRecordButtonRef = useRef<View | null>(null);
   const cloneScrollToRecordPendingRef = useRef(false);
   const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
-  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
-  const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_TTS_VOICE, useTTS2Only.current).model);
+  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_ENGLISH_TTS_VOICE);
+  const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_ENGLISH_TTS_VOICE, useTTS2Only.current).model);
   const selectedAppModeRef = useRef<AppModeChoice>('combined');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
@@ -210,6 +224,9 @@ function App(): React.JSX.Element {
 
   const speakText = (text: string, speaker: number = SPEAKER, speed?: number) =>
     Speech.speak(applyTTSTextPolicy(text), speaker, speed);
+  const isBrazilianPortuguese = () => appLanguageRef.current === 'pt-BR';
+  const spokenVoiceName = (voice: TTSVoiceChoice): string =>
+    isBrazilianPortuguese() && voice === 'Rich' ? 'Ritchie' : voice;
 
   const svOnboardingProgress = Math.max(
     0,
@@ -281,9 +298,25 @@ function App(): React.JSX.Element {
   //   }
   // };
 
+  // The language, chosen first (null: the language screen is showing). It
+  // picks the TTS model, the voice-cloning encoder and the STT locale, so the
+  // permission request and the startup wait for it.
+  const [appLanguage, setAppLanguage] = useState<AppLanguage | null>(null);
+  const appLanguageRef = useRef<AppLanguage>('en');
+  function chooseAppLanguage(language: AppLanguage) {
+    appLanguageRef.current = language;
+    setTTSLanguage(language);
+    const defaultVoice = defaultTTSVoiceForLanguage(language);
+    selectedTTSVoiceRef.current = defaultVoice;
+    setTtsVoiceChoice(defaultVoice);
+    selectedTTSModelRef.current = getTTSVoiceConfig(defaultVoice, useTTS2Only.current).model;
+    setAppLanguage(language);
+  }
+
   // permissions + appstate
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   useEffect(() => {
+    if (!appLanguage) return;
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === 'active') {
         try {
@@ -314,7 +347,7 @@ function App(): React.JSX.Element {
     return () => {
       appStateListener.remove();
     };
-  }, []);
+  }, [appLanguage]);
 
   useEffect(() => {
     if (isPermissionGranted && !didInitSID) {
@@ -329,7 +362,7 @@ function App(): React.JSX.Element {
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
-  const [introSpeakerName, setIntroSpeakerName] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
+  const [introSpeakerName, setIntroSpeakerName] = useState<TTSVoiceChoice>(DEFAULT_ENGLISH_TTS_VOICE);
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
@@ -640,9 +673,23 @@ function App(): React.JSX.Element {
       selectedTTSModelRef.current,
       enrollmentJsonPath,
       SV_SPEAKER_ID,
+      APP_LANGUAGES.find((language) => language.id === appLanguageRef.current)?.sttLocale,
     );
     console.log('[STT_DIAG] initialized', { withSV: !!enrollmentJsonPath,
       native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    const availableVoices = await Speech.getAllVoices();
+    const defaultVoice = defaultTTSVoiceForLanguage(appLanguageRef.current);
+    const voices = availableVoices.length > 0 ? availableVoices : [defaultVoice];
+    setTtsVoiceOptions(voices);
+    const abilities = await loadVoiceAbilities(Speech, availableVoices);
+    setVoiceAbilities(abilities);
+    console.log('[TTS] voices with emotions / styles:', abilities);
+    if (!voices.includes(selectedTTSVoiceRef.current)) {
+      const fallbackVoice = voices.includes(defaultVoice) ? defaultVoice : voices[0];
+      selectedTTSVoiceRef.current = fallbackVoice;
+      setTtsVoiceChoice(fallbackVoice);
+    }
+    console.log('[TTS] available voices:', voices);
     // Cloned voices: a (re)load forgets the folder, so set it again.
     updateClonedVoices(await loadClonedVoices());
     await applySelectedTTSVoice();
@@ -671,6 +718,57 @@ function App(): React.JSX.Element {
     if (result !== 0) {
       console.warn(`[TTS] Speech.changeVoice("${voice}") failed or is unsupported on this platform.`);
     }
+  }
+
+  // Plays an emotion / style example with its voice (the voice picked with
+  // Continue is applied again afterwards).
+  async function playStyleExample(voice: TTSVoiceChoice, text: string) {
+    if (!speechLibraryInitializedRef.current) return;
+    setPlayingStyleExample(text);
+    try {
+      await Speech.stopSpeaking();
+      await Speech.changeVoice(voice);
+      await speakText(text, SPEAKER, getTTSVoiceConfig(voice, useTTS2Only.current).speed);
+    } catch (error) {
+      console.warn('[TTS] style example failed:', error);
+    } finally {
+      setPlayingStyleExample((current) => (current === text ? null : current));
+    }
+  }
+
+  // The expandable list of emotion / style examples of `voice`; tapping one
+  // calls onPick with its text.
+  function renderStyleExamples(voice: TTSVoiceChoice, onPick: (text: string) => void, pickHint: string) {
+    const examples = voiceStyleExamples(voiceAbilities[voice] ?? [], appLanguageRef.current);
+    if (examples.length === 0) return null;
+    return (
+      <View style={styles.styleExamplesBox}>
+        <TouchableOpacity
+          style={styles.styleExamplesHeader}
+          activeOpacity={0.7}
+          onPress={() => setShowStyleExamples((prev) => !prev)}>
+          <Text style={styles.styleExamplesTitle}>
+            {showStyleExamples ? '▾' : '▸'} {voice}'s emotions & styles ({examples.length})
+          </Text>
+          <Text style={styles.styleExamplesSubtitle}>{showStyleExamples ? pickHint : 'Tap to see examples'}</Text>
+        </TouchableOpacity>
+        {showStyleExamples ? (
+          <>
+            {examples.map((example) => (
+              <TouchableOpacity
+                key={example.ability}
+                style={[styles.styleExampleButton, playingStyleExample === example.text && styles.ttsOptionButtonSelected]}
+                activeOpacity={0.7}
+                onPress={() => onPick(example.text)}>
+                <Text style={styles.styleExampleLabel}>{example.label}</Text>
+                <Text style={styles.styleExampleText}>{example.text}</Text>
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.cloneHint}>{STYLE_TAG_HINT[appLanguageRef.current]}</Text>
+          </>
+        ) : null}
+      </View>
+    );
   }
 
   // ---- Voice cloning screen ----
@@ -761,7 +859,7 @@ function App(): React.JSX.Element {
   }
 
   async function createVoiceFromSample() {
-    const problem = voiceNameProblem(cloneName, TTS_VOICE_OPTIONS);
+    const problem = voiceNameProblem(cloneName, [...ttsVoiceOptions, ...clonedVoices]);
     if (problem) {
       setCloneError(problem);
       return;
@@ -796,7 +894,13 @@ function App(): React.JSX.Element {
     if (!cloneResult) return;
     try {
       await Speech.changeVoice(cloneResult.voice);
-      await speakText(`Hi! I am ${cloneResult.voice}. This is my new cloned voice.`, SPEAKER, getTTSVoiceConfig(cloneResult.voice, useTTS2Only.current).speed);
+      await speakText(
+        isBrazilianPortuguese()
+          ? `Olá! Eu sou ${cloneResult.voice}. Esta é a minha nova voz clonada.`
+          : `Hi! I am ${cloneResult.voice}. This is my new cloned voice.`,
+        SPEAKER,
+        getTTSVoiceConfig(cloneResult.voice, useTTS2Only.current).speed,
+      );
     } catch (error) {
       setCloneError(`The voice could not be played: ${errorText(error)}`);
     }
@@ -849,10 +953,13 @@ function App(): React.JSX.Element {
   async function removeClonedVoice(name: string) {
     try {
       updateClonedVoices(await deleteClonedVoice(name));
-      setTtsVoiceChoice((current) => (current === name ? DEFAULT_TTS_VOICE : current));
+      // The loaded model's default voice (the Brazilian Portuguese model has its own voices).
+      const defaultVoice = defaultTTSVoiceForLanguage(appLanguageRef.current);
+      const fallbackVoice = ttsVoiceOptions.includes(defaultVoice) ? defaultVoice : ttsVoiceOptions[0] ?? defaultVoice;
+      setTtsVoiceChoice((current) => (current === name ? fallbackVoice : current));
       if (selectedTTSVoiceRef.current === name) {
         // The narrator was using it: back to the default voice.
-        selectedTTSVoiceRef.current = DEFAULT_TTS_VOICE;
+        selectedTTSVoiceRef.current = fallbackVoice;
         await applySelectedTTSVoice();
       }
     } catch (error) {
@@ -1146,6 +1253,8 @@ function App(): React.JSX.Element {
               }
             } else if (event.type === 'status' && event.status === 'searching') {
               setAiChatStatus('Searching the web...');
+            } else if (event.type === 'status' && event.status === 'remote') {
+              setAiChatStatus('Asking the online assistant...');
             } else if (event.type === 'webSearch') {
               setAiChatStatus(
                 event.failed
@@ -1460,10 +1569,14 @@ function App(): React.JSX.Element {
           setIsSpeakerIdentificationActive,
           speechLibraryInitializedRef,
           speakModeSelectionNarration: async () => {
-            await speakStartupNarration([`${cleanWakeWord} detected.`]);
+            await speakStartupNarration([
+              isBrazilianPortuguese() ? `${cleanWakeWord} detectado.` : `${cleanWakeWord} detected.`,
+            ]);
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
             await speakStartupNarration([
-              'Now you can test the voice capabilities in five different ways. You can select a Local AI Chat that runs fully on this device, a full AI Chat using remote Gemini, or simply test Speech to Text and Text to Speech individually or a combination of both.',
+              isBrazilianPortuguese()
+                ? 'Agora você pode testar os recursos de voz de cinco maneiras diferentes. Você pode selecionar o Chat de IA local, que funciona totalmente neste dispositivo; o Chat de IA completo, que usa o Gemini remoto; ou simplesmente testar o reconhecimento de fala e a síntese de voz separadamente, ou combinar os dois.'
+                : 'Now you can test the voice capabilities in five different ways. You can select a Local AI Chat that runs fully on this device, a full AI Chat using remote Gemini, or simply test Speech to Text and Text to Speech individually or a combination of both.',
             ]);
           },
         });
@@ -1647,10 +1760,14 @@ function App(): React.JSX.Element {
         }
 
         // Bootstrap already resumed detection after loading the speech packages.
-        const narratorVoice = selectedTTSVoiceRef.current;
+        const narratorVoice = spokenVoiceName(selectedTTSVoiceRef.current);
         const cloningChoices = clonedVoicesRef.current.length > 0
-          ? 'You can either clone a new voice, select from your cloned voices, or select from the built-in voices.'
-          : 'You can either clone a new voice, or select from the built-in voices.';
+          ? isBrazilianPortuguese()
+            ? 'Você pode clonar uma nova voz, selecionar uma das suas vozes clonadas ou escolher uma voz integrada.'
+            : 'You can either clone a new voice, select from your cloned voices, or select from the built-in voices.'
+          : isBrazilianPortuguese()
+            ? 'Você pode clonar uma nova voz ou escolher uma voz integrada.'
+            : 'You can either clone a new voice, or select from the built-in voices.';
 
         /*if (narratorVoice === 'Rich') { 
           await speakStartupNarration([
@@ -1661,9 +1778,15 @@ function App(): React.JSX.Element {
           ]);
         } else {*/
           await speakStartupNarration([
-            `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
-            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            `First, please choose which voice you want to use. ${cloningChoices}`,
+            isBrazilianPortuguese()
+              ? `Olá. Meu nome é ${narratorVoice}. Neste aplicativo, usaremos minha voz clonada para demonstrar os recursos do nosso agente de IA por voz.`
+              : `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`,
+            isBrazilianPortuguese()
+              ? 'Não se preocupe. Serei seu guia pessoal e conduzirei você passo a passo por esta demonstração.'
+              : `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
+            isBrazilianPortuguese()
+              ? `Primeiro, escolha a voz que você deseja usar. ${cloningChoices}`
+              : `First, please choose which voice you want to use. ${cloningChoices}`,
           ]);
         /*}*/
 /*
@@ -1681,8 +1804,12 @@ function App(): React.JSX.Element {
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          `You selected ${selectedTTSVoiceRef.current}.`,
-          'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
+          isBrazilianPortuguese()
+            ? `Você selecionou ${spokenVoiceName(selectedTTSVoiceRef.current)}.`
+            : `You selected ${selectedTTSVoiceRef.current}.`,
+          isBrazilianPortuguese()
+            ? 'A próxima etapa é configurar a verificação do locutor. Você pode criar uma nova assinatura de voz, usar uma assinatura salva ou pular esta etapa.'
+            : 'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
         ]);
 
         // Pause STT before verification; wake-word detection stays active except
@@ -1736,8 +1863,12 @@ function App(): React.JSX.Element {
         }
 
         await speakStartupNarration([
-          svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
-          `Now please say the wake word ${wakeWords} to continue.`,
+          svChoice === 'skip'
+            ? (isBrazilianPortuguese() ? 'A verificação do locutor foi ignorada.' : 'Speaker verification skipped.')
+            : (isBrazilianPortuguese() ? 'A verificação do locutor está pronta!' : 'Speaker verification is ready!'),
+          isBrazilianPortuguese()
+            ? `Agora diga a palavra de ativação ${wakeWords} para continuar.`
+            : `Now please say the wake word ${wakeWords} to continue.`,
         ], { interruptOnWakeword: false });
         startupInProgressRef.current = false;
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
@@ -1755,7 +1886,7 @@ function App(): React.JSX.Element {
     };
 
     if (initStartedRef.current) return;
-    if (!isPermissionGranted || !didInitSID) return;
+    if (!appLanguage || !isPermissionGranted || !didInitSID) return;
 
     initStartedRef.current = true;
     if (!calledOnce) {
@@ -1768,7 +1899,7 @@ function App(): React.JSX.Element {
       console.log('After calling AudioPermissionComponent();');
     }
 
-  }, [isPermissionGranted, didInitSID]);
+  }, [appLanguage, isPermissionGranted, didInitSID]);
 
   useEffect(() => {
     return () => {
@@ -2120,6 +2251,30 @@ function App(): React.JSX.Element {
       </View>
     );
   };
+
+  // First of all: the language.
+  if (!appLanguage) {
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
+        <Text style={styles.svPromptTitle}>Choose Your Language</Text>
+        <Text style={styles.svPromptSubtitle}>
+          The language for speech recognition and the voices.
+        </Text>
+        <View style={styles.ttsOptionSection}>
+          {APP_LANGUAGES.map((language) => (
+            <TouchableOpacity
+              key={language.id}
+              style={[styles.svButton, styles.cloneWideButton, styles.ttsOptionButtonIdle]}
+              activeOpacity={0.7}
+              onPress={() => chooseAppLanguage(language.id)}>
+              <Text style={styles.svButtonText}>{language.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={styles.cloneHint}>Contact us for 12 additional languages: info@davoice.io</Text>
+      </View>,
+    );
+  }
 
   const isLocalAIChat = selectedAppModeRef.current === 'local_ai_chat';
   const aiChatTitle = isLocalAIChat
@@ -2556,18 +2711,19 @@ function App(): React.JSX.Element {
           onPress={closeVoiceCloneScreen}>
           <Text style={styles.svButtonText}>Back to Voices</Text>
         </TouchableOpacity>
-        <Text style={styles.cloneFolderText}>Cloned voices folder: {CLONED_VOICES_PATH}</Text>
+        <Text style={styles.cloneFolderText}>Cloned voices folder: {clonedVoicesPath()}</Text>
       </View>,
       { keyboardShouldPersistTaps: 'handled', scrollRef: cloneScrollRef },
     );
   }
 
   if (showTTSModelPrompt) {
+    const emotionVoices = ttsVoiceOptions.filter((voice) => voiceAbilities[voice]);
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
             <Text style={styles.svPromptTitle}>Choose Your Voice</Text>
             <Text style={styles.svPromptSubtitle}>
-              Clone a new voice, select one of your cloned voices, or select a built-in voice before the demo starts.
+              Clone a new voice, or select a voice with emotions, a built-in voice, or one of your cloned voices before the demo starts.
             </Text>
             <TouchableOpacity
               style={[styles.svButton, styles.cloneWideButton, styles.cloneNewVoiceButton]}
@@ -2575,6 +2731,50 @@ function App(): React.JSX.Element {
               onPress={openVoiceCloneScreen}>
               <Text style={styles.svButtonText}>Clone a new Voice</Text>
             </TouchableOpacity>
+            {emotionVoices.length > 0 ? (
+              <View style={styles.ttsOptionSection}>
+                <Text style={[styles.ttsOptionLabel, styles.ttsOptionLabelHighlight]}>Voices with Emotions & Styles in Free Text</Text>
+                <View style={styles.ttsVoiceGrid}>
+                  {emotionVoices.map((voice) => (
+                    <TouchableOpacity
+                      key={`emotion-${voice}`}
+                      style={[
+                        styles.svButton,
+                        styles.ttsVoiceButton,
+                        ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => setTtsVoiceChoice(voice)}>
+                      <Text style={styles.svButtonText}>{voice}</Text>
+                      <Text style={styles.styleVoiceBadge}>{voiceAbilities[voice].length} styles</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {renderStyleExamples(
+                  voiceAbilities[ttsVoiceChoice] ? ttsVoiceChoice : emotionVoices[0],
+                  (text) => void playStyleExample(voiceAbilities[ttsVoiceChoice] ? ttsVoiceChoice : emotionVoices[0], text),
+                  'Tap an example to hear it',
+                )}
+              </View>
+            ) : null}
+            <View style={styles.ttsOptionSection}>
+              <Text style={styles.ttsOptionLabel}>{emotionVoices.length > 0 ? 'Other Built-in Voices' : 'Built-in Voices'}</Text>
+              <View style={styles.ttsVoiceGrid}>
+                {ttsVoiceOptions.filter((voice) => !voiceAbilities[voice]).map((voice) => (
+                  <TouchableOpacity
+                    key={voice}
+                    style={[
+                      styles.svButton,
+                      styles.ttsVoiceButton,
+                      ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => setTtsVoiceChoice(voice)}>
+                    <Text style={styles.svButtonText}>{voice}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Cloned Voices</Text>
               {clonedVoices.length > 0 ? (
@@ -2604,24 +2804,6 @@ function App(): React.JSX.Element {
                   <Text style={styles.svButtonText}>Delete "{ttsVoiceChoice}"</Text>
                 </TouchableOpacity>
               ) : null}
-            </View>
-            <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>Built-in Voices</Text>
-              <View style={styles.ttsVoiceGrid}>
-                {TTS_VOICE_OPTIONS.map((voice) => (
-                  <TouchableOpacity
-                    key={voice}
-                    style={[
-                      styles.svButton,
-                      styles.ttsVoiceButton,
-                      ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => setTtsVoiceChoice(voice)}>
-                    <Text style={styles.svButtonText}>{voice}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
             <View style={styles.svButtonRow}>
               <TouchableOpacity
@@ -2781,6 +2963,7 @@ function App(): React.JSX.Element {
                   </View>
                 </InputAccessoryView>
               )}
+              {renderStyleExamples(ttsVoiceChoice, setTtsInputText, 'Tap an example to put it in the text box')}
                 <View style={styles.ttsTestActionRow}>
                   <TouchableOpacity
                     style={[
@@ -3682,6 +3865,51 @@ const styles = StyleSheet.create({
     width: '47%',
     paddingHorizontal: 8,
   },
+  styleExamplesBox: {
+    width: '100%',
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 8,
+  },
+  styleExamplesHeader: {
+    width: '100%',
+  },
+  styleExamplesTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  styleExamplesSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  styleExampleButton: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  styleExampleLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  styleExampleText: {
+    marginTop: 3,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  styleVoiceBadge: {
+    marginTop: 2,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
   ttsVoiceGrid: {
     width: '100%',
     flexDirection: 'row',
@@ -3712,6 +3940,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  ttsOptionLabelHighlight: {
+    alignSelf: 'center',
+    fontSize: 15,
+    color: '#FFD60A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 214, 10, 0.6)',
+    backgroundColor: 'rgba(255, 214, 10, 0.12)',
+    textAlign: 'center',
+    overflow: 'hidden',
   },
   ttsOptionButtonSelected: {
     backgroundColor: '#34C759',
