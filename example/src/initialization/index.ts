@@ -80,6 +80,7 @@ export async function initializeSpeechLibrary(
   selectedTTSModel: any,
   enrollmentJsonPath?: string | null,
   speakerId?: string,
+  locale = 'en-US',
 ) {
   // Suppress STT beeps during model loading by pausing before initAll starts.
   if (Platform.OS === 'android') {
@@ -90,14 +91,14 @@ export async function initializeSpeechLibrary(
   if (typeof enrollmentJsonPath === 'string' && enrollmentJsonPath.length > 0) {
     console.log('Calling Speech.initAll with enrollmentJson:', enrollmentJsonPath);
     await Speech.initAll({
-      locale: 'en-US',
+      locale,
       model: selectedTTSModel,
       onboardingJsonPath: enrollmentJsonPath,
       speakerId,
     });
   } else {
     console.log('Calling Speech.initAll WITHOUT');
-    await Speech.initAll({ locale: 'en-US', model: selectedTTSModel });
+    await Speech.initAll({ locale, model: selectedTTSModel });
   }
 
     try { await Speech.pauseSpeechRecognition(); } catch {}

@@ -111,6 +111,15 @@ async function downloadModelOnce(
     throw new Error(`Model download failed for ${model.displayName}: HTTP ${result.statusCode}`);
   }
 
+  // A cut-off or wrong file would otherwise load as a broken model.
+  if (model.sha256) {
+    const hash = (await RNFS.hash(tmpDest, 'sha256')).toLowerCase();
+    if (hash !== model.sha256.toLowerCase()) {
+      await RNFS.unlink(tmpDest).catch(() => undefined);
+      throw new Error(`Model download failed for ${model.displayName}: checksum mismatch`);
+    }
+  }
+
   // Never clobber a model that is already on disk: the exists() check above
   // and this in-flight-download map should already prevent two transfers to
   // the same dest, but stay defensive in case something outside this module

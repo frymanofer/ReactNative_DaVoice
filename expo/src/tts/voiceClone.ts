@@ -1,8 +1,8 @@
 // Voice cloning: turn a short recording (microphone or an audio file) into a
 // voice the TTS model can speak with.
 //
-// Speech.createVoiceClone(audio, `${CLONED_VOICES_PATH}/<Name>.emd`, voiceEmbedder)
-// writes <Name>.emd; Speech.setExternalVoicesPath(CLONED_VOICES_PATH) makes every
+// Speech.createVoiceClone(audio, `${clonedVoicesPath()}/<Name>.emd`, getVoiceEmbedder())
+// writes <Name>.emd; Speech.setExternalVoicesPath(clonedVoicesPath()) makes every
 // .emd in the folder a selectable voice (Speech.changeVoice(name)), after the
 // voices bundled in the model.
 
@@ -10,13 +10,18 @@ import { NativeModules } from 'react-native';
 import RNFS from 'react-native-fs';
 import Speech from 'react-native-davoice/speech';
 import type { VoiceCloneResult } from 'react-native-davoice/speech';
-import { voiceEmbedder } from './index';
+import { getTTSLanguage, getVoiceEmbedder } from './index';
 
 /**
- * The cloned voices folder: new voices are saved here, and the app looks here
- * for cloned voices. One path for both. Change it to keep voices elsewhere.
+ * The cloned voices folder of the app's language: new voices are saved here, and
+ * the app looks here for cloned voices. One path for both. A voice is made with
+ * the language's encoder, so each language has its own folder. Change it to keep
+ * voices elsewhere.
  */
-export const CLONED_VOICES_PATH = `${RNFS.DocumentDirectoryPath}/cloned_voices`;
+export function clonedVoicesPath(): string {
+  const base = `${RNFS.DocumentDirectoryPath}/cloned_voices`;
+  return getTTSLanguage() === 'en' ? base : `${base}_${getTTSLanguage().replace('-', '_').toLowerCase()}`;
+}
 
 /** The microphone recording, before it becomes a voice (replaced each time). */
 const RECORDING_PATH = `${RNFS.CachesDirectoryPath}/voice_clone_recording.wav`;
@@ -57,13 +62,13 @@ function recorder(): VoiceRecorderModule {
 }
 
 /**
- * Makes the cloned voices in CLONED_VOICES_PATH selectable. Call after every
+ * Makes the cloned voices in clonedVoicesPath() selectable. Call after every
  * Speech.initAll() (a reload forgets the folder). Resolves their names.
  */
 export async function loadClonedVoices(): Promise<string[]> {
   try {
-    if (!(await RNFS.exists(CLONED_VOICES_PATH))) await RNFS.mkdir(CLONED_VOICES_PATH);
-    const names = await Speech.setExternalVoicesPath(CLONED_VOICES_PATH);
+    if (!(await RNFS.exists(clonedVoicesPath()))) await RNFS.mkdir(clonedVoicesPath());
+    const names = await Speech.setExternalVoicesPath(clonedVoicesPath());
     console.log('[VoiceClone] cloned voices:', names);
     return names;
   } catch (error) {
@@ -121,23 +126,23 @@ export async function pickVoiceAudioFile(): Promise<{ path: string; name: string
 }
 
 /**
- * Creates the voice `name` from `audioPath`, saved in CLONED_VOICES_PATH.
+ * Creates the voice `name` from `audioPath`, saved in clonedVoicesPath().
  * `volume`: 1 keeps the recording's loudness, 1.2 is 20% louder, 0.8 20% quieter.
  */
 export async function createClonedVoice(audioPath: string, name: string, volume = 1): Promise<VoiceCloneResult> {
-  if (!(await RNFS.exists(CLONED_VOICES_PATH))) await RNFS.mkdir(CLONED_VOICES_PATH);
+  if (!(await RNFS.exists(clonedVoicesPath()))) await RNFS.mkdir(clonedVoicesPath());
   // Same name (voice names ignore case): the new voice replaces the old one.
   const fileName = `${name.trim()}.emd`.toLowerCase();
-  for (const item of await RNFS.readDir(CLONED_VOICES_PATH)) {
+  for (const item of await RNFS.readDir(clonedVoicesPath())) {
     if (item.isFile() && item.name.toLowerCase() === fileName) await RNFS.unlink(item.path);
   }
   // Make sure the folder is the library's external voices folder, so the new
   // voice is selectable right away.
-  await Speech.setExternalVoicesPath(CLONED_VOICES_PATH);
+  await Speech.setExternalVoicesPath(clonedVoicesPath());
   const result = await Speech.createVoiceClone(
     audioPath,
-    `${CLONED_VOICES_PATH}/${name.trim()}.emd`,
-    voiceEmbedder,
+    `${clonedVoicesPath()}/${name.trim()}.emd`,
+    getVoiceEmbedder(),
     volume,
   );
   console.log(`[VoiceClone] created "${result.voice}" (volume ${volume})`);
@@ -146,12 +151,12 @@ export async function createClonedVoice(audioPath: string, name: string, volume 
 
 /**
  * Deletes the cloned voice `name` (its .emd and its styles, <name>_<style>.emd)
- * from CLONED_VOICES_PATH. Resolves the cloned voices that remain.
+ * from clonedVoicesPath(). Resolves the cloned voices that remain.
  */
 export async function deleteClonedVoice(name: string): Promise<string[]> {
   const voice = name.trim().toLowerCase();
-  if (await RNFS.exists(CLONED_VOICES_PATH)) {
-    for (const item of await RNFS.readDir(CLONED_VOICES_PATH)) {
+  if (await RNFS.exists(clonedVoicesPath())) {
+    for (const item of await RNFS.readDir(clonedVoicesPath())) {
       const file = item.name.toLowerCase();
       if (item.isFile() && (file === `${voice}.emd` || (file.startsWith(`${voice}_`) && file.endsWith('.emd')))) {
         await RNFS.unlink(item.path);

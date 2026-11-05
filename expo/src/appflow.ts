@@ -27,3 +27,36 @@ export function getSVUIDisplayScore(score: number, nativeIsMatch: boolean): numb
   const scoreLastDigits = score.toFixed(3).slice(-2);
   return Number(`${SV_UI_MATCH_DISPLAY_SCORE_PREFIX}${scoreLastDigits}`);
 }
+
+// The app's language, chosen first: it picks the TTS model, the voice-cloning
+// encoder, the speech recognizer's locale (src/tts/index.ts) and the language
+// the AI chats reply in (llmReplyInstruction, added to their system prompts).
+export type AppLanguage = 'en' | 'pt-BR';
+export const APP_LANGUAGES: {
+  id: AppLanguage;
+  label: string;
+  sttLocale: string;
+  llmReplyInstruction: string;
+}[] = [
+  {
+    id: 'en',
+    label: 'English',
+    sttLocale: 'en-US',
+    llmReplyInstruction: 'The user speaks English. Always reply in English.',
+  },
+  {
+    id: 'pt-BR',
+    label: 'Português (Brasil)',
+    sttLocale: 'pt-BR',
+    // Short: the local agent's pack also ends every message to the model with
+    // a reminder (agent/pt-BR/agent.json prompts.replyReminder), which small
+    // models follow better than the system prompt.
+    llmReplyInstruction:
+      'Important: always reply in Brazilian Portuguese (pt-BR). Sempre responda em português do Brasil.',
+  },
+];
+
+/** The system-prompt line that sets the AI chats' reply language. */
+export function llmReplyInstruction(language: AppLanguage): string {
+  return APP_LANGUAGES.find((entry) => entry.id === language)?.llmReplyInstruction ?? '';
+}

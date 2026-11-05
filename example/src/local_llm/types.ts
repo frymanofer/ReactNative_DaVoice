@@ -42,6 +42,11 @@ export interface ChatTemplate {
    * stops on the model's end-of-generation token; this catches models whose
    * GGUF metadata doesn't mark the turn-end marker as one. */
   stopSequences: string[];
+  /** Opens the reply being generated (not earlier replies), e.g. Qwen3's
+   * empty `<think>\n\n</think>\n\n`: thinking off, as its own template does. */
+  generationPrefix?: string;
+  /** Tool calls as JSON with spaces after ':' and ',' (Qwen3's own template). */
+  spacedToolJson?: boolean;
 }
 
 export interface LocalLLMModelConfig {
@@ -56,6 +61,8 @@ export interface LocalLLMModelConfig {
   chatTemplate: ChatTemplate;
   /** Approximate download size, for display only. */
   sizeBytes?: number;
+  /** When set, a download whose SHA-256 differs is deleted and reported as failed. */
+  sha256?: string;
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }

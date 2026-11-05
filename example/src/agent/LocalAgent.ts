@@ -2,7 +2,9 @@ import RNFS from 'react-native-fs';
 import { Agent } from 'react-native-davoice-llm';
 import type { AgentConfig, AgentEvent } from 'react-native-davoice-llm';
 
-import { agentConfig, caloriesFoodsSeed, caloriesSkill } from './AgentPack';
+import { agentPackFor } from './AgentPack';
+import { llmReplyInstruction } from '../appflow';
+import { getTTSLanguage } from '../tts';
 // Local AI Chat's web search engine and API keys, from the git-ignored
 // local.config.ts: WEB_SEARCH_ENGINE = 'wikipedia' (default, no key) |
 // 'tavily' | 'brave', plus TAVILY_API_KEY / BRAVE_API_KEY; USDA_API_KEY for
@@ -24,12 +26,19 @@ const config = LocalConfig as {
 
 function agentSettings(): AgentConfig {
   const usdaApiKey = config.USDA_API_KEY?.trim();
+  const language = getTTSLanguage();
+  const pack = agentPackFor(language);
+  // The reply language (from the language screen) ends the persona, so it is
+  // part of the cached system prompt and the same in every turn and prefill.
+  const systemPrompt = `${pack.agent.persona.systemPrompt} ${llmReplyInstruction(language)}`.trim();
   return {
     pack: {
-      agent: agentConfig,
-      skills: [{ skill: caloriesSkill, data: { 'foods.json': caloriesFoodsSeed } }],
+      agent: { ...pack.agent, persona: { ...pack.agent.persona, systemPrompt } },
+      skills: [{ skill: pack.caloriesSkill, data: { 'foods.json': pack.caloriesFoods } }],
     },
-    databasePath: `${RNFS.DocumentDirectoryPath}/davoice_agent.db`,
+    // One database per language: it holds the food list (seeded from the
+    // pack's foods.json), the calorie log, memories and what the router learned.
+    databasePath: `${RNFS.DocumentDirectoryPath}/${language === 'en' ? 'davoice_agent' : `davoice_agent_${language.replace('-', '_').toLowerCase()}`}.db`,
     // The whole chat (user, model outputs, tools, replies), readable off the
     // phone even when the Xcode console drops lines.
     chatLogPath: `${RNFS.DocumentDirectoryPath}/davoice_chat.log`,
@@ -76,7 +85,7 @@ async function setUpRouterEmbeddings(agent: Agent): Promise<void> {
 const listeners = new Set<(event: AgentEvent) => void>();
 let agentPromise: Promise<Agent> | null = null;
 
-/** The app's one agent, created on first use. */
+/** The app's one agent, created on first use (after the language screen). */
 export function getLocalAgent(): Promise<Agent> {
   agentPromise ??= Agent.create(agentSettings(), {
     onEvent: (event) => {

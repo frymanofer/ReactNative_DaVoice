@@ -9,12 +9,28 @@ export const LOCAL_LLM_E2B: ModelId = 'gemma-3n-e2b-it';
 export const LOCAL_LLM_E4B: ModelId = 'gemma-3n-e4b-it';
 export const LOCAL_LLM_QWEN25_1_5B: ModelId = 'qwen2.5-1.5b-instruct';
 export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
+export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft1';
 
-// URLs are real, verified-reachable Hugging Face files. The Gemma entries use
-// the same unsloth GGUF repos the AmigoLocal reference app uses in
-// production. Sizes are the HF content-length (checked 2026-09-28 for Gemma,
-// 2026-10-04 for Qwen).
+// URLs are real, verified-reachable files. The Gemma entries use the same
+// unsloth GGUF repos the AmigoLocal reference app uses in production. Sizes
+// are the servers' content-length (checked 2026-09-28 for Gemma, 2026-10-04
+// for Qwen, 2026-11-05 for the DaVoice Agent).
 export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
+  {
+    // Qwen3-0.6B fine-tuned (LoRA, first run) for on-device tool calling:
+    // picking the tool, taking its arguments from the user's words, asking
+    // for a missing one, short replies. Hosted on DaVoice's Cloudflare R2.
+    id: LOCAL_LLM_DAVOICE_AGENT_FT1,
+    displayName: 'DaVoice Agent 0.6B',
+    filename: 'davoice-agent-qwen3-0.6b-ft1-q4_0.gguf',
+    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft1-q4_0.gguf',
+    // Trained window is 32768; 8192 as for the other small models.
+    contextSize: 8192,
+    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
+    sizeBytes: 381_565_920,
+    sha256: '2013946d5878d11a141ab6f71eccdbc5a5a21b00311dc952a224c511c318dcb1',
+    isCustom: false,
+  },
   {
     id: LOCAL_LLM_E2B,
     displayName: 'Gemma 3n E2B',
@@ -69,8 +85,15 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
   },
 ];
 
-// Smallest built-in (1.07 GB): fastest to download, load and generate with.
+// Smallest general built-in (1.07 GB): fastest to download, load and generate
+// with. The DaVoice Agent is not the default yet: it was trained on tool
+// decisions only, and stays silent after a tool result or web search and on
+// memory questions. Changing this switches every install to the new default
+// once (see ModelRegistry.ts); the user can pick another model afterwards.
 export const LOCAL_LLM_DEFAULT_MODEL: ModelId = LOCAL_LLM_QWEN25_1_5B;
+
+/** The default before the registry recorded it (files written until 2026-11-05). */
+export const LOCAL_LLM_EARLIER_DEFAULT_MODEL: ModelId = LOCAL_LLM_QWEN25_1_5B;
 
 /** Context size prefilled for a user-added model. */
 export const LOCAL_LLM_DEFAULT_CUSTOM_CONTEXT_SIZE = 4096;

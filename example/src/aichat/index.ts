@@ -1,4 +1,6 @@
 import { GEMINI_API_KEY } from '../../local.config';
+import { llmReplyInstruction } from '../appflow';
+import { getTTSLanguage } from '../tts';
 
 export type GeminiChatMessage = {
   role: 'user' | 'model';
@@ -71,7 +73,7 @@ export function normalizeTextForSpeech(text: string): string {
 function buildGeminiRequestBody(history: GeminiChatMessage[]) {
   return {
     system_instruction: {
-      parts: [{ text: GEMINI_SYSTEM_PROMPT }],
+      parts: [{ text: `${GEMINI_SYSTEM_PROMPT} ${llmReplyInstruction(getTTSLanguage())}`.trim() }],
     },
     contents: history,
     tools: [

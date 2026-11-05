@@ -1,11 +1,15 @@
 // The agent pack: Local AI Chat's behavior as data, in example/agent/ (the
-// Flutter example ships the same files). agent.json holds the persona, prompt
+// Flutter example ships the same files); example/agent/pt-BR/ is the same pack
+// for Brazilian Portuguese (what the user hears in Portuguese, Portuguese words
+// in the patterns, the same instructions to the model). agent.json holds the persona, prompt
 // templates, web-search rules and filler phrases; each skill folder holds a
 // skill's tools, routing rules, messages and data (skills/calories/foods.json).
 // The native agent core interprets them (see LocalAgent.ts); the types below
 // document their shape. Change behavior by editing the files.
 
 import type { ToolChoice } from 'react-native-davoice-llm';
+
+import type { AppLanguage } from '../appflow';
 
 /** Regex patterns are strings, matched case-insensitively. */
 type Pattern = string;
@@ -84,6 +88,26 @@ export interface FoodsSeed {
   foods: Array<{ name: string; calories: number }>;
 }
 
-export const agentConfig: AgentConfig = require('../../agent/agent.json');
-export const caloriesSkill: CaloriesSkillConfig = require('../../agent/skills/calories/skill.json');
-export const caloriesFoodsSeed: FoodsSeed = require('../../agent/skills/calories/foods.json');
+export interface AgentPackFiles {
+  agent: AgentConfig;
+  caloriesSkill: CaloriesSkillConfig;
+  caloriesFoods: FoodsSeed;
+}
+
+const agentPacks: Record<AppLanguage, AgentPackFiles> = {
+  en: {
+    agent: require('../../agent/agent.json'),
+    caloriesSkill: require('../../agent/skills/calories/skill.json'),
+    caloriesFoods: require('../../agent/skills/calories/foods.json'),
+  },
+  'pt-BR': {
+    agent: require('../../agent/pt-BR/agent.json'),
+    caloriesSkill: require('../../agent/pt-BR/skills/calories/skill.json'),
+    caloriesFoods: require('../../agent/pt-BR/skills/calories/foods.json'),
+  },
+};
+
+/** The agent pack of the app's language. */
+export function agentPackFor(language: AppLanguage): AgentPackFiles {
+  return agentPacks[language];
+}

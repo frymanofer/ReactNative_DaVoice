@@ -3,6 +3,7 @@ import type { LocalLLMModelConfig, ModelId } from './types';
 import {
   BUILTIN_LOCAL_LLM_MODELS,
   LOCAL_LLM_DEFAULT_MODEL,
+  LOCAL_LLM_EARLIER_DEFAULT_MODEL,
   LOCAL_LLM_STORAGE_DIR,
 } from './constants';
 
@@ -14,6 +15,9 @@ import {
 interface RegistryFile {
   selectedModelId: ModelId;
   customModels: LocalLLMModelConfig[];
+  /** The app's default when the file was written. A new default (an app
+   * update) is selected once, replacing an earlier choice. */
+  defaultModelId?: ModelId;
 }
 
 function registryDir(): string {
@@ -29,13 +33,16 @@ let writeChain: Promise<void> = Promise.resolve();
 
 async function readRegistry(): Promise<RegistryFile> {
   if (cached) return cached;
-  let file: RegistryFile = { selectedModelId: LOCAL_LLM_DEFAULT_MODEL, customModels: [] };
+  let file: RegistryFile = { selectedModelId: LOCAL_LLM_DEFAULT_MODEL, customModels: [], defaultModelId: LOCAL_LLM_DEFAULT_MODEL };
+  let newDefault = false;
   try {
     if (await RNFS.exists(registryPath())) {
       const parsed = JSON.parse(await RNFS.readFile(registryPath(), 'utf8')) as Partial<RegistryFile>;
+      newDefault = (parsed.defaultModelId ?? LOCAL_LLM_EARLIER_DEFAULT_MODEL) !== LOCAL_LLM_DEFAULT_MODEL;
       file = {
-        selectedModelId: parsed.selectedModelId ?? LOCAL_LLM_DEFAULT_MODEL,
+        selectedModelId: newDefault ? LOCAL_LLM_DEFAULT_MODEL : (parsed.selectedModelId ?? LOCAL_LLM_DEFAULT_MODEL),
         customModels: Array.isArray(parsed.customModels) ? parsed.customModels : [],
+        defaultModelId: LOCAL_LLM_DEFAULT_MODEL,
       };
     }
   } catch (error) {
@@ -43,6 +50,10 @@ async function readRegistry(): Promise<RegistryFile> {
     console.log('[LocalLLM] model registry unreadable, using defaults:', error);
   }
   cached = file;
+  if (newDefault) {
+    console.log(`[LocalLLM] new default model ${LOCAL_LLM_DEFAULT_MODEL} selected`);
+    await writeRegistry((r) => r);
+  }
   return file;
 }
 
@@ -131,6 +142,7 @@ export async function addCustomModel(input: NewCustomModel): Promise<LocalLLMMod
  * file — call ModelManager.deleteModel first if that's wanted. */
 export async function removeCustomModel(id: ModelId): Promise<void> {
   await writeRegistry((r) => ({
+    ...r,
     selectedModelId: r.selectedModelId === id ? LOCAL_LLM_DEFAULT_MODEL : r.selectedModelId,
     customModels: r.customModels.filter((m) => m.id !== id),
   }));
