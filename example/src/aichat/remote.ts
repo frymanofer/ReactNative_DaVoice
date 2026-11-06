@@ -24,7 +24,7 @@ type RemoteFailure = 'offline' | 'busy' | 'unavailable' | 'failed';
 function failureKind(message: string): RemoteFailure {
   if (/network request failed|network|internet|offline|timed? ?out|unable to resolve|connection/i.test(message)) return 'offline';
   // Quota, billing, key or setup: Gemini can't be used now ("unavailable").
-  if (/quota|billing|plan|api key|leaked|permission|denied|invalid|not found|\b(400|401|403|404)\b/i.test(message)) return 'unavailable';
+  if (/quota|billing|credits|depleted|plan|api key|leaked|permission|denied|invalid|not found|\b(400|401|402|403|404)\b/i.test(message)) return 'unavailable';
   if (/\b(429|500|502|503|504)\b|rate|exhausted|overloaded|busy|unavailable|try again/i.test(message)) return 'busy';
   return 'failed';
 }

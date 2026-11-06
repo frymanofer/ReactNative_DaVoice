@@ -130,6 +130,9 @@ export class LocalLLMProvider implements LLMProvider {
         remote: model.remoteAssistant && LOCAL_LLM_USE_REMOTE_ASSISTANT ? { enabled: true, timeoutMs: 15000 } : false,
         // false: the model decides every turn with every tool (no router, no skill rules).
         intentRouter: model.usesRouter !== false,
+        // web_search + get_time for a model trained to call them (as in the benchmark).
+        webSearchTool: model.modelTools === true,
+        timeTool: model.modelTools === true,
       });
     }
     await this.chatTemplateSet;

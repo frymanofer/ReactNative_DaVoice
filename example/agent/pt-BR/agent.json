@@ -13,6 +13,7 @@
     "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
     "noToolRetry": "Reply to what I said above, in plain words.",
     "noReply": "Desculpe, não entendi. Pode repetir?",
+    "invalidArgs": "Desculpe, não entendi todos os detalhes. Pode repetir?",
     "replyReminder": "(Responda em português do Brasil.)"
   },
   "webSearch": {

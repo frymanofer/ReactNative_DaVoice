@@ -69,6 +69,10 @@ export interface LocalLLMModelConfig {
   /** False: no intent router; the model itself decides every turn (which tool, a question, the
    * remote assistant or a reply), as the fine-tuned DaVoice Agent is trained to. Default true. */
   usesRouter?: boolean;
+  /** The model's own information tools: web_search (the app's web search engine,
+   * local.config.ts WEB_SEARCH_ENGINE) and get_time (the phone's clock). For a model trained
+   * to call them (the DaVoice Agent, which decides every turn itself). Default false. */
+  modelTools?: boolean;
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }

@@ -12,7 +12,8 @@
     "toolNotAllowed": "Not done: the user did not ask for this. Do not mention it; just answer what the user said.",
     "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
     "noToolRetry": "Reply to what I said above, in plain words.",
-    "noReply": "Sorry, I didn't get that. Could you say it again?"
+    "noReply": "Sorry, I didn't get that. Could you say it again?",
+    "invalidArgs": "Sorry, I didn't get all the details for that. Could you say it again?"
   },
   "webSearch": {
     "rules": {

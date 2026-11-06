@@ -9,7 +9,7 @@ export const LOCAL_LLM_E2B: ModelId = 'gemma-3n-e2b-it';
 export const LOCAL_LLM_E4B: ModelId = 'gemma-3n-e4b-it';
 export const LOCAL_LLM_QWEN25_1_5B: ModelId = 'qwen2.5-1.5b-instruct';
 export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
-export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft1';
+export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft3';
 
 // URLs are real, verified-reachable files. The Gemma entries use the same
 // unsloth GGUF repos the AmigoLocal reference app uses in production. Sizes
@@ -17,23 +17,25 @@ export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft
 // for Qwen, 2026-11-05 for the DaVoice Agent).
 export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
   {
-    // Qwen3-0.6B fine-tuned (LoRA, first run) for on-device tool calling:
+    // Qwen3-0.6B fine-tuned (LoRA, ft3: whole app conversations) for on-device tool calling:
     // picking the tool, taking its arguments from the user's words, asking
     // for a missing one, short replies. Hosted on DaVoice's Cloudflare R2.
     // Conversation, questions and current events go to Gemini
     // (remoteAssistant): the model is weak at those.
     id: LOCAL_LLM_DAVOICE_AGENT_FT1,
     displayName: 'DaVoice Agent 0.6B',
-    filename: 'davoice-agent-qwen3-0.6b-ft1-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft1-q4_0.gguf',
+    filename: 'davoice-agent-qwen3-0.6b-ft3-q4_0.gguf',
+    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft3-q4_0.gguf',
     // Trained window is 32768; 8192 as for the other small models.
     contextSize: 8192,
     chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
     sizeBytes: 381_565_920,
-    sha256: '2013946d5878d11a141ab6f71eccdbc5a5a21b00311dc952a224c511c318dcb1',
+    sha256: 'c709742ceb871c7be52cc740a7b711fe09ce5e565f0e92c38bd2060859957da2',
     remoteAssistant: true,
     // Trained to decide every turn itself: no intent router.
     usesRouter: false,
+    // Trained to call web_search for current facts and get_time for the time.
+    modelTools: true,
     isCustom: false,
   },
   {
