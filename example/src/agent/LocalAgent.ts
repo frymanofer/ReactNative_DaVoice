@@ -1,6 +1,7 @@
+import { Alert } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Agent } from 'react-native-davoice-llm';
-import type { AgentConfig, AgentEvent, AgentRemoteRequest } from 'react-native-davoice-llm';
+import type { AgentApprovalRequest, AgentConfig, AgentEvent, AgentRemoteRequest } from 'react-native-davoice-llm';
 
 import { agentPackFor } from './AgentPack';
 import { answerRemoteRequest } from '../aichat/remote';
@@ -87,6 +88,32 @@ const listeners = new Set<(event: AgentEvent) => void>();
 let agentPromise: Promise<Agent> | null = null;
 
 /** The app's one agent, created on first use (after the language screen). */
+/** Permission scopes this app grants to tools that declare "authorization" (e.g. "payments", "door_locks").
+ * Everything else is refused: the core never runs such a tool without a yes. */
+const AUTHORIZED_TOOL_SCOPES = new Set<string>([]);
+
+function isToolAuthorized(request: AgentApprovalRequest): boolean {
+  const ok = AUTHORIZED_TOOL_SCOPES.has(request.scope);
+  console.log(`[DavoiceAgent] authorize ${request.name} (scope "${request.scope}"): ${ok ? 'yes' : 'no'}`);
+  return ok;
+}
+
+/** Tools that declare "confirmation": a plain dialog. Dismissing it is a no. */
+function askToConfirm(request: AgentApprovalRequest): Promise<boolean> {
+  const args = Object.entries(request.arguments ?? {}).map(([k, v]) => `${k}: ${String(v)}`).join('\n');
+  return new Promise((resolve) => {
+    Alert.alert(
+      request.message || `Run "${request.name}"?`,
+      [request.description, args].filter(Boolean).join('\n\n'),
+      [
+        { text: 'No', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Yes', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
+
 export function getLocalAgent(): Promise<Agent> {
   agentPromise ??= Agent.create(agentSettings(), {
     onEvent: (event) => {
@@ -97,6 +124,8 @@ export function getLocalAgent(): Promise<Agent> {
     // LocalLLMModelConfig.remoteAssistant).
     onRequest: async (request) => {
       if (request.type === 'remote') return answerRemoteRequest(request as AgentRemoteRequest);
+      if (request.type === 'authorizeTool') return { authorized: isToolAuthorized(request as AgentApprovalRequest) };
+      if (request.type === 'confirmTool') return { confirmed: await askToConfirm(request as AgentApprovalRequest) };
       throw new Error(`The app does not answer "${request.type}" requests.`);
     },
   }).then((agent) => {

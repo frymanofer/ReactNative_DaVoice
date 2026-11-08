@@ -13,6 +13,10 @@
     "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
     "noToolRetry": "Reply to what I said above, in plain words.",
     "noReply": "Sorry, I didn't get that. Could you say it again?",
+    "done": "Done.",
+    "failed": "Sorry, that didn't work.",
+    "notConfirmed": "Okay, I won't do that.",
+    "notAuthorized": "Sorry, you're not allowed to do that.",
     "invalidArgs": "Sorry, I didn't get all the details for that. Could you say it again?"
   },
   "webSearch": {
@@ -820,5 +824,41 @@
         }
       }
     ]
-  }
+  },
+  "fixedReplies": [
+    {
+      "id": "identity",
+      "patterns": [
+        "^\\W*(?:(?:hey|hi|hello|ok)\\s+\\w+\\W+)?(?:who|what)\\s+are\\s+you(?:\\s+(?:exactly|really))?\\W*$",
+        "^\\W*tell\\s+me\\s+who\\s+you\\s+are\\W*$"
+      ],
+      "replies": [
+        "I am your AI Agent, tuned by DaVoice.io."
+      ]
+    },
+    {
+      "id": "how_are_you",
+      "patterns": [
+        "^\\W*(?:(?:hey|hi|hello)\\W+(?:\\w+\\W+)?)?how\\s+are\\s+you(?:\\s+doing)?(?:\\s+today)?\\W*$",
+        "^\\W*(?:hey\\W+)?how(?:'|’)?s\\s+it\\s+going\\W*$"
+      ],
+      "replies": [
+        "I am fine and ready to roll, hope you are too."
+      ]
+    },
+    {
+      "id": "story",
+      "patterns": [
+        "\\b(?:tell|read)\\s+me\\s+(?:a|another|one\\s+more|some)\\s+(?:\\w+\\s+)?stor(?:y|ies)\\b",
+        "\\bstory\\s+time\\b",
+        "^\\W*(?:a\\s+)?story(?:\\s+please)?\\W*$"
+      ],
+      "replies": [
+        "Once upon a time, a hare laughed at a slow tortoise and challenged him to a race. The hare dashed ahead, and feeling sure of winning, he lay down under a tree for a nap. The tortoise kept walking, slowly but without ever stopping. When the hare woke up, he ran as fast as he could, but the tortoise was already crossing the finish line. Slow and steady wins the race.",
+        "A lion was sleeping in the forest when a little mouse ran across his nose and woke him. The lion caught the mouse and was about to eat it, but the mouse begged: let me go, and one day I will help you. The lion laughed and let it go. Some days later the lion was caught in a hunter's net. The mouse heard him roar, came running, and chewed through the ropes until the lion was free. Even the smallest friend can be a great help.",
+        "A hungry fox saw a bunch of ripe grapes hanging high on a vine. He jumped and jumped, but they were always just out of reach. At last he walked away with his nose in the air, saying: those grapes were probably sour anyway. It is easy to dislike what we cannot have.",
+        "A young shepherd boy was bored watching his sheep, so he shouted: wolf, wolf! The villagers ran up the hill to help, and he laughed at them. He did it again the next day, and again they came. Then one evening a real wolf came out of the forest. The boy shouted as loud as he could, but this time nobody came. Nobody believes a liar, even when he tells the truth."
+      ]
+    }
+  ]
 }

@@ -35,6 +35,8 @@ export const GEMINI_SYSTEM_PROMPT =
   'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. For time-sensitive facts like current leaders, dates, news, prices, or recent events, answer cautiously and say when you may be unsure rather than asserting a stale fact.';
 export const GEMINI_MAX_OUTPUT_TOKENS = 512;
 export const GEMINI_THINKING_BUDGET = 256;
+/** Gemini's own sampling: independent of the local model's (LocalLLMModelConfig.temperature). */
+export const GEMINI_TEMPERATURE = 0.7;
 export const AI_CHAT_MIN_REQUEST_GAP_MS = 4000;
 export const AI_CHAT_RATE_LIMIT_BACKOFF_MS = 30000;
 export const GEMINI_ENABLE_STREAMING = false;
@@ -84,7 +86,7 @@ function buildGeminiRequestBody(history: GeminiChatMessage[], systemExtra = '', 
     // Google Search grounding (its quota is separate from the model's).
     ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
-      temperature: 0.7,
+      temperature: GEMINI_TEMPERATURE,
       maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
       thinkingConfig: {
         thinkingBudget: GEMINI_THINKING_BUDGET,
@@ -111,6 +113,12 @@ export function splitCompletedSentences(text: string): { completed: string[]; re
 
   for (let index = 0; index < text.length; index += 1) {
     if (!/[.!?]/.test(text[index])) continue;
+    // A period ends a sentence only before a space (or a closing quote): not inside "DaVoice.io", "12.5" or "e.g".
+    // At the end of the text so far it may still be followed by more of the word: wait for the next piece.
+    if (text[index] === '.') {
+      const next = text[index + 1];
+      if (next === undefined || !/[\s"')\]]/.test(next)) continue;
+    }
 
     let boundary = index + 1;
     while (boundary < text.length && /["')\]]/.test(text[boundary])) {

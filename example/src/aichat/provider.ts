@@ -94,6 +94,7 @@ export interface LocalTurnOutcome {
  */
 export class LocalLLMProvider implements LLMProvider {
   private chatTemplateFor: string | null = null;
+  private configuredAgent: Agent | null = null;
   private chatTemplateSet: Promise<void> = Promise.resolve();
 
   constructor(
@@ -121,9 +122,12 @@ export class LocalLLMProvider implements LLMProvider {
   /** The agent, set up for `model`'s chat template and remote assistant. */
   private async agentFor(model: LocalLLMModelConfig): Promise<Agent> {
     const agent = await getLocalAgent();
-    // Set once per model, even when calls race (warm-up and a prefill).
-    if (this.chatTemplateFor !== model.id) {
+    // Set once per model AND per agent, even when calls race (warm-up and a prefill). A new agent (a JS reload,
+    // a retry after a failed create) starts with the defaults (router on, no model tools, engine sampling): without
+    // this it ran the fine-tuned model in the wrong setup.
+    if (this.chatTemplateFor !== model.id || this.configuredAgent !== agent) {
       this.chatTemplateFor = model.id;
+      this.configuredAgent = agent;
       this.chatTemplateSet = agent.configure({
         chatTemplate: model.chatTemplate,
         // Gemini (src/aichat/remote.ts); 15 s, then the phone answers.
@@ -133,6 +137,8 @@ export class LocalLLMProvider implements LLMProvider {
         // web_search + get_time for a model trained to call them (as in the benchmark).
         webSearchTool: model.modelTools === true,
         timeTool: model.modelTools === true,
+        // Local sampling for agent turns (0 = greedy); unset keeps the engine's default.
+        ...(model.temperature !== undefined ? { sampling: { temperature: model.temperature } } : {}),
       });
     }
     await this.chatTemplateSet;

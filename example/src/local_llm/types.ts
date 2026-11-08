@@ -73,6 +73,10 @@ export interface LocalLLMModelConfig {
    * local.config.ts WEB_SEARCH_ENGINE) and get_time (the phone's clock). For a model trained
    * to call them (the DaVoice Agent, which decides every turn itself). Default false. */
   modelTools?: boolean;
+  /** How the local model picks tokens for agent turns (agent configure "sampling"). 0 = greedy:
+   * reproducible tool choice and arguments. Unset = the engine's default (0.7). Gemini's sampling is separate
+   * (GEMINI_TEMPERATURE in src/aichat/index.ts). */
+  temperature?: number;
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }

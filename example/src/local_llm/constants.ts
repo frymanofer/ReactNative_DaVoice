@@ -10,6 +10,8 @@ export const LOCAL_LLM_E4B: ModelId = 'gemma-3n-e4b-it';
 export const LOCAL_LLM_QWEN25_1_5B: ModelId = 'qwen2.5-1.5b-instruct';
 export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
 export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft3';
+/** Phone test candidate (2026-11-07): ft4.5 at iteration 2,500. NOT the default. */
+export const LOCAL_LLM_DAVOICE_AGENT_TEST: ModelId = 'davoice-agent-qwen3-0.6b-ft4.5-it2500';
 
 // URLs are real, verified-reachable files. The Gemma entries use the same
 // unsloth GGUF repos the AmigoLocal reference app uses in production. Sizes
@@ -36,6 +38,24 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     usesRouter: false,
     // Trained to call web_search for current facts and get_time for the time.
     modelTools: true,
+    isCustom: false,
+  },
+  {
+    // Test candidate: ft4.5 at iteration 2,500 (passes the development safety criteria; beats ft4 on arguments,
+    // clarification and conversations). For phone testing with temperature 0 and Gemini; not the default.
+    // On R2 since 2026-11-07 (sha256 checked).
+    id: LOCAL_LLM_DAVOICE_AGENT_TEST,
+    displayName: 'DaVoice Agent 0.6B (test ft4.5-2500)',
+    filename: 'davoice-agent-qwen3-0.6b-ft4.5-it2500-q4_0.gguf',
+    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft4.5_it2500-q4_0.gguf',
+    contextSize: 8192,
+    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
+    sizeBytes: 381_565_920,
+    sha256: '6f6501e45ef70927ab7f6df89db8833b5c3d1def9ffab0c692c5fda8653a63cc',
+    remoteAssistant: true,
+    usesRouter: false,
+    modelTools: true,
+    temperature: 0,
     isCustom: false,
   },
   {
@@ -104,7 +124,7 @@ export const LOCAL_LLM_EARLIER_DEFAULT_MODEL: ModelId = LOCAL_LLM_QWEN25_1_5B;
 
 /** Whether models with `remoteAssistant` hand over to Gemini (src/aichat/remote.ts). Off: the
  * model on the phone answers everything (web searches as before), e.g. without a working Gemini key. */
-export const LOCAL_LLM_USE_REMOTE_ASSISTANT = false;
+export const LOCAL_LLM_USE_REMOTE_ASSISTANT = true; // 2026-11-07: on for the phone test with real Gemini handoff
 
 /** Context size prefilled for a user-added model. */
 export const LOCAL_LLM_DEFAULT_CUSTOM_CONTEXT_SIZE = 4096;
