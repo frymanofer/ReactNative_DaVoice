@@ -589,7 +589,7 @@
       "\\?\\s*$",
       "^\\W*(?:what|who|whom|whose|where|when|why|how|do|does|did|is|are|was|were|can|could|would|will|should|have|has)\\b"
     ],
-    "valueEnd": "\\s*(?:[,.;!?]|\\b(?:and|but|so|because|though|which|who)\\b).*$",
+    "valueEnd": "\\s*(?:[,.;!?]|\\b(?:but|so|because|though|which|who)\\b|\\band\\b(?=\\s+(?:i|i'm|i've|i'll|it|it's|its|we|he|she|they|you|my|our|the|that|this|there|is|was|has|have|will|can)\\b)).*$",
     "rejectValues": [
       "it",
       "that",
@@ -640,7 +640,7 @@
     ],
     "spelling": {
       "comment": "Letters spelled out in a row (\"O for Oscar, F for Frank\"): the first letters of the words make the word (speech recognition mangles the letters but not the words). replace: what the memory rules see, \"(spelled: ofer)\"; forModel: what the model gets in place of the spelling, \"Ofer (O-F-E-R)\".",
-      "pair": "\\b([a-z]{1,3})\\s+(?:for|as in|like)\\s+([a-z]{3,})\\b",
+      "pair": "\\b([a-z]{1,3})(?:\\s+(?:for|four|fore|as in|like)|\\s*4)\\s+([a-z]{3,})\\b",
       "minLetters": 2,
       "replace": "(spelled: {word})",
       "forModel": "{Word} ({LETTERS})",
@@ -848,11 +848,7 @@
     },
     {
       "id": "story",
-      "patterns": [
-        "\\b(?:tell|read)\\s+me\\s+(?:a|another|one\\s+more|some)\\s+(?:\\w+\\s+)?stor(?:y|ies)\\b",
-        "\\bstory\\s+time\\b",
-        "^\\W*(?:a\\s+)?story(?:\\s+please)?\\W*$"
-      ],
+      "patterns": ["^\\W*(?:(?:hey|hi|hello|ok)\\W+(?:\\w+\\W+)?)?(?:(?:can|could|would) you\\s+|please\\s+)?(?:tell|read)\\s+me\\s+(?:a|another|one\\s+more|some)\\s+(?:\\w+\\s+)?stor(?:y|ies)(?:\\s+please)?\\W*$", "^\\W*story\\s+time\\W*$", "^\\W*(?:a\\s+)?story(?:\\s+please)?\\W*$"],
       "replies": [
         "Once upon a time, a hare laughed at a slow tortoise and challenged him to a race. The hare dashed ahead, and feeling sure of winning, he lay down under a tree for a nap. The tortoise kept walking, slowly but without ever stopping. When the hare woke up, he ran as fast as he could, but the tortoise was already crossing the finish line. Slow and steady wins the race.",
         "A lion was sleeping in the forest when a little mouse ran across his nose and woke him. The lion caught the mouse and was about to eat it, but the mouse begged: let me go, and one day I will help you. The lion laughed and let it go. Some days later the lion was caught in a hunter's net. The mouse heard him roar, came running, and chewed through the ropes until the lion was free. Even the smallest friend can be a great help.",

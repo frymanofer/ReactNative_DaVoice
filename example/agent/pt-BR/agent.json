@@ -842,7 +842,7 @@
       "^\\W*(?:what|who|whom|whose|where|when|why|how|do|does|did|is|are|was|were|can|could|would|will|should|have|has)\\b",
       "^\\W*(?:o que|qual|quais|quem|onde|quando|por que|porque|como|quant[oa]s?|ser(?:á|a) que|(?:é|É)|(?:voc(?:e|ê)|vc) (?:sabe|pode|poderia|lembra|acha)|pode|poderia|existe|tem como)(?![a-z])"
     ],
-    "valueEnd": "\\s*(?:[,.;!?]|\\b(?:and|but|so|because|though|which|who|e|mas|ent(?:a|ã)o|porque|pois|que|quem|onde)(?![a-z])).*$",
+    "valueEnd": "\\s*(?:[,.;!?]|\\b(?:but|so|because|though|which|who|mas|ent(?:a|ã)o|porque|pois|que|quem|onde)(?![a-z])|\\b(?:and|e)\\s+(?=(?:i|it|we|he|she|they|you|my|the|eu|ele|ela|n(?:o|ó)s|eles|elas|voc(?:e|ê)|meu|minha|o|a|os|as|isso|isto|(?:é|e|est(?:á|a)|tem|vai|foi))(?![a-z]))).*$",
     "rejectValues": [
       "it",
       "that",
@@ -948,7 +948,7 @@
     ],
     "spelling": {
       "comment": "Letters spelled out in a row (\"O for Oscar, F for Frank\"): the first letters of the words make the word (speech recognition mangles the letters but not the words). replace: what the memory rules see, \"(spelled: ofer)\"; forModel: what the model gets in place of the spelling, \"Ofer (O-F-E-R)\".",
-      "pair": "\\b([a-z]{1,3})\\s+(?:for|as in|like|de|como em|como)\\s+([a-z]{3,})\\b",
+      "pair": "\\b([a-z]{1,3})(?:\\s+(?:for|four|fore|as in|like|de|como em|como)|\\s*4)\\s+([a-z]{3,})\\b",
       "minLetters": 2,
       "replace": "(spelled: {word})",
       "forModel": "{Word} ({LETTERS})",
@@ -1241,11 +1241,7 @@
     },
     {
       "id": "story",
-      "patterns": [
-        "\\b(?:me\\s+)?(?:conta|conte|lê|le)\\s+(?:uma|outra|mais\\s+uma)\\s+(?:\\w+\\s+)?hist[oó]ria\\b",
-        "\\bhora\\s+da\\s+hist[oó]ria\\b",
-        "^\\W*(?:uma\\s+)?hist[oó]ria(?:\\s+por\\s+favor)?\\W*$"
-      ],
+      "patterns": ["^\\W*(?:(?:ei|oi|olá|ola)\\W+(?:\\w+\\W+)?)?(?:(?:pode|você pode|voce pode)\\s+)?(?:me\\s+)?(?:conta|conte|contar|lê|le|ler)\\s+(?:uma|outra|mais\\s+uma)\\s+(?:\\w+\\s+)?hist[oó]ria(?:\\s+(?:por favor|pra mim))?\\W*$", "^\\W*hora\\s+da\\s+hist[oó]ria\\W*$", "^\\W*(?:uma\\s+)?hist[oó]ria(?:\\s+por\\s+favor)?\\W*$"],
       "replies": [
         "Era uma vez uma lebre que zombou de uma tartaruga por ser tão lenta e a desafiou para uma corrida. A lebre disparou na frente e, certa de que ia ganhar, deitou debaixo de uma árvore para tirar um cochilo. A tartaruga seguiu andando, devagar, mas sem parar nunca. Quando a lebre acordou, correu o mais rápido que pôde, mas a tartaruga já estava cruzando a linha de chegada. Devagar e sempre se vai longe.",
         "Um leão dormia na floresta quando um ratinho passou correndo pelo seu nariz e o acordou. O leão pegou o ratinho e ia comê-lo, mas o ratinho implorou: me solta, e um dia eu te ajudo. O leão riu e o soltou. Alguns dias depois, o leão ficou preso na rede de um caçador. O ratinho ouviu o rugido, veio correndo e roeu as cordas até o leão ficar livre. Até o menor amigo pode ser uma grande ajuda.",

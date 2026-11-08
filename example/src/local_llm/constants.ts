@@ -10,8 +10,8 @@ export const LOCAL_LLM_E4B: ModelId = 'gemma-3n-e4b-it';
 export const LOCAL_LLM_QWEN25_1_5B: ModelId = 'qwen2.5-1.5b-instruct';
 export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
 export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft3';
-/** Phone test candidate (2026-11-07): ft4.5 at iteration 2,500. NOT the default. */
-export const LOCAL_LLM_DAVOICE_AGENT_TEST: ModelId = 'davoice-agent-qwen3-0.6b-ft4.5-it2500';
+/** Phone test candidate (2026-11-08): ft6 at step 1,650. NOT the default. */
+export const LOCAL_LLM_DAVOICE_AGENT_TEST: ModelId = 'davoice-agent-qwen3-0.6b-ft6-it1650';
 
 // URLs are real, verified-reachable files. The Gemma entries use the same
 // unsloth GGUF repos the AmigoLocal reference app uses in production. Sizes
@@ -41,17 +41,16 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     isCustom: false,
   },
   {
-    // Test candidate: ft4.5 at iteration 2,500 (passes the development safety criteria; beats ft4 on arguments,
-    // clarification and conversations). For phone testing with temperature 0 and Gemini; not the default.
-    // On R2 since 2026-11-07 (sha256 checked).
+    // Test candidate: ft6 at step 1,650 (best ft6 checkpoint so far: arguments, Portuguese, clarification and safety up vs
+    // ft4.5 iteration 2,500). For phone testing with temperature 0 and Gemini; not the default. On R2 since 2026-11-08 (sha256 checked).
     id: LOCAL_LLM_DAVOICE_AGENT_TEST,
-    displayName: 'DaVoice Agent 0.6B (test ft4.5-2500)',
-    filename: 'davoice-agent-qwen3-0.6b-ft4.5-it2500-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft4.5_it2500-q4_0.gguf',
+    displayName: 'DaVoice Agent 0.6B (test ft6-1650)',
+    filename: 'davoice-agent-qwen3-0.6b-ft6-it1650-q4_0.gguf',
+    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft6_it1650-q4_0.gguf',
     contextSize: 8192,
     chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
     sizeBytes: 381_565_920,
-    sha256: '6f6501e45ef70927ab7f6df89db8833b5c3d1def9ffab0c692c5fda8653a63cc',
+    sha256: 'c988a238276f56facb7ff62c7d9ff817292542895b1fa1287204fe847660679c',
     remoteAssistant: true,
     usesRouter: false,
     modelTools: true,
