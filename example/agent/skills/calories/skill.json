@@ -598,6 +598,7 @@
     "searchedOn": " or on {sources}",
     "unreachable": " I couldn't reach {sources} right now.",
     "askCalories": " How many calories did it have?",
+    "askPortions": "I know {food} by the portion ({calories} calories each), not by weight. How many portions were {grams} grams?",
     "sourcesSeparator": " or ",
     "deleteNotFound": "I couldn't find {food} in today's list. The list has: {list}. Which one should I remove?",
     "deleteListItem": "{label}, {calories} calories",

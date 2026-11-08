@@ -876,6 +876,7 @@
     "searchedOn": " nem na {sources}",
     "unreachable": " Não consegui acessar a {sources} agora.",
     "askCalories": " Quantas calorias tinha?",
+    "askPortions": "Conheço {food} por porção ({calories} calorias cada), não por peso. Quantas porções eram {grams} gramas?",
     "sourcesSeparator": " nem na ",
     "deleteNotFound": "Não encontrei {food} na lista de hoje. A lista tem: {list}. Qual deles eu removo?",
     "deleteListItem": "{label}, {calories} calorias",
