@@ -1,5 +1,5 @@
 // The DaVoice Car tools for the agent (Agent.setTools): definitions from
-// carTools.json (identical to the benchmark's and training's
+// carToolDefinitions.json (identical to the benchmark's and training's
 // apps/automotive/app.json), handlers that change the simulated car
 // (CarState.ts). Each call is recorded for CarCard, so the user sees which tool
 // the AI chose and with which values. Results are short JSON the model reads
@@ -14,7 +14,7 @@
 import type { ToolDefinition } from 'react-native-davoice-llm';
 
 import { getTTSLanguage } from '../tts';
-import carToolsJson from './carTools.json';
+import carToolsJson from './carToolDefinitions.json'; // not "carTools.json": Metro resolves './carTools' to a .json before a .ts
 import { getCarState, recordCarAction, updateCar } from './CarState';
 import type { CarState, Level, Seat, WindowPosition } from './CarState';
 

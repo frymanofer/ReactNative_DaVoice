@@ -1,4 +1,4 @@
-// A simulated car for the DaVoice Car demo (src/car/carTools.json, from
+// A simulated car for the DaVoice Car demo (src/car/carToolDefinitions.json, from
 // Automotive_Voice_Commands.docx): the agent's car tools change this state, and
 // CarCard shows what the AI understood and which tool it used. Nothing here
 // talks to a real vehicle.
