@@ -4,6 +4,15 @@
 > (`example/`). Tudo aqui foi conferido no código. Os caminhos de arquivos são relativos à
 > pasta `example/`. A versão em inglês está em `englishHowTo.md`.
 
+> **Status: modelos iniciais, para teste.** O modelo que roda no aparelho nesta demo ("DaVoice Agent 0.6B (VW demo)",
+> checkpoint `ft7c_it750`) é um **modelo inicial, para testes, não um produto final**. Nos testes atuais ele executa
+> corretamente (ferramenta e argumentos) cerca de 55–60% dos comandos de carro em português do Brasil. Às vezes
+> recusa um comando que poderia fazer e, de vez em quando, executa uma ação errada ou oposta; por isso todas as
+> ações do carro aqui são simuladas. **Mais treinamento é necessário e já está em andamento:** dados específicos para
+> as falhas encontradas (inclusive as vistas nos celulares), verificações determinísticas na camada do app e novos
+> checkpoints, avaliados antes de substituir este. Considere os resultados uma prévia do pipeline de voz (wake word,
+> verificação de locutor, STT/TTS, agente no aparelho), não a precisão final.
+
 O app demonstra um assistente de voz que roda no próprio aparelho:
 
 - palavra de ativação (wake word);

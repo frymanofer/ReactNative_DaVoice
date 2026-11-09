@@ -205,10 +205,10 @@ function App(): React.JSX.Element {
   const cloneScrollRef = useRef<ScrollView | null>(null);
   const cloneRecordButtonRef = useRef<View | null>(null);
   const cloneScrollToRecordPendingRef = useRef(false);
-  const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
+  const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('local_ai_chat');
   const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_ENGLISH_TTS_VOICE);
   const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_ENGLISH_TTS_VOICE, useTTS2Only.current).model);
-  const selectedAppModeRef = useRef<AppModeChoice>('combined');
+  const selectedAppModeRef = useRef<AppModeChoice>('local_ai_chat');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
   const [lastSVScore, setLastSVScore] = useState<{ score: number; isMatch: boolean } | null>(null);

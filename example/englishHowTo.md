@@ -4,6 +4,15 @@
 > (`example/`). Everything here was checked against the code. File paths are relative to
 > `example/`. A Brazilian Portuguese version is in `portugueseHowTo.md`.
 
+> **Status: initial test models.** The on-device model in this demo ("DaVoice Agent 0.6B (VW demo)", checkpoint
+> `ft7c_it750`) is an **early model for testing, not a finished product**. In our current tests it executes roughly
+> 55–60% of Brazilian Portuguese car commands exactly right (tool and arguments). It sometimes declines a command
+> it could do, and occasionally runs a wrong or opposite action, which is why every car action here is simulated.
+> Further training is required and is in progress: targeted data for the failures found (including those found on
+> phones), deterministic checks in the app layer, and new checkpoints evaluated before they replace this one. Treat
+> the results as a preview of the voice pipeline (wake word, speaker verification, STT/TTS, on-device agent), not as
+> final accuracy.
+
 The app demonstrates a voice assistant that runs on the device itself:
 
 - wake word;
