@@ -94,12 +94,14 @@ export interface AgentPackFiles {
   caloriesFoods: FoodsSeed;
 }
 
-const agentPacks: Record<AppLanguage, AgentPackFiles> = {
-  en: {
-    agent: require('../../agent/agent.json'),
-    caloriesSkill: require('../../agent/skills/calories/skill.json'),
-    caloriesFoods: require('../../agent/skills/calories/foods.json'),
-  },
+const englishAgentPack: AgentPackFiles = {
+  agent: require('../../agent/agent.json'),
+  caloriesSkill: require('../../agent/skills/calories/skill.json'),
+  caloriesFoods: require('../../agent/skills/calories/foods.json'),
+};
+
+const agentPacks: Partial<Record<AppLanguage, AgentPackFiles>> = {
+  en: englishAgentPack,
   'pt-BR': {
     agent: require('../../agent/pt-BR/agent.json'),
     caloriesSkill: require('../../agent/pt-BR/skills/calories/skill.json'),
@@ -109,5 +111,8 @@ const agentPacks: Record<AppLanguage, AgentPackFiles> = {
 
 /** The agent pack of the app's language. */
 export function agentPackFor(language: AppLanguage): AgentPackFiles {
-  return agentPacks[language];
+  // Translated agent data is currently available for English and pt-BR. The
+  // language instruction still makes every supported language reply in the
+  // selected language while the shared skill data remains English.
+  return agentPacks[language] ?? englishAgentPack;
 }

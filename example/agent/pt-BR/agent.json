@@ -544,6 +544,7 @@
     "Deixa eu buscar isso para você."
   ],
   "remote": {
+    "layer2": {"instructions": "Você é o modelo geral de um assistente que roda no celular do usuário. Você não pode fazer nada no celular (registros, timers, mensagens ou configurações): se pedirem, diga que não pode. Responda só à última mensagem do usuário, em português do Brasil, em uma a quatro frases curtas para serem faladas, sem listas nem markdown.", "unavailable": "Meu segundo modelo ainda não está pronto. Tente de novo em um instante."},
     "comment": "With configure remote (the DaVoice Agent model): fillers said while the remote assistant (Gemini) answers; what is said when it fails (errors: offline, busy, timeout, unavailable; else failed); the router routes it answers directly (undecided: the router decided nothing), quietRoutes without a filler; the model's own can't-do replies, handed over instead of said.",
     "fillers": [
       "Um momento, deixa eu ver.",

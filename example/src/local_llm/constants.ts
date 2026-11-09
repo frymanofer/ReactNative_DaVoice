@@ -12,6 +12,30 @@ export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
 export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft3';
 /** Phone test candidate (2026-11-08): ft6 at step 1,650. NOT the default. */
 export const LOCAL_LLM_DAVOICE_AGENT_TEST: ModelId = 'davoice-agent-qwen3-0.6b-ft6-it1650';
+/** VW Brazil demo candidate (2026-11-09): ft7c at step 750. Demo only, NEVER the default; in the picker only with LOCAL_LLM_VW_DEMO_MODEL. */
+export const LOCAL_LLM_DAVOICE_AGENT_VW_DEMO: ModelId = 'davoice-agent-qwen3-0.6b-vw-demo-ft7c-it750';
+
+/** Demo-only switch: shows the VW Brazil demo model (ft7c_it750: automotive pt-BR up, general-agent safety slightly below ft6) in the
+ * model picker. Not the default either way; off for anything but the VW demo. */
+export const LOCAL_LLM_VW_DEMO_MODEL = true;
+
+const VW_DEMO_MODEL: LocalLLMModelConfig = {
+  // ft7c_it750 (universal Qwen3-0.6B + VW automotive, 2026-11-09): VW benchmark tool 78.5 / exact 57.9 / pt-BR exact 56.6, clarify 92.3,
+  // unsupported safe 93.8 (ft6-1650: 33.1 / 23.1 / 17.9). Car actions stay simulated (src/car). Upload to R2 before use (sha256 checked).
+  id: LOCAL_LLM_DAVOICE_AGENT_VW_DEMO,
+  displayName: 'DaVoice Agent 0.6B (VW demo ft7c-750)',
+  filename: 'davoice-agent-qwen3-0.6b-vw-demo-ft7c-it750-q4_0.gguf',
+  url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft7c_it750-q4_0.gguf',
+  contextSize: 8192,
+  chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
+  sizeBytes: 381_565_920,
+  sha256: '136a03cd21ce1d4a8f943c1c5ab39006fece4ede3c1d8509b760de7c88e49111',
+  remoteAssistant: true,
+  usesRouter: false,
+  modelTools: true,
+  temperature: 0,
+  isCustom: false,
+};
 
 // URLs are real, verified-reachable files. The Gemma entries use the same
 // unsloth GGUF repos the AmigoLocal reference app uses in production. Sizes
@@ -109,6 +133,7 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     sizeBytes: 1_997_879_712,
     isCustom: false,
   },
+  ...(LOCAL_LLM_VW_DEMO_MODEL ? [VW_DEMO_MODEL] : []),
 ];
 
 // The DaVoice Agent (382 MB): smallest and fastest, the tool actions on the
@@ -124,6 +149,31 @@ export const LOCAL_LLM_EARLIER_DEFAULT_MODEL: ModelId = LOCAL_LLM_QWEN25_1_5B;
 /** Whether models with `remoteAssistant` hand over to Gemini (src/aichat/remote.ts). Off: the
  * model on the phone answers everything (web searches as before), e.g. without a working Gemini key. */
 export const LOCAL_LLM_USE_REMOTE_ASSISTANT = true; // 2026-11-07: on for the phone test with real Gemini handoff
+
+/** The "layer 2" of models with `remoteAssistant`: who answers what the DaVoice Agent model hands over
+ * (knowledge, writing, small talk). 'device': LOCAL_LLM_LAYER2_MODEL, a second, general model on the
+ * phone (no internet needed; loaded next to the agent model); 'cloud': Gemini (src/aichat/remote.ts). */
+export type LocalLLMLayer2 = 'device' | 'cloud';
+export const LOCAL_LLM_LAYER2: LocalLLMLayer2 = 'device'; // 2026-11-08: no Gemini credits
+
+/** The car tools the agent gets: 'vw_demo' = the Volkswagen Brazil demo's 17 (climate, windows, navigation, media/radio, seats,
+ * vehicle status: shorter prompt, faster, fewer confusions), 'all' = the whole catalog (30, Automotive_Voice_Commands.docx). */
+export const LOCAL_LLM_CAR_TOOLS: 'vw_demo' | 'all' = 'vw_demo';
+
+/** The on-device layer 2 model: plain Qwen3-0.6B (the agent model before fine-tuning), which still answers
+ * general questions; the fine-tuned model no longer does. 4,096 tokens of context (its prompt is short)
+ * keeps the second KV cache at ~0.45 GB. */
+export const LOCAL_LLM_LAYER2_MODEL: LocalLLMModelConfig = {
+  id: 'qwen3-0.6b-layer2',
+  displayName: 'Qwen3 0.6B (layer 2)',
+  filename: 'qwen3-0.6b-q4_0.gguf',
+  url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/qwen3-0.6b-q4_0.gguf',
+  contextSize: 4096,
+  chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
+  sizeBytes: 469_081_472,
+  sha256: 'f49664ab5eb883046499fc6bdcee54f013b74ea83f455c6a610f532e5981071d',
+  isCustom: false,
+};
 
 /** Context size prefilled for a user-added model. */
 export const LOCAL_LLM_DEFAULT_CUSTOM_CONTEXT_SIZE = 4096;

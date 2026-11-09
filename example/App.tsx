@@ -59,6 +59,7 @@ import {
   SVPromptChoice,
   TTSVoiceChoice,
 } from './src/appflow';
+import { narrationFor } from './src/narration';
 import { LocalLLMProvider } from './src/aichat/provider';
 import {
   clonedVoicesPath,
@@ -68,7 +69,7 @@ import {
   MIN_VOICE_VOLUME_PERCENT,
   VOICE_VOLUME_STEP,
   RECOMMENDED_RECORDING_SECONDS,
-  VOICE_CLONE_READING_TEXT,
+  voiceCloneReadingText,
   cancelVoiceRecording,
   createClonedVoice,
   deleteClonedVoice,
@@ -83,10 +84,13 @@ import type { VoiceCloneResult } from 'react-native-davoice/speech';
 import ModelPicker from './src/local_llm/ModelPicker';
 import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
+import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import CaloriesCard from './src/calories/CaloriesCard';
+import CarCard from './src/car/CarCard';
+import { CAR_TOOL_NAMES, carTools } from './src/car/carTools';
 // MCP_SERVER_URL / MCP_SERVER_TOKEN for Local AI Chat, from the git-ignored
 // local.config.ts (web search and USDA keys are read in src/agent/LocalAgent.ts).
 import * as LocalConfig from './local.config';
@@ -118,6 +122,8 @@ import {
 } from './src/wakeword';
 
 const DEFAULT_ENGLISH_TTS_VOICE: TTSVoiceChoice = 'Rich';
+// Hanna, Viki, Elaine. Matthew
+//const DEFAULT_ENGLISH_TTS_VOICE: TTSVoiceChoice = 'Elaine';
 const DEFAULT_BRAZILIAN_TTS_VOICE: TTSVoiceChoice = 'Rich';
 // Built-in voices are discovered from the loaded .dm through Speech.getAllVoices().
 
@@ -895,9 +901,7 @@ function App(): React.JSX.Element {
     try {
       await Speech.changeVoice(cloneResult.voice);
       await speakText(
-        isBrazilianPortuguese()
-          ? `Olá! Eu sou ${cloneResult.voice}. Esta é a minha nova voz clonada.`
-          : `Hi! I am ${cloneResult.voice}. This is my new cloned voice.`,
+        narrationFor(appLanguageRef.current).cloneCreated(cloneResult.voice),
         SPEAKER,
         getTTSVoiceConfig(cloneResult.voice, useTTS2Only.current).speed,
       );
@@ -1569,15 +1573,12 @@ function App(): React.JSX.Element {
           setIsSpeakerIdentificationActive,
           speechLibraryInitializedRef,
           speakModeSelectionNarration: async () => {
+            const narration = narrationFor(appLanguageRef.current);
             await speakStartupNarration([
-              isBrazilianPortuguese() ? `${cleanWakeWord} detectado.` : `${cleanWakeWord} detected.`,
+              narration.wakeWordDetected(cleanWakeWord),
             ]);
             setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
-            await speakStartupNarration([
-              isBrazilianPortuguese()
-                ? 'Agora você pode testar os recursos de voz de cinco maneiras diferentes. Você pode selecionar o Chat de IA local, que funciona totalmente neste dispositivo; o Chat de IA completo, que usa o Gemini remoto; ou simplesmente testar o reconhecimento de fala e a síntese de voz separadamente, ou combinar os dois.'
-                : 'Now you can test the voice capabilities in five different ways. You can select a Local AI Chat that runs fully on this device, a full AI Chat using remote Gemini, or simply test Speech to Text and Text to Speech individually or a combination of both.',
-            ]);
+            await speakStartupNarration([narration.modeSelection]);
           },
         });
 
@@ -1761,55 +1762,17 @@ function App(): React.JSX.Element {
 
         // Bootstrap already resumed detection after loading the speech packages.
         const narratorVoice = spokenVoiceName(selectedTTSVoiceRef.current);
-        const cloningChoices = clonedVoicesRef.current.length > 0
-          ? isBrazilianPortuguese()
-            ? 'Você pode clonar uma nova voz, selecionar uma das suas vozes clonadas ou escolher uma voz integrada.'
-            : 'You can either clone a new voice, select from your cloned voices, or select from the built-in voices.'
-          : isBrazilianPortuguese()
-            ? 'Você pode clonar uma nova voz ou escolher uma voz integrada.'
-            : 'You can either clone a new voice, or select from the built-in voices.';
+        const narration = narrationFor(appLanguageRef.current);
+        const cloningChoices = narration.cloningChoices(clonedVoicesRef.current.length > 0);
 
-        /*if (narratorVoice === 'Rich') { 
-          await speakStartupNarration([
-            `Hey there. My name is ${voiceToUse}`,
-            `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
-            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
-          ]);
-        } else {*/
-          await speakStartupNarration([
-            isBrazilianPortuguese()
-              ? `Olá. Meu nome é ${narratorVoice}. Neste aplicativo, usaremos minha voz clonada para demonstrar os recursos do nosso agente de IA por voz.`
-              : `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`,
-            isBrazilianPortuguese()
-              ? 'Não se preocupe. Serei seu guia pessoal e conduzirei você passo a passo por esta demonstração.'
-              : `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            isBrazilianPortuguese()
-              ? `Primeiro, escolha a voz que você deseja usar. ${cloningChoices}`
-              : `First, please choose which voice you want to use. ${cloningChoices}`,
-          ]);
-        /*}*/
-/*
-        await speakStartupNarration([
-          `Hey there,, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
-          `First,, please choose which voice you want to use? You can stay with me,, ${narratorVoice},, or switch to ${alternativeVoice}?`,
-        ]);
-
-        await speakStartupNarration([
-          `Hey there! My name is ${narratorVoice}! In this application we will use my cloned voice to walk you through this demonstration step by step.`,
-          `First, please choose which voice you want to use? You can stay with me, ${narratorVoice}, or switch to ${alternativeVoice}?`,
-        ]);
-
-*/
+        const introduction = narration.introduction(narratorVoice);
+        introduction[2] = `${introduction[2]} ${cloningChoices}`;
+        await speakStartupNarration(introduction);
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          isBrazilianPortuguese()
-            ? `Você selecionou ${spokenVoiceName(selectedTTSVoiceRef.current)}.`
-            : `You selected ${selectedTTSVoiceRef.current}.`,
-          isBrazilianPortuguese()
-            ? 'A próxima etapa é configurar a verificação do locutor. Você pode criar uma nova assinatura de voz, usar uma assinatura salva ou pular esta etapa.'
-            : 'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
+          narration.selectedVoice(spokenVoiceName(selectedTTSVoiceRef.current)),
+          narration.speakerVerificationSetup,
         ]);
 
         // Pause STT before verification; wake-word detection stays active except
@@ -1864,11 +1827,9 @@ function App(): React.JSX.Element {
 
         await speakStartupNarration([
           svChoice === 'skip'
-            ? (isBrazilianPortuguese() ? 'A verificação do locutor foi ignorada.' : 'Speaker verification skipped.')
-            : (isBrazilianPortuguese() ? 'A verificação do locutor está pronta!' : 'Speaker verification is ready!'),
-          isBrazilianPortuguese()
-            ? `Agora diga a palavra de ativação ${wakeWords} para continuar.`
-            : `Now please say the wake word ${wakeWords} to continue.`,
+            ? narration.speakerVerificationSkipped
+            : narration.speakerVerificationReady,
+          narration.sayWakeWord(wakeWords),
         ], { interruptOnWakeword: false });
         startupInProgressRef.current = false;
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
@@ -2038,8 +1999,9 @@ function App(): React.JSX.Element {
     setLocalModelStatus('Loading...');
     loadMcpTools()
       .then(async (mcpTools) => {
-        // They run on a remote server: the agent says a filler while they run.
-        if (mcpTools.length > 0) await getLocalLLMProvider().setExternalTools(mcpTools);
+        // The DaVoice Car's tools (on the phone) and the MCP server's (online: the
+        // agent says a filler while they run).
+        await getLocalLLMProvider().setExternalTools([...carTools(LOCAL_LLM_CAR_TOOLS), ...mcpTools], undefined, (tool) => !CAR_TOOL_NAMES.has(tool.name));
         return getLocalLLMProvider().warmUp(
           history,
           (fraction) => {
@@ -2055,7 +2017,8 @@ function App(): React.JSX.Element {
         if (!isLatest()) return;
         setLocalModelName(model.displayName);
         setLocalModelStatus('Ready');
-        const deleted = await deleteUnusedModelFiles(await listModels());
+        // The layer 2 model (not in the picker) is kept too.
+        const deleted = await deleteUnusedModelFiles([...(await listModels()), LOCAL_LLM_LAYER2_MODEL]);
         if (deleted.length > 0) console.log('[AIChat] deleted unused model files:', deleted);
       })
       .catch((error) => {
@@ -2278,7 +2241,6 @@ function App(): React.JSX.Element {
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={styles.cloneHint}>Contact us for 12 additional languages: info@davoice.io</Text>
       </View>,
     );
   }
@@ -2338,6 +2300,7 @@ function App(): React.JSX.Element {
                 </View>
               )}
               {isLocalAIChat && <CaloriesCard />}
+              {isLocalAIChat && <CarCard />}
               <View style={styles.speechSummaryBlock}>
                 <Text style={styles.speechSentenceLabel}>Status</Text>
                 <Text style={styles.speechSentenceText}>
@@ -2580,7 +2543,7 @@ function App(): React.JSX.Element {
             <Text style={styles.cloneHint}>
               In a quiet room, read this text aloud in your natural voice, at a steady distance from the phone:
             </Text>
-            <Text style={styles.cloneReadingText}>{VOICE_CLONE_READING_TEXT}</Text>
+            <Text style={styles.cloneReadingText}>{voiceCloneReadingText(appLanguageRef.current)}</Text>
             <View style={styles.cloneRecordRow}>
               <Text style={styles.cloneRecordClock}>{recordClock}</Text>
               <View style={styles.cloneLevelTrack}>

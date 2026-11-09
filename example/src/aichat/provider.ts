@@ -8,9 +8,9 @@ import type { AIChatHistoryMessage, GeminiChatMessage } from './index';
 import { generateGeminiReply, generateGeminiReplyStream } from './index';
 
 import type { LocalLLMModelConfig } from '../local_llm/types';
-import { ensureModelLoaded, isModelReady } from '../local_llm/LocalLLMLoader';
+import { ensureLayer2Loaded, ensureModelLoaded, isModelReady } from '../local_llm/LocalLLMLoader';
 import { getSelectedModel } from '../local_llm/ModelRegistry';
-import { LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
+import { LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL, LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
 import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
@@ -103,13 +103,14 @@ export class LocalLLMProvider implements LLMProvider {
   ) {}
 
   /**
-   * Tools of a remote MCP server, next to the calorie tracker's. They run
-   * online, so a filler is said while they run. Set before `warmUp`: the tool
-   * list is part of the system prompt the engine caches.
+   * The app's own tools (the DaVoice Car's) and a remote MCP server's, next to
+   * the calorie tracker's. `online` tools run on a server, so a filler is said
+   * while they run (default: all). Set before `warmUp`: the tool list is part
+   * of the system prompt the engine caches.
    */
-  async setExternalTools(tools: ToolDefinition[], note?: string): Promise<void> {
+  async setExternalTools(tools: ToolDefinition[], note?: string, online: (tool: ToolDefinition) => boolean = () => true): Promise<void> {
     const agent = await getLocalAgent();
-    await agent.setTools(tools, { online: () => true, note });
+    await agent.setTools(tools, { online, note });
   }
 
   isAvailable(): boolean {
@@ -128,10 +129,16 @@ export class LocalLLMProvider implements LLMProvider {
     if (this.chatTemplateFor !== model.id || this.configuredAgent !== agent) {
       this.chatTemplateFor = model.id;
       this.configuredAgent = agent;
+      const handsOver = model.remoteAssistant === true && LOCAL_LLM_USE_REMOTE_ASSISTANT;
       this.chatTemplateSet = agent.configure({
         chatTemplate: model.chatTemplate,
-        // Gemini (src/aichat/remote.ts); 15 s, then the phone answers.
-        remote: model.remoteAssistant && LOCAL_LLM_USE_REMOTE_ASSISTANT ? { enabled: true, timeoutMs: 15000 } : false,
+        // Layer 2: the on-device general model (constants.ts LOCAL_LLM_LAYER2), or Gemini
+        // (src/aichat/remote.ts; 15 s, then the phone answers).
+        remote: !handsOver
+          ? false
+          : LOCAL_LLM_LAYER2 === 'device'
+            ? { enabled: true, answer: 'layer2' }
+            : { enabled: true, timeoutMs: 15000 },
         // false: the model decides every turn with every tool (no router, no skill rules).
         intentRouter: model.usesRouter !== false,
         // web_search + get_time for a model trained to call them (as in the benchmark).
@@ -159,6 +166,11 @@ export class LocalLLMProvider implements LLMProvider {
   ): Promise<LocalLLMModelConfig> {
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey, undefined, onDownloadProgress);
+    // The layer 2 model loads in the background: until it is ready, a handed-over request hears
+    // agent.json "remote.layer2.unavailable".
+    if (model.remoteAssistant && LOCAL_LLM_USE_REMOTE_ASSISTANT && LOCAL_LLM_LAYER2 === 'device') {
+      ensureLayer2Loaded(LOCAL_LLM_LAYER2_MODEL).catch(() => undefined);
+    }
     onWarming?.();
     // Answer once, on the agent's real prompt for a short "Hello": the system
     // prompt (persona, tools) is in the model's cache and the first decode has

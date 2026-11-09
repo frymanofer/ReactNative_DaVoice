@@ -13,7 +13,7 @@ type ExampleText = { label: string; text: string };
 
 // One example per known ability, per language. Every tag below is checked to
 // select its own ability when the voice has all of them.
-const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
+const STYLE_EXAMPLES: Record<string, Partial<Record<AppLanguage, ExampleText>>> = {
   whisper: {
     en: { label: 'Whisper', text: '[whispering confidentially] Quiet, this is a secret! Do not tell anyone!' },
     'pt-BR': { label: 'Sussurro', text: '[sussurrando em segredo] Silêncio, isso é um segredo! Não conte para ninguém!' },
@@ -68,9 +68,16 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
 function genericExample(ability: string, language: AppLanguage): ExampleText {
   const words = ability.replace(/_/g, ' ').trim();
   const label = words.charAt(0).toUpperCase() + words.slice(1);
-  return language === 'pt-BR'
-    ? { label, text: `[${words}] Olá! Esta é a minha voz com este estilo.` }
-    : { label, text: `[${words}] Hello! This is my voice in this style.` };
+  const textByLanguage: Record<AppLanguage, string> = {
+    en: `[${words}] Hello! This is my voice in this style.`,
+    'pt-BR': `[${words}] Olá! Esta é a minha voz com este estilo.`,
+    de: `[${words}] Hallo! So klingt meine Stimme in diesem Stil.`,
+    es: `[${words}] ¡Hola! Así suena mi voz con este estilo.`,
+    fr: `[${words}] Bonjour ! Voici ma voix avec ce style.`,
+    it: `[${words}] Ciao! Questa è la mia voce con questo stile.`,
+    nl: `[${words}] Hallo! Zo klinkt mijn stem in deze stijl.`,
+  };
+  return { label, text: textByLanguage[language] };
 }
 
 // Shown first, in this order; the other abilities follow in the voice's order.
@@ -81,6 +88,11 @@ const LAST_ABILITIES = ['disappointed'];
 const HIDDEN_ABILITIES: Record<AppLanguage, string[]> = {
   en: [],
   'pt-BR': ['angry_whisper'],
+  de: [],
+  es: [],
+  fr: [],
+  it: [],
+  nl: [],
 };
 
 function abilityRank(ability: string): number {
@@ -122,4 +134,9 @@ export async function loadVoiceAbilities(
 export const STYLE_TAG_HINT: Record<AppLanguage, string> = {
   en: 'Put a tag in square brackets before the words it applies to, e.g. [happy] Hello! or [whispering] Listen. [regular] goes back to the normal voice.',
   'pt-BR': 'Coloque uma etiqueta entre colchetes antes das palavras, por exemplo [feliz] Olá! ou [sussurrando] Escute. [normal] volta à voz normal.',
+  de: 'Setze ein Tag in eckigen Klammern vor die Wörter, zum Beispiel [happy] Hallo! Mit [regular] kehrst du zur normalen Stimme zurück.',
+  es: 'Pon una etiqueta entre corchetes antes de las palabras, por ejemplo [happy] ¡Hola! [regular] vuelve a la voz normal.',
+  fr: 'Placez une balise entre crochets avant les mots, par exemple [happy] Bonjour ! [regular] revient à la voix normale.',
+  it: 'Inserisci un tag tra parentesi quadre prima delle parole, ad esempio [happy] Ciao! [regular] torna alla voce normale.',
+  nl: 'Zet een tag tussen vierkante haakjes voor de woorden, bijvoorbeeld [happy] Hallo! [regular] keert terug naar de normale stem.',
 };

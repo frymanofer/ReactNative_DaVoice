@@ -402,6 +402,7 @@
     "Let me fetch that for you."
   ],
   "remote": {
+    "layer2": {"instructions": "You are the general model of an assistant that runs on the user's phone. You cannot do anything on the phone (no logging, timers, messages or settings): if asked to, say you can't do that. Reply only to the user's last message, in one to four short spoken sentences, without lists or markdown.", "unavailable": "My second model isn't ready yet. Please try again in a moment."},
     "comment": "With configure remote (the DaVoice Agent model): fillers said while the remote assistant (Gemini) answers; what is said when it fails (errors: offline, busy, timeout, unavailable; else failed); the router routes it answers directly (undecided: the router decided nothing), quietRoutes without a filler; the model's own can't-do replies, handed over instead of said.",
     "fillers": [
       "One moment, let me check.",

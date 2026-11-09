@@ -26,10 +26,17 @@ export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
 import type { AppLanguage, BundledTTSVoice, TTSVoiceChoice } from '../appflow';
+import { narrationFor } from '../narration';
 
-const sharedTTS2Model = require('../../assets/models/model_ex2_rich_kate.dm');
-// Brazilian Portuguese: its own model (its voices are listed by Speech.getAllVoices()).
-const brazilianTTS2Model = require('../../assets/models/model_ex2_portuguese_brv1.dm');
+const ttsModels: Record<AppLanguage, any> = {
+  en: require('../../assets/models/model_ex2_rich_kate.dm'),
+  'pt-BR': require('../../assets/models/model_ex2_portuguese_brv1.dm'),
+  de: require('../../assets/models/model_ex2_german.dm'),
+  es: require('../../assets/models/model_ex2_spanish.dm'),
+  fr: require('../../assets/models/model_ex2_french.dm'),
+  it: require('../../assets/models/model_ex2_italian.dm'),
+  nl: require('../../assets/models/model_ex2_dutch.dm'),
+};
 const BRAZILIAN_SPEAKER_SPEED = 1.0;
 
 // Voice encoder for Speech.createVoiceClone(audioPath, outputPath, getVoiceEmbedder()):
@@ -38,6 +45,11 @@ const BRAZILIAN_SPEAKER_SPEED = 1.0;
 const voiceEmbedders: Record<AppLanguage, any> = {
   en: require('../../assets/models/embedder_en.dm'),
   'pt-BR': require('../../assets/models/embedder_brv1.dm'),
+  de: require('../../assets/models/embedder_de.dm'),
+  es: require('../../assets/models/embedder_es.dm'),
+  fr: require('../../assets/models/embedder_fr.dm'),
+  it: require('../../assets/models/embedder_it.dm'),
+  nl: require('../../assets/models/embedder_nl.dm'),
 };
 
 // The app's language (the language screen sets it before the speech library loads).
@@ -53,8 +65,11 @@ export function getVoiceEmbedder() {
 }
 
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
-  // Every Brazilian Portuguese voice (and cloned voice) is a voice of its model.
-  if (ttsLanguage === 'pt-BR') return { model: brazilianTTS2Model, speed: BRAZILIAN_SPEAKER_SPEED, usesTTS2: true };
+  const model = ttsModels[ttsLanguage];
+  // Every voice, including a cloned voice, belongs to the selected language model.
+  if (ttsLanguage !== 'en') {
+    return { model, speed: ttsLanguage === 'pt-BR' ? BRAZILIAN_SPEAKER_SPEED : CLONED_VOICE_SPEED, usesTTS2: true };
+  }
   if (useTTS2Only) {
     const speeds: Record<BundledTTSVoice, number> = {
       Ariana: ARIANA_SPEAKER_SPEED_NEW_MODEL,
@@ -65,20 +80,20 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
       Matthew: KATE_SPEAKER_SPEED_NEW_MODEL,
       Gloria: KATE_SPEAKER_SPEED_NEW_MODEL,
     };
-    return { model: sharedTTS2Model, speed: speeds[voice as BundledTTSVoice] ?? CLONED_VOICE_SPEED, usesTTS2: true };
+    return { model, speed: speeds[voice as BundledTTSVoice] ?? CLONED_VOICE_SPEED, usesTTS2: true };
   }
   const voices: Record<BundledTTSVoice, { model: any; speed: number; usesTTS2: boolean }> = {
-    Rich: { model: sharedTTS2Model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Kate: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Jenny: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Matthew: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Gloria: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Rich: { model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Kate: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Jenny: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Matthew: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Gloria: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     // Every voice is a speaker of the shared model.
-    Ariana: { model: sharedTTS2Model, speed: ARIANA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Hanna: { model: sharedTTS2Model, speed: HANNA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Ariana: { model, speed: ARIANA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Hanna: { model, speed: HANNA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
   };
   // A cloned voice (an .emd in the cloned voices folder) is a voice of the shared model too.
-  return voices[voice as BundledTTSVoice] ?? { model: sharedTTS2Model, speed: CLONED_VOICE_SPEED, usesTTS2: true };
+  return voices[voice as BundledTTSVoice] ?? { model, speed: CLONED_VOICE_SPEED, usesTTS2: true };
 }
 
 export async function playWakewordIntroSpeech({
@@ -101,8 +116,7 @@ export async function playWakewordIntroSpeech({
   const speak = speakText ?? Speech.speak.bind(Speech);
   const speechUiEpoch = beginSpeechUiEpoch();
   await Speech.pauseSpeechRecognition();
-  const introLine =
-    `My name is ${selectedSpeakerName}, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.`;
+  const introLine = narrationFor(ttsLanguage).introduction(String(selectedSpeakerName))[0];
   // setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
   // setIntroSpeakerName(selectedSpeakerName);
   // setIntroScript(introLine);

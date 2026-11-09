@@ -31,7 +31,7 @@ export function getSVUIDisplayScore(score: number, nativeIsMatch: boolean): numb
 // The app's language, chosen first: it picks the TTS model, the voice-cloning
 // encoder, the speech recognizer's locale (src/tts/index.ts) and the language
 // the AI chats reply in (llmReplyInstruction, added to their system prompts).
-export type AppLanguage = 'en' | 'pt-BR';
+export type AppLanguage = 'en' | 'pt-BR' | 'de' | 'es' | 'fr' | 'it' | 'nl';
 export const APP_LANGUAGES: {
   id: AppLanguage;
   label: string;
@@ -46,13 +46,43 @@ export const APP_LANGUAGES: {
   },
   {
     id: 'pt-BR',
-    label: 'Português (Brasil)',
+    label: 'Português do Brasil (Brazilian Portuguese)',
     sttLocale: 'pt-BR',
     // Short: the local agent's pack also ends every message to the model with
     // a reminder (agent/pt-BR/agent.json prompts.replyReminder), which small
     // models follow better than the system prompt.
     llmReplyInstruction:
       'Important: always reply in Brazilian Portuguese (pt-BR). Sempre responda em português do Brasil.',
+  },
+  {
+    id: 'de',
+    label: 'Deutsch (German)',
+    sttLocale: 'de-DE',
+    llmReplyInstruction: 'The user speaks German. Always reply in German.',
+  },
+  {
+    id: 'es',
+    label: 'Español (Spanish)',
+    sttLocale: 'es-ES',
+    llmReplyInstruction: 'The user speaks Spanish. Always reply in Spanish.',
+  },
+  {
+    id: 'fr',
+    label: 'Français (French)',
+    sttLocale: 'fr-FR',
+    llmReplyInstruction: 'The user speaks French. Always reply in French.',
+  },
+  {
+    id: 'it',
+    label: 'Italiano (Italian)',
+    sttLocale: 'it-IT',
+    llmReplyInstruction: 'The user speaks Italian. Always reply in Italian.',
+  },
+  {
+    id: 'nl',
+    label: 'Nederlands (Dutch)',
+    sttLocale: 'nl-NL',
+    llmReplyInstruction: 'The user speaks Dutch. Always reply in Dutch.',
   },
 ];
 

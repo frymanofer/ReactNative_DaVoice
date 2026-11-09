@@ -1,0 +1,170 @@
+import type { AppLanguage } from './appflow';
+
+/** Spoken onboarding copy. Keep every language complete: these strings are
+ * played by the language-specific TTS model selected at app startup. */
+export type NarrationCopy = {
+  wakeWordDetected: (wakeWord: string) => string;
+  modeSelection: string;
+  cloningChoices: (hasClonedVoices: boolean) => string;
+  introduction: (voice: string) => string[];
+  selectedVoice: (voice: string) => string;
+  speakerVerificationSetup: string;
+  speakerVerificationSkipped: string;
+  speakerVerificationReady: string;
+  sayWakeWord: (wakeWords: string) => string;
+  cloneCreated: (voice: string) => string;
+};
+
+const NARRATION: Record<AppLanguage, NarrationCopy> = {
+  en: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} detected.`,
+    modeSelection:
+      'You can now explore the voice features in five different ways. Choose Local AI Chat, which runs entirely on this device; Full AI Chat, which uses remote Gemini; or test speech recognition and speech synthesis separately, or combine them.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'You can clone a new voice, choose one of your existing cloned voices, or select a built-in voice.'
+        : 'You can clone a new voice or select a built-in voice.',
+    introduction: (voice) => [
+      `Hello. My name is ${voice}. In this app, I will use my cloned voice to demonstrate the capabilities of our voice AI agent.`,
+      'I will be your personal guide and walk you through this demonstration step by step.',
+      'First, choose the voice you would like to use.',
+    ],
+    selectedVoice: (voice) => `You selected ${voice}.`,
+    speakerVerificationSetup:
+      'The next step is speaker verification. You can create a new speaker signature, use a saved signature, or skip this step.',
+    speakerVerificationSkipped: 'Speaker verification was skipped.',
+    speakerVerificationReady: 'Speaker verification is ready!',
+    sayWakeWord: (wakeWords) => `Now say the wake word ${wakeWords} to continue.`,
+    cloneCreated: (voice) => `Hello! I am ${voice}. This is my new cloned voice.`,
+  },
+  'pt-BR': {
+    wakeWordDetected: (wakeWord) => `${wakeWord} detectado.`,
+    modeSelection:
+      'Agora você pode explorar os recursos de voz de cinco maneiras diferentes. Escolha o Chat de IA local, que funciona inteiramente neste dispositivo; o Chat de IA completo, que usa o Gemini remoto; ou teste o reconhecimento e a síntese de voz separadamente, ou combine os dois.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Você pode clonar uma nova voz, selecionar uma das suas vozes clonadas ou escolher uma voz integrada.'
+        : 'Você pode clonar uma nova voz ou escolher uma voz integrada.',
+    introduction: (voice) => [
+      `Olá. Meu nome é ${voice}. Neste aplicativo, usarei minha voz clonada para demonstrar os recursos do nosso agente de IA por voz.`,
+      'Serei seu guia pessoal e conduzirei você passo a passo por esta demonstração.',
+      'Primeiro, escolha a voz que você deseja usar.',
+    ],
+    selectedVoice: (voice) => `Você selecionou ${voice}.`,
+    speakerVerificationSetup:
+      'A próxima etapa é configurar a verificação do locutor. Você pode criar uma nova assinatura de voz, usar uma assinatura salva ou pular esta etapa.',
+    speakerVerificationSkipped: 'A verificação do locutor foi ignorada.',
+    speakerVerificationReady: 'A verificação do locutor está pronta!',
+    sayWakeWord: (wakeWords) => `Agora diga a palavra de ativação ${wakeWords} para continuar.`,
+    cloneCreated: (voice) => `Olá! Eu sou ${voice}. Esta é a minha nova voz clonada.`,
+  },
+  de: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} erkannt.`,
+    modeSelection:
+      'Jetzt kannst du die Sprachfunktionen auf fünf verschiedene Arten ausprobieren. Wähle den lokalen KI-Chat, der vollständig auf diesem Gerät läuft, den vollständigen KI-Chat mit dem entfernten Gemini-Dienst oder teste Spracherkennung und Sprachsynthese einzeln oder gemeinsam.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Du kannst eine neue Stimme klonen, eine deiner bereits geklonten Stimmen auswählen oder eine integrierte Stimme verwenden.'
+        : 'Du kannst eine neue Stimme klonen oder eine integrierte Stimme verwenden.',
+    introduction: (voice) => [
+      `Hallo. Ich heiße ${voice}. In dieser App verwende ich meine geklonte Stimme, um die Möglichkeiten unseres Sprach-KI-Agenten zu demonstrieren.`,
+      'Ich begleite dich als persönlicher Guide Schritt für Schritt durch diese Demonstration.',
+      'Wähle zuerst die Stimme aus, die du verwenden möchtest.',
+    ],
+    selectedVoice: (voice) => `Du hast ${voice} ausgewählt.`,
+    speakerVerificationSetup:
+      'Als Nächstes richten wir die Sprecherverifizierung ein. Du kannst ein neues Sprecherprofil erstellen, ein gespeichertes Profil verwenden oder diesen Schritt überspringen.',
+    speakerVerificationSkipped: 'Die Sprecherverifizierung wurde übersprungen.',
+    speakerVerificationReady: 'Die Sprecherverifizierung ist bereit!',
+    sayWakeWord: (wakeWords) => `Sage jetzt das Aktivierungswort ${wakeWords}, um fortzufahren.`,
+    cloneCreated: (voice) => `Hallo! Ich bin ${voice}. Das ist meine neue geklonte Stimme.`,
+  },
+  es: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} detectado.`,
+    modeSelection:
+      'Ahora puedes probar las funciones de voz de cinco maneras diferentes. Elige el chat de IA local, que funciona completamente en este dispositivo; el chat de IA completo, que utiliza Gemini de forma remota; o prueba por separado el reconocimiento y la síntesis de voz, o combina ambos.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Puedes clonar una voz nueva, seleccionar una de tus voces clonadas o elegir una voz integrada.'
+        : 'Puedes clonar una voz nueva o elegir una voz integrada.',
+    introduction: (voice) => [
+      `Hola. Me llamo ${voice}. En esta aplicación utilizaré mi voz clonada para mostrar las capacidades de nuestro agente de IA por voz.`,
+      'Seré tu guía personal y te acompañaré paso a paso durante esta demostración.',
+      'Primero, elige la voz que quieres utilizar.',
+    ],
+    selectedVoice: (voice) => `Has seleccionado ${voice}.`,
+    speakerVerificationSetup:
+      'El siguiente paso es configurar la verificación del hablante. Puedes crear un nuevo perfil de voz, utilizar un perfil guardado u omitir este paso.',
+    speakerVerificationSkipped: 'Se ha omitido la verificación del hablante.',
+    speakerVerificationReady: '¡La verificación del hablante está lista!',
+    sayWakeWord: (wakeWords) => `Ahora di la palabra de activación ${wakeWords} para continuar.`,
+    cloneCreated: (voice) => `¡Hola! Soy ${voice}. Esta es mi nueva voz clonada.`,
+  },
+  fr: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} détecté.`,
+    modeSelection:
+      'Vous pouvez maintenant découvrir les fonctionnalités vocales de cinq façons différentes. Choisissez le chat avec l’IA locale, qui fonctionne entièrement sur cet appareil ; le chat complet avec l’IA, qui utilise Gemini à distance ; ou testez séparément la reconnaissance et la synthèse vocales, ou combinez-les.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Vous pouvez cloner une nouvelle voix, sélectionner l’une de vos voix clonées ou choisir une voix intégrée.'
+        : 'Vous pouvez cloner une nouvelle voix ou choisir une voix intégrée.',
+    introduction: (voice) => [
+      `Bonjour. Je m’appelle ${voice}. Dans cette application, j’utiliserai ma voix clonée pour vous présenter les capacités de notre agent d’IA vocale.`,
+      'Je serai votre guide personnel et vous accompagnerai pas à pas tout au long de cette démonstration.',
+      'Commencez par choisir la voix que vous souhaitez utiliser.',
+    ],
+    selectedVoice: (voice) => `Vous avez choisi ${voice}.`,
+    speakerVerificationSetup:
+      'L’étape suivante consiste à configurer la vérification du locuteur. Vous pouvez créer une nouvelle empreinte vocale, utiliser une empreinte enregistrée ou passer cette étape.',
+    speakerVerificationSkipped: 'La vérification du locuteur a été ignorée.',
+    speakerVerificationReady: 'La vérification du locuteur est prête !',
+    sayWakeWord: (wakeWords) => `Dites maintenant le mot d’activation ${wakeWords} pour continuer.`,
+    cloneCreated: (voice) => `Bonjour ! Je suis ${voice}. Voici ma nouvelle voix clonée.`,
+  },
+  it: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} rilevato.`,
+    modeSelection:
+      'Ora puoi provare le funzioni vocali in cinque modi diversi. Scegli la chat con l’IA locale, che funziona interamente su questo dispositivo; la chat completa con l’IA, che usa Gemini da remoto; oppure prova separatamente il riconoscimento e la sintesi vocale, o usali insieme.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Puoi clonare una nuova voce, selezionare una delle tue voci clonate o scegliere una voce integrata.'
+        : 'Puoi clonare una nuova voce o scegliere una voce integrata.',
+    introduction: (voice) => [
+      `Ciao. Mi chiamo ${voice}. In questa applicazione userò la mia voce clonata per mostrarti le funzionalità del nostro agente IA vocale.`,
+      'Sarò la tua guida personale e ti accompagnerò passo dopo passo durante questa dimostrazione.',
+      'Per prima cosa, scegli la voce che vuoi usare.',
+    ],
+    selectedVoice: (voice) => `Hai selezionato ${voice}.`,
+    speakerVerificationSetup:
+      'Il prossimo passaggio consiste nel configurare la verifica del parlante. Puoi creare una nuova impronta vocale, usare un’impronta salvata oppure saltare questo passaggio.',
+    speakerVerificationSkipped: 'La verifica del parlante è stata saltata.',
+    speakerVerificationReady: 'La verifica del parlante è pronta!',
+    sayWakeWord: (wakeWords) => `Ora pronuncia la parola di attivazione ${wakeWords} per continuare.`,
+    cloneCreated: (voice) => `Ciao! Sono ${voice}. Questa è la mia nuova voce clonata.`,
+  },
+  nl: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} gedetecteerd.`,
+    modeSelection:
+      'Je kunt de spraakfuncties nu op vijf verschillende manieren uitproberen. Kies Lokale AI-chat, die volledig op dit apparaat werkt; Volledige AI-chat, die Gemini op afstand gebruikt; of test spraakherkenning en spraaksynthese afzonderlijk, of combineer ze.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Je kunt een nieuwe stem klonen, een van je bestaande gekloonde stemmen kiezen of een ingebouwde stem selecteren.'
+        : 'Je kunt een nieuwe stem klonen of een ingebouwde stem selecteren.',
+    introduction: (voice) => [
+      `Hallo. Ik heet ${voice}. In deze app gebruik ik mijn gekloonde stem om de mogelijkheden van onze spraakgestuurde AI-agent te demonstreren.`,
+      'Ik ben je persoonlijke gids en begeleid je stap voor stap door deze demonstratie.',
+      'Kies eerst de stem die je wilt gebruiken.',
+    ],
+    selectedVoice: (voice) => `Je hebt ${voice} geselecteerd.`,
+    speakerVerificationSetup:
+      'De volgende stap is het instellen van sprekerverificatie. Je kunt een nieuw stemprofiel maken, een opgeslagen profiel gebruiken of deze stap overslaan.',
+    speakerVerificationSkipped: 'Sprekerverificatie is overgeslagen.',
+    speakerVerificationReady: 'Sprekerverificatie is klaar!',
+    sayWakeWord: (wakeWords) => `Zeg nu het activeringswoord ${wakeWords} om door te gaan.`,
+    cloneCreated: (voice) => `Hallo! Ik ben ${voice}. Dit is mijn nieuwe gekloonde stem.`,
+  },
+};
+
+export function narrationFor(language: AppLanguage): NarrationCopy {
+  return NARRATION[language];
+}
