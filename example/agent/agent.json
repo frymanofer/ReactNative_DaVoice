@@ -402,7 +402,7 @@
     "Let me fetch that for you."
   ],
   "remote": {
-    "layer2": {"instructions": "You are the general model of an assistant that runs on the user's phone. You cannot do anything on the phone (no logging, timers, messages or settings): if asked to, say you can't do that. Reply only to the user's last message, in one to four short spoken sentences, without lists or markdown.", "unavailable": "My second model isn't ready yet. Please try again in a moment."},
+    "layer2": {"instructions": "You are the general-knowledge voice of an assistant on the user's phone. You cannot control anything: not the car (windows, climate, doors, navigation, music) and not the phone (logging, timers, messages, settings). If the user asks for an action, say in one short sentence that you couldn't do it and ask them to say it again. Never say that you did, will do or can do an action. The facts you know about the user are background: mention one only when the user asks about it. Reply only to the user's last message, in one to four short spoken sentences, without lists or markdown.", "unavailable": "My second model isn't ready yet. Please try again in a moment."},
     "comment": "With configure remote (the DaVoice Agent model): fillers said while the remote assistant (Gemini) answers; what is said when it fails (errors: offline, busy, timeout, unavailable; else failed); the router routes it answers directly (undecided: the router decided nothing), quietRoutes without a filler; the model's own can't-do replies, handed over instead of said.",
     "fillers": [
       "One moment, let me check.",
@@ -420,11 +420,7 @@
     },
     "routes": ["personal", "general", "undecided"],
     "quietRoutes": ["chat"],
-    "cannotReplies": [
-      "\\bcan(?:'|’)?t do that\\b",
-      "\\bnot able to do that\\b",
-      "not something I can do"
-    ]
+    "cannotReplies": ["\\bcan(?:'|’)?t do that\\b", "\\bnot able to do that\\b", "not something I can do", "\\bnot available here\\b", "\\bnot available in this car\\b"]
   },
   "memory": {
     "comment": "What the assistant remembers about each user (speaker) across conversations. types: how each kind of memory lives (lifetimeDays: short-term, afterExpiry: what it becomes) and is used (inject always = every prompt; relevant = when the turn's words match; guidance = how to behave while it lasts; checkIn = asked once per day). rules: patterns that capture memories from the user's words ({1} = first group, :title capitalizes). profiles: how much memory to use; the app picks one per model with configure({memory: {profile}}) and can override any field.",
@@ -827,12 +823,11 @@
     ]
   },
   "fixedReplies": [
+    {"id": "car_options", "patterns": ["^(?=.*\\b(?:car|vehicle|automotive)\\b)(?=.*\\b(?:options|commands|features|functions|controls|operations|what\\s+can\\s+you\\s+(?:do|control|change|operate)|can\\s+i\\s+(?:say|ask)|things\\s+you\\s+can\\s+do)\\b).*$"], "replies": ["In the car I can: navigate to a place, find a stop on the route, tell you the arrival time, and avoid tolls or traffic. Set the temperature, the fan, where the air blows and the defrost, or you can just tell me you're hot or cold. Open or close the windows and the sunroof. Open, close, lock or unlock the doors. Heat or cool your seat. Play music, tune the radio, switch the audio source and change the volume. And tell you the range, fuel, battery, tire pressure or warning lights."]},
+    {"id": "capabilities", "patterns": ["^\\W*(?:(?:hey|hi|ok|okay|so)\\W+(?:\\w+\\W+)?)?what\\s+(?:else\\s+|all\\s+|exactly\\s+)?can\\s+you\\s+do(?:\\s+for\\s+me)?\\W*$", "\\b(?:list|tell\\s+me|what\\s+are)\\s+(?:all\\s+)?your\\s+(?:options|commands|features|skills|capabilities|abilities)\\W*$"], "replies": ["I can control the car: navigation, climate, windows, sunroof, doors, seats and music. I can also track your calories, remember what you tell me and look things up. Ask me what I can do in the car for the full list."]},
     {
       "id": "identity",
-      "patterns": [
-        "^\\W*(?:(?:hey|hi|hello|ok)\\s+\\w+\\W+)?(?:who|what)\\s+are\\s+you(?:\\s+(?:exactly|really))?\\W*$",
-        "^\\W*tell\\s+me\\s+who\\s+you\\s+are\\W*$"
-      ],
+      "patterns": ["^\\W*(?:(?:hey|hi|hello|ok)\\s+\\w+\\W+)?(?:who|what)\\s+are\\s+you(?:\\s+(?:exactly|really))?\\W*$", "^\\W*(?:(?:hey|hi|ok)\\W+)?(?:(?:you|can\\s+you|could\\s+you|please|so)\\s+)?tell\\s+me\\s+(?:who|what)\\s+you\\s+are\\W*$", "^\\W*(?:and\\s+)?who\\s+am\\s+i\\s+talking\\s+to\\W*$"],
       "replies": [
         "I am your AI Agent, tuned by DaVoice.io."
       ]

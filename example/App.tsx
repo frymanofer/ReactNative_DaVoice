@@ -84,12 +84,13 @@ import type { VoiceCloneResult } from 'react-native-davoice/speech';
 import ModelPicker from './src/local_llm/ModelPicker';
 import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
-import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
+import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import CaloriesCard from './src/calories/CaloriesCard';
 import CarCard from './src/car/CarCard';
+import { setSpeakerGate } from './src/speaker_verification/currentSpeaker';
 import { CAR_TOOL_NAMES, carTools } from './src/car/carTools';
 // MCP_SERVER_URL / MCP_SERVER_TOKEN for Local AI Chat, from the git-ignored
 // local.config.ts (web search and USDA keys are read in src/agent/LocalAgent.ts).
@@ -1086,11 +1087,13 @@ function App(): React.JSX.Element {
       }
       const sttIds = await Speech.addSpeaker(SV_SPEAKER_ID, jsonPath);
       console.log('[SV] STT speakers:', sttIds);
+      setSpeakerGate(true, SV_SPEAKER_ID); // unlock / open door: only this voice
     } else {
       // Skip: make sure no speaker from an earlier run stays enrolled.
       console.log('[SV] skipped; clearing speakers');
       if (inst) await inst.setSpeakers([]);
       await Speech.setSpeakers([]);
+      setSpeakerGate(false, null);
     }
   }
 
@@ -1246,7 +1249,9 @@ function App(): React.JSX.Element {
           },
           (event) => {
             if (aiChatRequestIdRef.current !== requestId) return;
-            if (event.type === 'filler') {
+            if (event.type === 'filler' && event.reason === 'remote' && LOCAL_LLM_LAYER2 === 'none') {
+              // No remote model set up: the reply itself says so; no "let me check" first.
+            } else if (event.type === 'filler') {
               // Search fillers start the reply's speech queue; tool fillers
               // ("Sure, let me log that."), lookups and MCP tools are queued
               // like a sentence.
@@ -1257,7 +1262,7 @@ function App(): React.JSX.Element {
               }
             } else if (event.type === 'status' && event.status === 'searching') {
               setAiChatStatus('Searching the web...');
-            } else if (event.type === 'status' && event.status === 'remote') {
+            } else if (event.type === 'status' && event.status === 'remote' && LOCAL_LLM_LAYER2 !== 'none') {
               setAiChatStatus('Asking the online assistant...');
             } else if (event.type === 'webSearch') {
               setAiChatStatus(
@@ -2017,8 +2022,8 @@ function App(): React.JSX.Element {
         if (!isLatest()) return;
         setLocalModelName(model.displayName);
         setLocalModelStatus('Ready');
-        // The layer 2 model (not in the picker) is kept too.
-        const deleted = await deleteUnusedModelFiles([...(await listModels()), LOCAL_LLM_LAYER2_MODEL]);
+        // The layer 2 file is kept only while it is used (LOCAL_LLM_LAYER2 'device').
+        const deleted = await deleteUnusedModelFiles([...(await listModels()), ...(LOCAL_LLM_LAYER2 === 'device' ? [LOCAL_LLM_LAYER2_MODEL] : [])]);
         if (deleted.length > 0) console.log('[AIChat] deleted unused model files:', deleted);
       })
       .catch((error) => {

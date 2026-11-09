@@ -139,12 +139,28 @@ async function downloadModelOnce(
  * any more (e.g. after a built-in model switched quantization, or a custom
  * model was removed without deleting its file). Partial downloads are kept.
  */
+/**
+ * Where the model's saved KV-cache state lives (react-native-davoice-llm saveState/loadState): the processed system
+ * prompt, restored at the next start instead of ~40 s of prompt processing on a phone CPU. Keyed by the model file
+ * (name + sha256 / size) and context size: a state is only valid for the exact weights and window it was made with.
+ */
+export function kvStatePath(model: LocalLLMModelConfig): string {
+  const key = (model.sha256 ?? String(model.sizeBytes ?? 0)).slice(0, 12);
+  return `${modelsDir()}/${model.filename}.${key}.ctx${model.contextSize}.kvstate`;
+}
+
 export async function deleteUnusedModelFiles(models: LocalLLMModelConfig[]): Promise<string[]> {
   const dir = modelsDir();
   if (!(await RNFS.exists(dir))) return [];
   const inUse = new Set(models.map((m) => m.filename));
+  const statesInUse = new Set(models.map((m) => kvStatePath(m).split('/').pop()));
   const deleted: string[] = [];
   for (const entry of await RNFS.readDir(dir)) {
+    if (entry.isFile() && (entry.name.endsWith('.kvstate') || entry.name.endsWith('.kvstate.tmp')) && !statesInUse.has(entry.name)) {
+      await RNFS.unlink(entry.path);
+      deleted.push(entry.name);
+      continue;
+    }
     if (entry.isFile() && entry.name.endsWith('.gguf') && !inUse.has(entry.name)) {
       await RNFS.unlink(entry.path);
       deleted.push(entry.name);

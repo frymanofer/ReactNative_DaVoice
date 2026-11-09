@@ -2,6 +2,8 @@ import type { AgentRemoteRequest } from 'react-native-davoice-llm';
 
 import { generateGeminiReply, normalizeTextForSpeech } from './index';
 import type { GeminiChatMessage } from './index';
+import { LOCAL_LLM_LAYER2, LOCAL_LLM_NO_REMOTE_MESSAGE, LOCAL_LLM_NOT_IN_DEMO_MESSAGE } from '../local_llm/constants';
+import { getTTSLanguage } from '../tts';
 
 // The remote assistant of Local AI Chat's DaVoice Agent model: Gemini (the
 // same model, key and Google Search grounding as AI Chat) answers what the
@@ -37,6 +39,18 @@ function isSearchQuotaError(error: any): boolean {
 export async function answerRemoteRequest(
   request: AgentRemoteRequest,
 ): Promise<{ text: string } | { failure: RemoteFailure; detail: string }> {
+  // The model said it can't do this (remote.cannotReplies, reason "cannot"): not available in this demo.
+  if (request.reason === 'cannot') {
+    const language = getTTSLanguage();
+    console.log('[AIChat][REMOTE] not available in this demo (the model declined)');
+    return { text: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en };
+  }
+  // No remote model set up (constants.ts LOCAL_LLM_LAYER2 'none'): say so instead of answering.
+  if (LOCAL_LLM_LAYER2 === 'none') {
+    const language = getTTSLanguage();
+    console.log(`[AIChat][REMOTE] no remote model set up (reason ${request.reason ?? '-'}): telling the user`);
+    return { text: LOCAL_LLM_NO_REMOTE_MESSAGE[language] ?? LOCAL_LLM_NO_REMOTE_MESSAGE.en };
+  }
   try {
     return await askGemini(request);
   } catch (error: any) {

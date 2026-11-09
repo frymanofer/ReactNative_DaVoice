@@ -1,4 +1,5 @@
 import { DeviceEventEmitter, Platform } from 'react-native';
+import { noteSpeechResult } from '../speaker_verification/currentSpeaker';
 
 // === minimal coalescer that PRESERVES punctuation ===
 
@@ -159,6 +160,7 @@ export function registerSpeechHandlers({
 
   Speech.onSpeechPartialResults = (e: any) => {
     console.log('onSpeechPartialResults: 1');
+    noteSpeechResult(e); // who is speaking (owner-only car actions)
 
     if (Platform.OS === 'android' && suppressAndroidPartialResultsRef.current) {
       console.log('[STT_INIT_GUARD] ignoring Android partial result while speech library is still loading/pause is settling', e.value?.[0]);
@@ -227,6 +229,7 @@ export function registerSpeechHandlers({
 
   Speech.onSpeechResults = async (e: any) => {
     console.log('onSpeechResults: 1 ');
+    noteSpeechResult(e);
 
     if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord || aiChatInFlightRef.current) {
       console.log('onSpeechResults: leaving?????? ');

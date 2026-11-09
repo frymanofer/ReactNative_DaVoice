@@ -15,6 +15,8 @@ export interface CarState {
   airflow: string;
   defrost: { windshield: boolean; rear: boolean };
   windows: Record<'driver' | 'passenger' | 'rear_left' | 'rear_right', WindowPosition>;
+  doors: Record<'driver' | 'passenger' | 'rear_left' | 'rear_right', 'open' | 'closed'>;
+  locked: boolean;
   sunroof: 'open' | 'tilt' | 'close';
   sunshade: 'open' | 'close';
   trunk: 'open' | 'close';
@@ -61,6 +63,8 @@ const initialState = (): CarState => ({
   airflow: 'face',
   defrost: { windshield: false, rear: false },
   windows: { driver: 'close', passenger: 'close', rear_left: 'close', rear_right: 'close' },
+  doors: { driver: 'closed', passenger: 'closed', rear_left: 'closed', rear_right: 'closed' },
+  locked: false,
   sunroof: 'close',
   sunshade: 'open',
   trunk: 'close',

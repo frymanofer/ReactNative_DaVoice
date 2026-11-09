@@ -2,7 +2,7 @@
 
 > Para: outro agente Claude que vai usar, testar ou extrair partes deste app de exemplo
 > (`example/`). Tudo aqui foi conferido no código. Os caminhos de arquivos são relativos à
-> pasta `example/`.
+> pasta `example/`. A versão em inglês está em `englishHowTo.md`.
 
 O app demonstra um assistente de voz que roda no próprio aparelho:
 
@@ -183,7 +183,8 @@ Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
 - **Conversa e conhecimento:**
   - "quem é você?" (resposta fixa do pacote `agent/pt-BR/agent.json`, `fixedReplies`)
   - "me conta uma história"
-  - "qual é a capital da Austrália?" (respondida pela "camada 2", veja 2.2)
+  - "me escreve um poema sobre o mar" ou "me conta uma curiosidade sobre o Brasil": o modelo passa
+    adiante; sem modelo remoto configurado, o app responde com a mensagem de 2.2
 
 ---
 
@@ -193,28 +194,55 @@ Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
 
 - **Seletor de modelos:** fica no modo Local AI Chat (`src/local_llm/ModelPicker.tsx`). A
   lista está em `src/local_llm/constants.ts`:
-  - **"DaVoice Agent 0.6B"** (padrão): modelo pequeno ajustado para decidir ferramentas;
-  - **"DaVoice Agent 0.6B (VW demo ft7c-750)"**: versão de demonstração treinada com
-    comandos automotivos em português. Aparece porque `LOCAL_LLM_VW_DEMO_MODEL = true`.
-    Não é o padrão; escolha no seletor;
-  - modelos genéricos maiores: Qwen2.5 1.5B/3B, Gemma 3n.
+  - **"DaVoice Agent 0.6B (VW demo)"** (padrão e primeira opção): Qwen3-0.6B ajustado para
+    decidir ferramentas, treinado também com comandos automotivos em português;
+  - modelos genéricos maiores, como alternativa: Qwen2.5 1.5B/3B, Gemma 3n. Eles respondem
+    tudo no próprio aparelho, mas são mais lentos.
 - **Download:** cada modelo é baixado uma vez (o "DaVoice Agent" tem cerca de 380 MB) e
   conferido por sha256. Se o hash não bater, o arquivo é apagado. Use Wi-Fi.
-- **Estados na tela:** download → "Warming up..." → "Ready". O aquecimento já processa o
-  prompt de sistema, então a primeira resposta sai mais rápida. Com as ferramentas do carro
-  o prompt é grande, e o primeiro aquecimento demora mais.
+- **Estados na tela:** download → "Warming up..." → "Ready". O aquecimento processa o prompt
+  de sistema (persona + ferramentas de calorias e do carro, cerca de 3.300 tokens).
+  - **Na primeira vez** leva cerca de **40 s** num Galaxy S20 (CPU). Depois, o app **salva
+    esse estado em disco** (`*.kvstate` na pasta dos modelos, cerca de 380 MB) com
+    `saveState` do `react-native-davoice-llm`.
+  - **Nas próximas aberturas** o estado é restaurado (`loadState`) em cerca de um segundo, e
+    o "Ready" chega logo.
+  - O estado só é salvo de novo se o prompt mudar bastante (outras ferramentas, outro idioma).
+    Código: `src/aichat/provider.ts` (`warmUp`) e `kvStatePath` em
+    `src/local_llm/ModelManager.ts`.
+- **Não fale antes do "Ready":** um comando dito durante o aquecimento espera o aquecimento
+  terminar.
 
 ### 2.2 Como o turno funciona
 
 - O modelo ajustado decide sozinho, a cada frase: chamar uma ferramenta (carro, calorias,
   memória, busca na web), perguntar (pedido incompleto), recusar (não suportado) ou
-  **passar adiante**.
-- **Camada 2:** o que o modelo passa adiante (conhecimento geral, escrever um texto, papo)
-  é respondido por um segundo modelo no aparelho, o **Qwen3 0.6B original, sem ajuste**
-  (cerca de 470 MB, carregado em segundo plano depois do aquecimento). Configuração:
-  `LOCAL_LLM_LAYER2 = 'device'` e `LOCAL_LLM_LAYER2_MODEL`. A alternativa é a nuvem
-  (`'cloud'`, Gemini). Enquanto a camada 2 não carrega, o app diz que a resposta não está
-  disponível.
+  **passar adiante** para um modelo remoto.
+- **O que é passado adiante:** conhecimento geral, escrever um texto, papo, e às vezes em
+  que o modelo pequeno não produz resposta. O modelo de 0,6B foi treinado para **agir**
+  (ferramentas), não para conversar.
+- **Modelo remoto: configuração atual.** Hoje **não há modelo remoto configurado**
+  (`LOCAL_LLM_LAYER2 = 'none'` em `src/local_llm/constants.ts`). Tudo o que é passado adiante
+  recebe esta resposta fixa, sem a frase de espera ("deixa eu ver…"):
+  - em português: **"Preciso enviar isso para um modelo remoto. Para isso funcionar,
+    configure um modelo remoto no aplicativo."**
+  - em inglês: *"I need to send this to a remote Model. To make this work, please setup a
+    remote model in the App."*
+
+  O texto fica em `LOCAL_LLM_NO_REMOTE_MESSAGE` (`src/local_llm/constants.ts`) e é devolvido
+  por `answerRemoteRequest` em `src/aichat/remote.ts`. Essa mensagem é **esperada** e não
+  é erro: comandos do carro e das calorias continuam funcionando normalmente, sem internet.
+- **Como configurar um modelo remoto.** Mude `LOCAL_LLM_LAYER2`:
+  - `'cloud'`: o app envia o pedido ao Gemini (`src/aichat/remote.ts`, chave
+    `GEMINI_API_KEY` em `local.config.ts`). O agente fala uma frase de espera enquanto
+    aguarda; se o Gemini falhar, ele diz que não conseguiu.
+  - Qualquer outro serviço (seu próprio servidor, outro LLM na nuvem): implemente
+    `answerRemoteRequest` em `src/aichat/remote.ts`. Ele recebe o pedido (`query`,
+    `userText`, histórico, fatos da memória, resultados das ferramentas) e devolve
+    `{ text }`, ou `{ failure, detail }` em caso de erro.
+  - `'device'`: um segundo modelo no aparelho (`LOCAL_LLM_LAYER2_MODEL`, o Qwen3 0.6B original,
+    cerca de 470 MB). **Não recomendado:** os dois modelos disputam a mesma CPU, tudo fica bem
+    mais lento, e o modelo pequeno às vezes misturava fatos da memória com pedidos de ação.
 - **Busca na web:** Wikipedia por padrão. Tavily ou Brave exigem chave em
   `local.config.ts`.
 - **Respostas faladas:** cada frase do texto é enviada ao TTS assim que fica pronta. O
@@ -230,15 +258,25 @@ Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
 
   De vez em quando executa uma ação errada ou oposta. Por isso o carro é **simulado** e
   ações sensíveis precisam de `authorization` / `confirmation`.
-- **Latência:** depende do aparelho. A primeira resposta após o aquecimento leva alguns
-  segundos no Android, mais com o prompt grande do carro.
+- **Latência (Galaxy S20, só CPU):**
+  - cerca de 5 s até a primeira palavra;
+  - um comando do carro completo (chamada da ferramenta + "Pronto.") leva de 10 a 15 s.
+
+  Em iPhones com Metal é bem mais rápido.
+- **Memória do usuário:** com um fato salvo sobre o carro (por exemplo "meu carro é vermelho"),
+  o modelo de 0,6B às vezes responde com o fato em vez de executar o pedido sobre o carro.
+  É uma limitação conhecida do modelo atual.
 - Pedidos fora do que o carro sabe fazer (portas, travas, faróis, freio de mão) devem ser
   **recusados**, não executados.
 
 ### 2.4 Como testar
 
-1. Entre em **Local AI Chat**. Se for testar o carro, escolha o modelo
-   **"DaVoice Agent 0.6B (VW demo ft7c-750)"** no seletor. Espere o "Ready".
+1. Entre em **Local AI Chat**. O modelo **"DaVoice Agent 0.6B (VW demo)"** já é o padrão.
+   Espere o "Ready" (cerca de 40 s na primeira vez; depois, segundos).
+   - Para testar o estado salvo: feche o app por completo, abra de novo e volte ao Local AI
+     Chat. O log mostra `[LocalLLM] KV state restored: N tokens in X ms`.
+   - Faça também uma pergunta geral ("me conta uma curiosidade sobre o Brasil"): a resposta
+     deve ser a mensagem do modelo remoto de 2.2.
 2. **Cartões na tela:**
    - **Calorias** (`src/calories/CaloriesCard.tsx`): total do dia e lista.
    - **Carro** (azul, `src/car/CarCard.tsx`), logo abaixo:
@@ -264,6 +302,97 @@ Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
    gerou, as chamadas de ferramenta e os resultados.
 6. **Com a verificação de locutor ligada:** confirme que a wake word não dispara com outra
    pessoa falando, e que `speakerId` aparece nos resultados do STT.
+
+### 2.5 Conversa por turnos: o usuário espera a IA terminar
+
+**Como funciona hoje.** O chat de IA (local e Gemini) é **por turnos**. O usuário **não
+consegue interromper** a IA:
+
+1. O usuário fala. Quando ele faz silêncio, o app envia a frase para a IA.
+2. Nesse momento o STT é pausado (`Speech.pauseSpeechRecognition()` em `processAIChatTurn`,
+   `App.tsx`). Enquanto `aiChatInFlightRef` está ligado, os resultados do STT são ignorados
+   (`src/stt/index.ts`).
+3. A IA pensa e fala a resposta, frase por frase.
+4. Só depois que o último áudio termina, `finishAIChatSpeechFlow` reabre o microfone para o
+   próximo turno.
+
+Enquanto a IA pensa ou fala, nada do que o usuário diz é ouvido. Dizer "Hey Coach" também
+não para a resposta, e não há botão de parar. Isso é proposital: é o jeito mais simples e
+seguro de evitar que a IA escute a própria voz e transcreva o que ela mesma está falando.
+
+**Se você quiser que o usuário possa interromper a IA, é preciso mudar o app.** O modelo
+recomendado é o do app LunaFit (`../LunaFitTech.Mobileapp`), no modo de treino (workout):
+lá o usuário diz "Hey Coach" por cima do treinador e o treinador para na hora. Arquivos de
+referência no LunaFit:
+- `src/components/utility-components/WakewordLibHeadless.ts` (`keywordCallback`);
+- `src/components/utility-components/wakewordDetectionRouting.ts`
+  (`resolveWakewordDetectionAction`);
+- `src/components/ai-chat/SpeechLibHeadless.ts` (handler `COACH_BTN_STOP_PRESS`);
+- `src/components/utility-components/audioRoutingConfigs.ts`.
+
+O que o LunaFit faz, e como aplicar aqui:
+
+1. **A wake word fica ouvindo enquanto a IA fala** (o STT continua fechado). No LunaFit,
+   quando o turno do usuário termina, o STT fecha e a detecção da wake word volta
+   (`unPauseDetection`) antes de o treinador falar. Aqui: chame
+   `myInstanceRef.current?.unPauseDetection()` logo depois do `pauseSpeechRecognition()` em
+   `processAIChatTurn`.
+2. **Cancelamento de eco ligado sempre.** No LunaFit: `AEC: { mode: 'always' }` no
+   `defaultAudioRoutingConfig`. Aqui o `defaultAudioRoutingConfig` em `src/wakeword/index.ts`
+   usa `WakewordAEC: { regular: false, duringTTS: false }`. Troque por
+   `AEC: { mode: 'always' }`, para que a voz da própria IA não dispare a wake word nem
+   entre no STT. Suporte (documentado em `react-native-wakeword`, `audioRoutingConfig.d.ts`):
+   - iPhones mais novos usam o AEC do próprio iOS; os mais antigos, um motor de áudio com
+     cancelamento de eco;
+   - no Android vale para a wake word e o TTS; para o STT, Android 13+ no alto-falante.
+3. **Wake word durante a fala da IA = parar.** No LunaFit, `resolveWakewordDetectionAction`
+   devolve `'stop-coach'` quando o treinador está falando, e isso tem prioridade sobre
+   qualquer outro estado. Aqui, no começo do `keywordCallback` em `App.tsx`:
+   ```ts
+   if (aiChatInFlightRef.current) {             // a IA está pensando ou falando
+     if (interruptInFlightRef.current) return;  // a mesma "Hey Coach" detectada duas vezes
+     interruptInFlightRef.current = true;
+     try {
+       aiChatRequestIdRef.current += 1;         // textos e eventos atrasados do turno antigo são ignorados
+       (await getLocalAgent()).cancel();        // para o turno do LLM (src/agent/LocalAgent.ts)
+       aiChatSpeechQueueRef.current = [];       // descarta as frases que ainda não foram faladas
+       ignoreNextFinishedSpeakingRef.current = true; // o "terminou de falar" do stop não abre outro turno
+       await Speech.stopSpeaking();             // cala a voz agora
+       resetSpeechTranscriptState();            // descarta o que o STT pegou no meio (não envia para a IA)
+       aiChatInFlightRef.current = false;
+       await myInstanceRef.current?.pauseDetection(false);
+       await Speech.unPauseSpeechRecognition(-1, 0); // novo turno do usuário; preFetchMs 0, veja abaixo
+     } finally {
+       interruptInFlightRef.current = false;
+     }
+     return;
+   }
+   ```
+   `interruptInFlightRef` e `ignoreNextFinishedSpeakingRef` são refs novos.
+   `finishAIChatSpeechFlow` precisa respeitar o segundo e não reabrir o microfone de novo.
+4. **Detalhes que o LunaFit aprendeu na prática:**
+   - **Proteja contra detecção dupla** (o `coachStopInFlightRef` do LunaFit): a mesma
+     palavra pode disparar duas vezes.
+   - **Descarte a transcrição acidental, não envie.** Interromper a fala não pode mandar
+     para a IA um pedaço de frase ou o eco da própria IA.
+   - **Abra o STT com `preFetchMs: 0`.** Senão o STT repete os ~2 s de áudio anteriores e
+     transcreve o "Hey Coach" (ou a voz da IA) como se fosse a nova mensagem.
+   - **Botão vs. voz.** Num botão de parar, o LunaFit só faz silêncio. Pela wake word, ele
+     abre o microfone, porque o usuário quer falar.
+   - **Toque um som curto de "ouvindo"** quando o microfone abre, para o usuário saber que
+     pode falar.
+   - **Histórico:** guarde no histórico só o que a IA chegou a falar, para o próximo turno
+     fazer sentido.
+5. **No carro, combine com a verificação de locutor (1.3).** Com locutor cadastrado, só a
+   voz do dono consegue interromper. O rádio ou um passageiro, não.
+
+**Variante "qualquer fala interrompe" (duplex).** No LunaFit isso existe só numa tela de
+conversa contínua ("Surprise Me", `AEC_DUPLEX_ROUTES` em `voiceRouteAudioPolicy.ts`) e
+**só no iOS**. Lá o STT fica aberto por baixo da fala do treinador, com `AEC 'always'`.
+Palavras que **não** são eco do que o treinador está dizendo param a fala e começam um turno
+normal (`interruptCoachForUserSpeech` em `SpeechLibHeadless.ts`). É mais complexo, porque é
+preciso filtrar o eco comparando a transcrição com a frase que a IA está falando. Para o
+carro, a versão com wake word acima é mais segura.
 
 ---
 
@@ -294,7 +423,8 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
 
   Para outra palavra de ativação, peça um modelo à DaVoice.
 - **Antes do STT:** pause a wake word antes de abrir o STT (o exemplo faz isso). Dois
-  pipelines de áudio abertos ao mesmo tempo causam instabilidade.
+  pipelines de áudio abertos ao mesmo tempo causam instabilidade. A exceção é o padrão de
+  interrupção de 2.5: a wake word ouve enquanto o TTS fala, com o STT fechado.
 
 ### 3.2 Onboarding e verificação de locutor (`react-native-wakeword` + `react-native-davoice`)
 
@@ -370,19 +500,22 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   ```
 - **Código para copiar:**
   - `src/local_llm/`: lista de modelos e URLs com sha256 (`constants.ts`), download e
-    registro (`ModelManager.ts`, `ModelRegistry.ts`), carregamento, incluindo a camada 2
+    registro e estado salvo (`ModelManager.ts`, `ModelRegistry.ts`), carregamento
     (`LocalLLMLoader.ts`), seletor (`ModelPicker.tsx`);
   - `src/agent/LocalAgent.ts`: cria o `Agent` com o pacote do idioma, `onRequest`
-    (camada remota, `authorizeTool`, `confirmTool`);
+    (pedidos `remote` para o modelo remoto, `authorizeTool`, `confirmTool`);
+  - `src/aichat/remote.ts`: o modelo remoto (`answerRemoteRequest`: a mensagem fixa, o
+    Gemini ou o seu serviço, veja 2.2);
   - `src/agent/AgentPack.ts`: escolhe `agent/` ou `agent/pt-BR/`;
-  - `src/aichat/provider.ts`: configura o agente por modelo (ferramentas, camada 2,
-    aquecimento) e faz o streaming para o TTS;
+  - `src/aichat/provider.ts`: configura o agente por modelo (ferramentas, modelo remoto,
+    aquecimento, estado salvo com `saveState` / `loadState`) e faz o streaming para o TTS;
   - **pacote do agente:** `agent/pt-BR/agent.json` (persona, mensagens, respostas fixas,
-    camada 2) e `agent/pt-BR/skills/calories/` (`skill.json`, `foods.json`). São arquivos
+    frases do modelo remoto) e `agent/pt-BR/skills/calories/` (`skill.json`, `foods.json`). São arquivos
     JSON: dá para mudar o comportamento sem mudar código;
   - **carro:** `src/car/carToolDefinitions.json` (definições das ferramentas no formato MCP:
     `name`, `description`, `inputSchema`, `execution`), `src/car/carTools.ts` (handlers),
-    `src/car/CarState.ts` (estado simulado), `src/car/CarCard.tsx` (UI).
+    `src/car/CarState.ts` (estado simulado), `src/car/CarCard.tsx` (UI). Não dê o mesmo
+    nome a um módulo `.ts` e a um arquivo `.json`: o Metro resolve o `.json` primeiro.
 - **API mínima:**
   ```ts
   import { setLicense, loadModel, Agent } from 'react-native-davoice-llm';
@@ -395,6 +528,7 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   }, { onRequest });
   await agent.setTools(minhasFerramentas);          // ex.: as do carro
   const r = await agent.turn({ text, history }, (ev) => { if (ev.type === 'text') falar(ev.text); });
+  // agent.cancel() para um turno em andamento (usado nas interrupções, veja 2.5)
   ```
 - **Modelos:** baixe o GGUF pelas URLs de `src/local_llm/constants.ts` e confira o sha256
   (o exemplo já faz isso). Modelos ajustados precisam do mesmo `chatTemplate` (`qwen3`) e
@@ -411,9 +545,11 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
 
 1. Instale e rode o app (1.1); escolha **Português do Brasil**.
 2. Escolha uma voz; **crie a assinatura de voz** (5 frases); diga **"Hey Coach"**.
-3. Escolha **Local AI Chat** → modelo **VW demo** → espere "Ready".
+3. Escolha **Local AI Chat** (o modelo **VW demo** já é o padrão) → espere "Ready".
+   Perguntas gerais recebem a mensagem "configure um modelo remoto" (veja 2.2).
 4. Teste os comandos de 1.4 e confira o cartão azul do carro (ferramenta e argumentos
    exatos).
-5. Teste também uma voz diferente: ela **não** deve ativar o assistente.
-6. Para portas, travas ou pagamentos, implemente `execution.authorization` + checagem do
+5. Lembre que o chat é por turnos (2.5): espere a IA terminar antes de falar de novo.
+6. Teste também uma voz diferente: ela **não** deve ativar o assistente.
+7. Para portas, travas ou pagamentos, implemente `execution.authorization` + checagem do
    `speakerId` (1.3) antes de qualquer ação real.

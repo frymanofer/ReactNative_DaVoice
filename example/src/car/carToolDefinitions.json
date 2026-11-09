@@ -1,5 +1,5 @@
 {
- "comment": "DaVoice Car tools (from example/Automotive_Voice_Commands.docx). Same definitions as the benchmark and training (Davoice_LLM_Training/apps/automotive/app.json): keep them identical. profiles.vw_demo = the Volkswagen Brazil demo's tools.",
+ "comment": "DaVoice Car tools (from example/Automotive_Voice_Commands.docx). Same definitions as the benchmark and training (Davoice_LLM_Training/apps/automotive/app.json): keep them identical. profiles.vw_demo = the Volkswagen Brazil demo's tools. 2026-11-09: + open_door / close_doors / lock_car / unlock_car (app-only door tools, NOT in Davoice_LLM_Training/apps/automotive/app.json; names, order and descriptions picked by testing ft7c_it750; open_door and unlock_car need authorization scope door_locks = the owner's voice when speaker verification is on).",
  "profiles": {
   "vw_demo": [
    "navigate_to",
@@ -12,6 +12,10 @@
    "set_defrost",
    "comfort_feeling",
    "set_window",
+   "open_door",
+   "close_doors",
+   "lock_car",
+   "unlock_car",
    "set_sunroof",
    "set_seat_climate",
    "play_media",
@@ -252,6 +256,102 @@
      "window",
      "position"
     ]
+   }
+  },
+  {
+   "name": "open_door",
+   "description": "Opens a car door, not a window (abrir a porta).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "door": {
+      "type": "string",
+      "enum": [
+       "all",
+       "driver",
+       "passenger",
+       "rear_left",
+       "rear_right"
+      ],
+      "description": "Which door: driver = the user's own, passenger, rear_left / rear_right; all if the user did not name one"
+     }
+    },
+    "required": []
+   },
+   "execution": {
+    "authorization": {
+     "scope": "door_locks",
+     "message": "Open the door?"
+    }
+   }
+  },
+  {
+   "name": "close_doors",
+   "description": "Shuts the car doors that are open, not the windows (fechar as portas).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "door": {
+      "type": "string",
+      "enum": [
+       "all",
+       "driver",
+       "passenger",
+       "rear_left",
+       "rear_right"
+      ],
+      "description": "Which door: driver = the user's own, passenger, rear_left / rear_right; all if the user did not name one"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "lock_car",
+   "description": "Locks the car doors (lock the car / trancar o carro, travar as portas).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "door": {
+      "type": "string",
+      "enum": [
+       "all",
+       "driver",
+       "passenger",
+       "rear_left",
+       "rear_right"
+      ],
+      "description": "Which door: driver = the user's own, passenger, rear_left / rear_right; all if the user did not name one"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "unlock_car",
+   "description": "Unlocks the car doors (unlock the car / destrancar o carro, destravar as portas).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "door": {
+      "type": "string",
+      "enum": [
+       "all",
+       "driver",
+       "passenger",
+       "rear_left",
+       "rear_right"
+      ],
+      "description": "Which door: driver = the user's own, passenger, rear_left / rear_right; all if the user did not name one"
+     }
+    },
+    "required": []
+   },
+   "execution": {
+    "authorization": {
+     "scope": "door_locks",
+     "message": "Unlock the car?"
+    }
    }
   },
   {

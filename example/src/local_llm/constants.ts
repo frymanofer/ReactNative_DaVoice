@@ -9,76 +9,33 @@ export const LOCAL_LLM_E2B: ModelId = 'gemma-3n-e2b-it';
 export const LOCAL_LLM_E4B: ModelId = 'gemma-3n-e4b-it';
 export const LOCAL_LLM_QWEN25_1_5B: ModelId = 'qwen2.5-1.5b-instruct';
 export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
-export const LOCAL_LLM_DAVOICE_AGENT_FT1: ModelId = 'davoice-agent-qwen3-0.6b-ft3';
-/** Phone test candidate (2026-11-08): ft6 at step 1,650. NOT the default. */
-export const LOCAL_LLM_DAVOICE_AGENT_TEST: ModelId = 'davoice-agent-qwen3-0.6b-ft6-it1650';
-/** VW Brazil demo candidate (2026-11-09): ft7c at step 750. Demo only, NEVER the default; in the picker only with LOCAL_LLM_VW_DEMO_MODEL. */
+/** VW Brazil demo model (2026-11-09): ft7c at step 750 (Qwen3-0.6B fine-tuned for the agent + automotive pt-BR). The default and first
+ * choice. (The ft3 / ft6 DaVoice Agent entries were removed 2026-11-09: their files were deleted from R2.) */
 export const LOCAL_LLM_DAVOICE_AGENT_VW_DEMO: ModelId = 'davoice-agent-qwen3-0.6b-vw-demo-ft7c-it750';
 
-/** Demo-only switch: shows the VW Brazil demo model (ft7c_it750: automotive pt-BR up, general-agent safety slightly below ft6) in the
- * model picker. Not the default either way; off for anything but the VW demo. */
-export const LOCAL_LLM_VW_DEMO_MODEL = true;
-
-const VW_DEMO_MODEL: LocalLLMModelConfig = {
-  // ft7c_it750 (universal Qwen3-0.6B + VW automotive, 2026-11-09): VW benchmark tool 78.5 / exact 57.9 / pt-BR exact 56.6, clarify 92.3,
-  // unsupported safe 93.8 (ft6-1650: 33.1 / 23.1 / 17.9). Car actions stay simulated (src/car). Upload to R2 before use (sha256 checked).
-  id: LOCAL_LLM_DAVOICE_AGENT_VW_DEMO,
-  displayName: 'DaVoice Agent 0.6B (VW demo ft7c-750)',
-  filename: 'davoice-agent-qwen3-0.6b-vw-demo-ft7c-it750-q4_0.gguf',
-  url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft7c_it750-q4_0.gguf',
-  contextSize: 8192,
-  chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
-  sizeBytes: 381_565_920,
-  sha256: '136a03cd21ce1d4a8f943c1c5ab39006fece4ede3c1d8509b760de7c88e49111',
-  remoteAssistant: true,
-  usesRouter: false,
-  modelTools: true,
-  temperature: 0,
-  isCustom: false,
-};
-
-// URLs are real, verified-reachable files. The Gemma entries use the same
-// unsloth GGUF repos the AmigoLocal reference app uses in production. Sizes
-// are the servers' content-length (checked 2026-09-28 for Gemma, 2026-10-04
-// for Qwen, 2026-11-05 for the DaVoice Agent).
+// URLs are real, verified-reachable files (checked 2026-11-09). The Gemma entries use the same unsloth GGUF repos the AmigoLocal
+// reference app uses in production. Sizes are the servers' content-length.
 export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
   {
-    // Qwen3-0.6B fine-tuned (LoRA, ft3: whole app conversations) for on-device tool calling:
-    // picking the tool, taking its arguments from the user's words, asking
-    // for a missing one, short replies. Hosted on DaVoice's Cloudflare R2.
-    // Conversation, questions and current events go to Gemini
-    // (remoteAssistant): the model is weak at those.
-    id: LOCAL_LLM_DAVOICE_AGENT_FT1,
-    displayName: 'DaVoice Agent 0.6B',
-    filename: 'davoice-agent-qwen3-0.6b-ft3-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft3-q4_0.gguf',
-    // Trained window is 32768; 8192 as for the other small models.
+    // ft7c_it750 (universal Qwen3-0.6B + VW automotive): decides every turn itself (tools: car, calories, memory, web search;
+    // asks for a missing value; declines what it can't do) and hands knowledge / small talk to layer 2 (LOCAL_LLM_LAYER2).
+    // Car actions stay simulated (src/car). Hosted on DaVoice's Cloudflare R2 (sha256 checked on download).
+    id: LOCAL_LLM_DAVOICE_AGENT_VW_DEMO,
+    displayName: 'DaVoice Agent 0.6B (VW demo)',
+    filename: 'davoice-agent-qwen3-0.6b-vw-demo-ft7c-it750-q4_0.gguf',
+    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft7c_it750-q4_0.gguf',
     contextSize: 8192,
     chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
     sizeBytes: 381_565_920,
-    sha256: 'c709742ceb871c7be52cc740a7b711fe09ce5e565f0e92c38bd2060859957da2',
+    sha256: '136a03cd21ce1d4a8f943c1c5ab39006fece4ede3c1d8509b760de7c88e49111',
     remoteAssistant: true,
     // Trained to decide every turn itself: no intent router.
     usesRouter: false,
     // Trained to call web_search for current facts and get_time for the time.
     modelTools: true,
-    isCustom: false,
-  },
-  {
-    // Test candidate: ft6 at step 1,650 (best ft6 checkpoint so far: arguments, Portuguese, clarification and safety up vs
-    // ft4.5 iteration 2,500). For phone testing with temperature 0 and Gemini; not the default. On R2 since 2026-11-08 (sha256 checked).
-    id: LOCAL_LLM_DAVOICE_AGENT_TEST,
-    displayName: 'DaVoice Agent 0.6B (test ft6-1650)',
-    filename: 'davoice-agent-qwen3-0.6b-ft6-it1650-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft6_it1650-q4_0.gguf',
-    contextSize: 8192,
-    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
-    sizeBytes: 381_565_920,
-    sha256: 'c988a238276f56facb7ff62c7d9ff817292542895b1fa1287204fe847660679c',
-    remoteAssistant: true,
-    usesRouter: false,
-    modelTools: true,
     temperature: 0,
+    // Car commands: no saved facts attached (see LocalLLMModelConfig.relevantMemory).
+    relevantMemory: false,
     isCustom: false,
   },
   {
@@ -133,15 +90,12 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     sizeBytes: 1_997_879_712,
     isCustom: false,
   },
-  ...(LOCAL_LLM_VW_DEMO_MODEL ? [VW_DEMO_MODEL] : []),
 ];
 
-// The DaVoice Agent (382 MB): smallest and fastest, the tool actions on the
-// phone and Gemini for the rest. The others stay in the picker as backups
-// (they answer everything on the phone, as before). Changing this switches
-// every install to the new default once (see ModelRegistry.ts); the user can
-// pick another model afterwards.
-export const LOCAL_LLM_DEFAULT_MODEL: ModelId = LOCAL_LLM_DAVOICE_AGENT_FT1;
+// The VW demo DaVoice Agent (382 MB): smallest and fastest, the tool actions on the phone, layer 2 for the rest. The others stay in
+// the picker as backups (they answer everything on the phone). Changing this switches every install to the new default once (see
+// ModelRegistry.ts); the user can pick another model afterwards.
+export const LOCAL_LLM_DEFAULT_MODEL: ModelId = LOCAL_LLM_DAVOICE_AGENT_VW_DEMO;
 
 /** The default before the registry recorded it (files written until 2026-11-05). */
 export const LOCAL_LLM_EARLIER_DEFAULT_MODEL: ModelId = LOCAL_LLM_QWEN25_1_5B;
@@ -151,10 +105,26 @@ export const LOCAL_LLM_EARLIER_DEFAULT_MODEL: ModelId = LOCAL_LLM_QWEN25_1_5B;
 export const LOCAL_LLM_USE_REMOTE_ASSISTANT = true; // 2026-11-07: on for the phone test with real Gemini handoff
 
 /** The "layer 2" of models with `remoteAssistant`: who answers what the DaVoice Agent model hands over
- * (knowledge, writing, small talk). 'device': LOCAL_LLM_LAYER2_MODEL, a second, general model on the
- * phone (no internet needed; loaded next to the agent model); 'cloud': Gemini (src/aichat/remote.ts). */
-export type LocalLLMLayer2 = 'device' | 'cloud';
-export const LOCAL_LLM_LAYER2: LocalLLMLayer2 = 'device'; // 2026-11-08: no Gemini credits
+ * (knowledge, writing, small talk). 'none': no remote model is set up; the app says LOCAL_LLM_NO_REMOTE_MESSAGE
+ * (src/aichat/remote.ts); 'device': LOCAL_LLM_LAYER2_MODEL, a second, general model on the phone (no internet
+ * needed; loaded after the agent model's warm-up); 'cloud': Gemini (src/aichat/remote.ts). */
+export type LocalLLMLayer2 = 'none' | 'device' | 'cloud';
+// 2026-11-09 (user): no second model on the phone (slow next to the agent model, mixed saved facts into actions);
+// hand-overs say LOCAL_LLM_NO_REMOTE_MESSAGE until a remote model is set up.
+export const LOCAL_LLM_LAYER2: LocalLLMLayer2 = 'none';
+
+/** What the agent says instead of the model's "That's not available here" (agent.json remote.cannotReplies: the request was
+ * understood but this demo can't do it), by app language; English otherwise. */
+export const LOCAL_LLM_NOT_IN_DEMO_MESSAGE: Record<string, string> = {
+  en: 'This is not available in this demo, to make it available please contact info@davoice.io',
+  'pt-BR': 'Isso não está disponível nesta demonstração. Para disponibilizar, entre em contato com info@davoice.io',
+};
+
+/** What the agent says for a handed-over request when LOCAL_LLM_LAYER2 is 'none' (by app language; English otherwise). */
+export const LOCAL_LLM_NO_REMOTE_MESSAGE: Record<string, string> = {
+  en: 'I need to send this to a remote Model. To make this work, please setup a remote model in the App.',
+  'pt-BR': 'Preciso enviar isso para um modelo remoto. Para isso funcionar, configure um modelo remoto no aplicativo.',
+};
 
 /** The car tools the agent gets: 'vw_demo' = the Volkswagen Brazil demo's 17 (climate, windows, navigation, media/radio, seats,
  * vehicle status: shorter prompt, faster, fewer confusions), 'all' = the whole catalog (30, Automotive_Voice_Commands.docx). */

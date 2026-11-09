@@ -4,6 +4,7 @@ import { Agent } from 'react-native-davoice-llm';
 import type { AgentApprovalRequest, AgentConfig, AgentEvent, AgentRemoteRequest } from 'react-native-davoice-llm';
 
 import { agentPackFor } from './AgentPack';
+import { ownerMayAct } from '../speaker_verification/currentSpeaker';
 import { answerRemoteRequest } from '../aichat/remote';
 import { llmReplyInstruction } from '../appflow';
 import { getTTSLanguage } from '../tts';
@@ -93,6 +94,12 @@ let agentPromise: Promise<Agent> | null = null;
 const AUTHORIZED_TOOL_SCOPES = new Set<string>([]);
 
 function isToolAuthorized(request: AgentApprovalRequest): boolean {
+  // Doors (unlock_car, open_door): only the enrolled owner's voice, when speaker verification is on.
+  if (request.scope === 'door_locks') {
+    const owner = ownerMayAct();
+    console.log(`[DavoiceAgent] authorize ${request.name} (scope "door_locks"): ${owner.allowed ? 'yes' : 'no'} - ${owner.reason}`);
+    return owner.allowed;
+  }
   const ok = AUTHORIZED_TOOL_SCOPES.has(request.scope);
   console.log(`[DavoiceAgent] authorize ${request.name} (scope "${request.scope}"): ${ok ? 'yes' : 'no'}`);
   return ok;

@@ -133,7 +133,14 @@ async function ensureModelLoadedOnce(
     cacheTypeK: options?.cacheTypeK,
     cacheTypeV: options?.cacheTypeV,
   });
+  nativeLoads++;
   console.log(`[LocalLLM] native load done for "${model.displayName}"`);
+}
+
+// Native loads so far: each starts with an empty KV cache (src/aichat/provider.ts restores the saved state once per load).
+let nativeLoads = 0;
+export function nativeLoadCount(): number {
+  return nativeLoads;
 }
 
 /** The model the native engine has (or is loading), if any. */

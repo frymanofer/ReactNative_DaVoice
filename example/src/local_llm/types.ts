@@ -66,6 +66,10 @@ export interface LocalLLMModelConfig {
   /** Hands what it can't do well to the remote assistant (Gemini, src/aichat/remote.ts):
    * everything but the tool actions (agent.json "remote"). Offline, it answers itself. */
   remoteAssistant?: boolean;
+  /** false: saved facts about the user are not added to every request whose words match them ("my car is red" was
+   * attached to every car command: ~35 extra tokens per turn and the 0.6B model sometimes answered with the fact).
+   * The profile (name) and "what do you remember about me" still work. Default: on. */
+  relevantMemory?: boolean;
   /** False: no intent router; the model itself decides every turn (which tool, a question, the
    * remote assistant or a reply), as the fine-tuned DaVoice Agent is trained to. Default true. */
   usesRouter?: boolean;

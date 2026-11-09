@@ -8,15 +8,18 @@ import type { AIChatHistoryMessage, GeminiChatMessage } from './index';
 import { generateGeminiReply, generateGeminiReplyStream } from './index';
 
 import type { LocalLLMModelConfig } from '../local_llm/types';
-import { ensureLayer2Loaded, ensureModelLoaded, isModelReady } from '../local_llm/LocalLLMLoader';
+import { ensureLayer2Loaded, ensureModelLoaded, isModelReady, nativeLoadCount } from '../local_llm/LocalLLMLoader';
 import { getSelectedModel } from '../local_llm/ModelRegistry';
 import { LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL, LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
 import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
 import type { Agent, AgentEvent, AgentHistoryMessage, ToolDefinition, ToolTurnMessage, TurnResult } from 'react-native-davoice-llm';
-import { cancel as cancelGeneration, generateStream } from 'react-native-davoice-llm';
+import { cancel as cancelGeneration, generateStream, loadState, saveState } from 'react-native-davoice-llm';
+import RNFS from 'react-native-fs';
+import { kvStatePath } from '../local_llm/ModelManager';
 import { getLocalAgent } from '../agent/LocalAgent';
+import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
 
 export interface LLMProvider {
   generateReply(history: AIChatHistoryMessage[], userText: string): Promise<string>;
@@ -132,8 +135,8 @@ export class LocalLLMProvider implements LLMProvider {
       const handsOver = model.remoteAssistant === true && LOCAL_LLM_USE_REMOTE_ASSISTANT;
       this.chatTemplateSet = agent.configure({
         chatTemplate: model.chatTemplate,
-        // Layer 2: the on-device general model (constants.ts LOCAL_LLM_LAYER2), or Gemini
-        // (src/aichat/remote.ts; 15 s, then the phone answers).
+        // Layer 2 (constants.ts LOCAL_LLM_LAYER2): the on-device general model, or the app's onRequest
+        // (src/aichat/remote.ts: Gemini, 15 s; or with 'none' the "set up a remote model" message).
         remote: !handsOver
           ? false
           : LOCAL_LLM_LAYER2 === 'device'
@@ -144,6 +147,9 @@ export class LocalLLMProvider implements LLMProvider {
         // web_search + get_time for a model trained to call them (as in the benchmark).
         webSearchTool: model.modelTools === true,
         timeTool: model.modelTools === true,
+        // Saved facts: the pack's 'small' profile; without the per-request facts for models that opt out
+        // (relevantMemory: false). Sent every time: the agent is shared, the previous model's setting must not stick.
+        memory: { profile: 'small', ...(model.relevantMemory === false ? { relevantMax: 0 } : {}) },
         // Local sampling for agent turns (0 = greedy); unset keeps the engine's default.
         ...(model.temperature !== undefined ? { sampling: { temperature: model.temperature } } : {}),
       });
@@ -166,35 +172,78 @@ export class LocalLLMProvider implements LLMProvider {
   ): Promise<LocalLLMModelConfig> {
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey, undefined, onDownloadProgress);
-    // The layer 2 model loads in the background: until it is ready, a handed-over request hears
-    // agent.json "remote.layer2.unavailable".
-    if (model.remoteAssistant && LOCAL_LLM_USE_REMOTE_ASSISTANT && LOCAL_LLM_LAYER2 === 'device') {
-      ensureLayer2Loaded(LOCAL_LLM_LAYER2_MODEL).catch(() => undefined);
+    // The system prompt processed at an earlier start (saved below): restored in about a second instead of
+    // processing ~3k tokens again (~40 s on the S20's CPU). Only once per load; a broken file is deleted.
+    const statePath = kvStatePath(model);
+    const stateExists = await RNFS.exists(statePath).catch(() => false);
+    const load = `${model.id}#${nativeLoadCount()}`;
+    if (this.stateRestoredFor !== load && stateExists) {
+      const t0 = Date.now();
+      try {
+        const restored = await loadState(statePath);
+        console.log(`[LocalLLM] KV state restored: ${restored} tokens in ${Date.now() - t0} ms`);
+      } catch (error) {
+        console.log('[LocalLLM] KV state not usable, deleted:', error);
+        await RNFS.unlink(statePath).catch(() => undefined);
+      }
     }
+    this.stateRestoredFor = load;
     onWarming?.();
     // Answer once, on the agent's real prompt for a short "Hello": the system
     // prompt (persona, tools) is in the model's cache and the first decode has
     // run, so the user's first turn starts right away. A few tokens are enough.
+    // A turn waits for this (generateReplyStream): the cancel() that ends the
+    // warm-up bumps the engine's generate epoch, and a turn that had already
+    // taken its epoch while queued behind the warm-up was cancelled before its
+    // first token (2026-11-09 phone: empty reply, handed to layer 2).
+    const generation = (async () => {
+      try {
+        const agent = await this.agentFor(model);
+        const prompt = await agent.call<string>('prompt', {
+          text: 'Hello',
+          history: toAgentHistory(history),
+          date: currentDateText(),
+        });
+        const started = Date.now();
+        let tokens = 0;
+        await generateStream(prompt, (_token, done) => {
+          if (!done && ++tokens === 4) cancelGeneration();
+        });
+        const warmMs = Date.now() - started;
+        console.log(`[LocalLLM] warm-up answered (${tokens} tokens) in ${warmMs} ms`);
+        // Save the processed prompt for the next start: when there is no saved state yet, or the prompt changed enough
+        // that the warm-up had to do real work (new tools, persona, language). Not every start: the file is ~380 MB.
+        if (!stateExists || warmMs > 5000) {
+          const t0 = Date.now();
+          await saveState(statePath)
+            .then((n) => console.log(`[LocalLLM] KV state saved: ${n} tokens in ${Date.now() - t0} ms`))
+            .catch((error) => console.log('[LocalLLM] KV state not saved:', error));
+        }
+      } catch (error) {
+        // Only a speed-up: a failure here must not block the chat.
+        console.log('[LocalLLM] warm-up generation skipped:', error);
+        await this.prefillForTurn(history, '');
+      }
+    })();
+    this.warmUpGeneration = generation;
     try {
-      const agent = await this.agentFor(model);
-      const prompt = await agent.call<string>('prompt', {
-        text: 'Hello',
-        history: toAgentHistory(history),
-        date: currentDateText(),
-      });
-      const started = Date.now();
-      let tokens = 0;
-      await generateStream(prompt, (_token, done) => {
-        if (!done && ++tokens === 4) cancelGeneration();
-      });
-      console.log(`[LocalLLM] warm-up answered (${tokens} tokens) in ${Date.now() - started} ms`);
-    } catch (error) {
-      // Only a speed-up: a failure here must not block the chat.
-      console.log('[LocalLLM] warm-up generation skipped:', error);
-      await this.prefillForTurn(history, '');
+      await generation;
+    } finally {
+      if (this.warmUpGeneration === generation) this.warmUpGeneration = null;
+    }
+    // The layer 2 model loads in the background AFTER the warm-up (both models compute on the same CPU cores: loaded side by side,
+    // the 3.3k-token warm-up and layer 2's own warm-up slowed each other down, 2026-11-09 phone). Until it is ready, a handed-over
+    // request hears agent.json "remote.layer2.unavailable".
+    if (model.remoteAssistant && LOCAL_LLM_USE_REMOTE_ASSISTANT && LOCAL_LLM_LAYER2 === 'device') {
+      ensureLayer2Loaded(LOCAL_LLM_LAYER2_MODEL).catch(() => undefined);
     }
     return model;
   }
+
+  /** The warm-up generation while it runs: a turn starts only after it (see warmUp). */
+  private warmUpGeneration: Promise<void> | null = null;
+  /** The native load (model id + load count) whose saved KV state was already tried: once per load. */
+  private stateRestoredFor: string | null = null;
 
   /**
    * Processes the prompt-so-far into the model's cache in the background:
@@ -239,6 +288,11 @@ export class LocalLLMProvider implements LLMProvider {
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey);
     const agent = await this.agentFor(model);
+    // Never start while the warm-up runs: its cancel() would stop this turn too (see warmUp).
+    if (this.warmUpGeneration) {
+      console.log('[LocalLLM] turn waits for the warm-up to finish');
+      await this.warmUpGeneration;
+    }
 
     const [profile, longTermFacts, localPassages] = await Promise.all([
       getProfile(this.speakerId),
@@ -260,6 +314,7 @@ export class LocalLLMProvider implements LLMProvider {
       },
     );
     onDelta('', true);
+    clearHeardSpeakers(); // the next request is checked on its own voice
     return { toolMessages: result.toolMessages, webSearch: result.webSearch };
   }
 }

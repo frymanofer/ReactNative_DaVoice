@@ -544,7 +544,7 @@
     "Deixa eu buscar isso para você."
   ],
   "remote": {
-    "layer2": {"instructions": "Você é o modelo geral de um assistente que roda no celular do usuário. Você não pode fazer nada no celular (registros, timers, mensagens ou configurações): se pedirem, diga que não pode. Responda só à última mensagem do usuário, em português do Brasil, em uma a quatro frases curtas para serem faladas, sem listas nem markdown.", "unavailable": "Meu segundo modelo ainda não está pronto. Tente de novo em um instante."},
+    "layer2": {"instructions": "Você é a voz de conhecimento geral de um assistente no celular do usuário. Você não controla nada: nem o carro (vidros, ar, portas, navegação, música) nem o celular (registros, timers, mensagens, configurações). Se o usuário pedir uma ação, diga em uma frase curta que não conseguiu fazer e peça para ele repetir. Nunca diga que fez, vai fazer ou pode fazer uma ação. Os fatos que você sabe sobre o usuário são só contexto: mencione um só quando o usuário perguntar sobre ele. Responda só à última mensagem do usuário, em português do Brasil, em uma a quatro frases curtas para serem faladas, sem listas nem markdown.", "unavailable": "Meu segundo modelo ainda não está pronto. Tente de novo em um instante."},
     "comment": "With configure remote (the DaVoice Agent model): fillers said while the remote assistant (Gemini) answers; what is said when it fails (errors: offline, busy, timeout, unavailable; else failed); the router routes it answers directly (undecided: the router decided nothing), quietRoutes without a filler; the model's own can't-do replies, handed over instead of said.",
     "fillers": [
       "Um momento, deixa eu ver.",
@@ -562,12 +562,7 @@
     },
     "routes": ["personal", "general", "undecided"],
     "quietRoutes": ["chat"],
-    "cannotReplies": [
-      "não consigo fazer",
-      "não tenho como fazer",
-      "\\bcan(?:'|’)?t do that\\b",
-      "\\bnot able to do that\\b"
-    ]
+    "cannotReplies": ["não consigo fazer", "não tenho como fazer", "\\bcan(?:'|’)?t do that\\b", "\\bnot able to do that\\b", "não está disponível aqui", "\\bnot available here\\b"]
   },
   "memory": {
     "comment": "What the assistant remembers about each user (speaker) across conversations. types: how each kind of memory lives (lifetimeDays: short-term, afterExpiry: what it becomes) and is used (inject always = every prompt; relevant = when the turn's words match; guidance = how to behave while it lasts; checkIn = asked once per day). rules: patterns that capture memories from the user's words ({1} = first group, :title capitalizes). profiles: how much memory to use; the app picks one per model with configure({memory: {profile}}) and can override any field.",
@@ -1220,12 +1215,11 @@
     ]
   },
   "fixedReplies": [
+    {"id": "car_options", "patterns": ["^(?=.*(?:carro|veículo|veiculo|automóvel|automovel))(?=.*(?:(?:opções|opcoes|opçoes|opcões)|comandos|(?:funções|funcoes|funçoes|funcões)|recursos|controles|o\\s+que\\s+(?:você|voce|vc)\\s+(?:pode|consegue|sabe)\\s+fazer|o\\s+que\\s+(?:dá|da)\\s+(?:pra|para)\\s+fazer)).*$"], "replies": ["No carro eu posso: navegar até um lugar, achar uma parada no caminho, dizer o horário de chegada e evitar pedágio ou trânsito. Ajustar a temperatura, a ventilação, a direção do ar e o desembaçador, ou é só me dizer que está com calor ou com frio. Abrir ou fechar os vidros e o teto solar. Abrir, fechar, trancar ou destrancar as portas. Aquecer ou ventilar o seu banco. Tocar música, sintonizar o rádio, trocar a fonte de áudio e mudar o volume. E dizer a autonomia, o combustível, a bateria, a pressão dos pneus ou as luzes de alerta."]},
+    {"id": "capabilities", "patterns": ["^\\W*(?:(?:ei|oi|ok|então|entao)\\W+)?o\\s+que\\s+(?:mais\\s+)?(?:você|voce|vc)\\s+(?:pode|consegue|sabe)\\s+fazer(?:\\s+por\\s+mim)?\\W*$", "\\b(?:quais\\s+(?:são|sao)|me\\s+diz|lista)\\s+(?:as\\s+)?suas\\s+(?:opções|opcoes|opçoes|opcões|funções|funcoes|funçoes|funcões|habilidades)\\W*$"], "replies": ["Eu controlo o carro: navegação, ar-condicionado, vidros, teto solar, portas, bancos e música. Também anoto suas calorias, lembro do que você me conta e pesquiso coisas. Pergunte o que eu posso fazer no carro para ouvir a lista completa."]},
     {
       "id": "identity",
-      "patterns": [
-        "^\\W*(?:(?:ei|oi|olá|ola)\\s+\\w+\\W+)?(?:quem|o\\s+que)\\s+(?:é|e)\\s+(?:você|voce|vc)\\W*$",
-        "^\\W*(?:você|voce)\\s+é\\s+quem\\W*$"
-      ],
+      "patterns": ["^\\W*(?:(?:ei|oi|olá|ola)\\s+\\w+\\W+)?(?:quem|o\\s+que)\\s+(?:é|e)\\s+(?:você|voce|vc)\\W*$", "^\\W*(?:você|voce)\\s+é\\s+quem\\W*$", "^\\W*(?:(?:ei|oi)\\W+)?(?:(?:(?:você|voce|vc)|pode|(?:você|voce|vc)\\s+pode)\\s+)?me\\s+(?:diz|dizer|fala|falar|conta|contar)\\s+quem\\s+(?:você|voce|vc)\\s+(?:é|e)\\W*$", "^\\W*com\\s+quem\\s+eu\\s+(?:estou|to|tô)\\s+falando\\W*$"],
       "replies": [
         "Eu sou o seu agente de IA, ajustado pela DaVoice.io."
       ]

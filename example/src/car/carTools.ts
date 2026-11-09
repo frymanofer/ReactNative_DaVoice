@@ -12,6 +12,7 @@
 // turn and asks for confirmation where a tool declares it (send_message).
 
 import type { ToolDefinition } from 'react-native-davoice-llm';
+import { toolReply } from 'react-native-davoice-llm';
 
 import { getTTSLanguage } from '../tts';
 import carToolsJson from './carToolDefinitions.json'; // not "carTools.json": Metro resolves './carTools' to a .json before a .ts
@@ -31,6 +32,7 @@ class Refused extends Error {}
 
 const WINDOWS = ['driver', 'passenger', 'rear_left', 'rear_right'] as const;
 const PT_WINDOW: Record<string, string> = { all: 'todos os vidros', driver: 'vidro do motorista', passenger: 'vidro do passageiro', rear_left: 'vidro traseiro esquerdo', rear_right: 'vidro traseiro direito' };
+const PT_DOOR: Record<string, string> = { driver: 'do motorista', passenger: 'do passageiro', rear_left: 'traseira esquerda', rear_right: 'traseira direita' };
 const PT_SEAT: Record<string, string> = { driver: 'motorista', passenger: 'passageiro', rear_left: 'traseiro esquerdo', rear_right: 'traseiro direito' };
 const PT_LEVEL: Record<string, string> = { off: 'desligado', low: 'baixo', medium: 'médio', high: 'alto' };
 const PT_PLACE: Record<string, string> = { gas_station: 'posto de combustível', ev_charger: 'carregador', parking: 'estacionamento', restaurant: 'restaurante', coffee: 'café', rest_area: 'parada' };
@@ -46,6 +48,7 @@ const NOT_WHILE_DRIVING: Record<string, (args: Args) => boolean> = {
   rotate_screen: () => true,
   activate_scenario: (a) => a.mode === 'car_wash' || a.mode === 'rest',
   set_window: (a) => a.window === 'all' && a.position === 'open',
+  open_door: () => true,
 };
 
 function range(value: unknown, min: number, max: number, what: string): number {
@@ -133,6 +136,35 @@ const HANDLERS: Record<string, Handler> = {
     const en = { open: 'open', close: 'closed', half: 'half open', crack: 'open a crack' }[String(position)] ?? position;
     const ptPos = { open: 'aberto', close: 'fechado', half: 'meio aberto', crack: 'com uma fresta' }[String(position)] ?? position;
     return done(L(`${window === 'all' ? 'all windows' : `${words(String(window))} window`} ${en}`, `${PT_WINDOW[window] ?? window} ${window === 'all' ? ptPos.replace(/o$/, 'os') : ptPos}`));
+  },
+  open_door: ({ door }) => {
+    if (getCarState().locked) throw new Refused(L('the car is locked; unlock it first', 'o carro está trancado; destranque primeiro'));
+    const which = !door || door === 'all' ? WINDOWS : ([door] as const);
+    updateCar((s) => {
+      const d = { ...s.doors };
+      which.forEach((k) => (d[k as keyof typeof d] = 'open'));
+      return { ...s, doors: d };
+    });
+    return done(L(!door || door === 'all' ? 'all doors open' : `${words(String(door))} door open`,
+                  !door || door === 'all' ? 'todas as portas abertas' : `porta ${PT_DOOR[door] ?? door} aberta`));
+  },
+  close_doors: ({ door }) => {
+    const which = !door || door === 'all' ? WINDOWS : ([door] as const);
+    updateCar((s) => {
+      const d = { ...s.doors };
+      which.forEach((k) => (d[k as keyof typeof d] = 'closed'));
+      return { ...s, doors: d };
+    });
+    return done(L(!door || door === 'all' ? 'all doors closed' : `${words(String(door))} door closed`,
+                  !door || door === 'all' ? 'todas as portas fechadas' : `porta ${PT_DOOR[door] ?? door} fechada`));
+  },
+  lock_car: () => {
+    updateCar((s) => ({ ...s, locked: true }));
+    return done(L('car locked', 'carro trancado'));
+  },
+  unlock_car: () => {
+    updateCar((s) => ({ ...s, locked: false }));
+    return done(L('car unlocked', 'carro destrancado'));
   },
   set_sunroof: ({ action }) => {
     updateCar((s) => ({ ...s, sunroof: action }));
@@ -274,6 +306,12 @@ function toTool(t: any): ToolDefinition {
         const { summary, result } = run(args);
         recordCarAction(t.name, args, summary);
         console.log(`[Car] ${t.name} ${JSON.stringify(args)} -> ${summary}`);
+        // An action (done(...)): the app says what it did and the turn ends there: no second model round to say
+        // "Done." (~5 s on a phone CPU), and the user hears exactly what changed. Lookups (vehicle status, ETA, places)
+        // stay with the model, which words the answer.
+        if (typeof result?.status === 'string' && result.status.startsWith('Done: ')) {
+          return toolReply({ ok: true, ...result }, L(`Done: ${summary}.`, `Pronto: ${summary}.`));
+        }
         return { ok: true, ...result };
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
