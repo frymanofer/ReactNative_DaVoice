@@ -144,23 +144,58 @@ async function downloadModelOnce(
  * prompt, restored at the next start instead of ~40 s of prompt processing on a phone CPU. Keyed by the model file
  * (name + sha256 / size) and context size: a state is only valid for the exact weights and window it was made with.
  */
-export function kvStatePath(model: LocalLLMModelConfig): string {
-  const key = (model.sha256 ?? String(model.sizeBytes ?? 0)).slice(0, 12);
-  return `${modelsDir()}/${model.filename}.${key}.ctx${model.contextSize}.kvstate`;
+export function kvStatePath(model: LocalLLMModelConfig, promptKey?: string): string {
+  return `${modelsDir()}/${kvStatePrefix(model)}${promptKey ? `${promptKey}.` : ''}kvstate`;
 }
+
+/** File-name prefix shared by every saved state of this model (one per prompt: language, tools, wording). */
+function kvStatePrefix(model: LocalLLMModelConfig): string {
+  const key = (model.sha256 ?? String(model.sizeBytes ?? 0)).slice(0, 12);
+  return `${model.filename}.${key}.ctx${model.contextSize}.`;
+}
+
+/**
+ * Which saved state fits this prompt: a hash of its system part (persona, language, tools) WITHOUT the date line, which changes
+ * every day. Two languages or tool wordings then keep two states instead of overwriting one (each switch cost ~32-40 s of prompt
+ * processing on the S20); a new day still restores the state and only the part after the date is processed again.
+ */
+export function stablePromptKey(prompt: string, dateText: string): string {
+  const userAt = prompt.indexOf('<|im_start|>user');
+  const system = (userAt >= 0 ? prompt.slice(0, userAt) : prompt).split(dateText).join('');
+  let h = 0x811c9dc5;   // FNV-1a, 32 bits
+  for (let i = 0; i < system.length; i++) {
+    h ^= system.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+const KV_STATES_PER_MODEL = 2;
 
 export async function deleteUnusedModelFiles(models: LocalLLMModelConfig[]): Promise<string[]> {
   const dir = modelsDir();
   if (!(await RNFS.exists(dir))) return [];
   const inUse = new Set(models.map((m) => m.filename));
-  const statesInUse = new Set(models.map((m) => kvStatePath(m).split('/').pop()));
+  // Saved states: each model keeps its newest KV_STATES_PER_MODEL (one per prompt variant, ~470 MB each); others and states of
+  // removed models are deleted.
+  const prefixes = models.map(kvStatePrefix);
   const deleted: string[] = [];
-  for (const entry of await RNFS.readDir(dir)) {
-    if (entry.isFile() && (entry.name.endsWith('.kvstate') || entry.name.endsWith('.kvstate.tmp')) && !statesInUse.has(entry.name)) {
-      await RNFS.unlink(entry.path);
-      deleted.push(entry.name);
+  const entries = await RNFS.readDir(dir);
+  const states = entries
+    .filter((e) => e.isFile() && (e.name.endsWith('.kvstate') || e.name.endsWith('.kvstate.tmp')))
+    .sort((x, y) => (y.mtime?.getTime() ?? 0) - (x.mtime?.getTime() ?? 0));
+  const kept = new Map<string, number>();
+  for (const entry of states) {
+    const prefix = prefixes.find((p) => entry.name.startsWith(p));
+    const n = prefix ? (kept.get(prefix) ?? 0) : Infinity;
+    if (prefix && !entry.name.endsWith('.tmp') && n < KV_STATES_PER_MODEL) {
+      kept.set(prefix, n + 1);
       continue;
     }
+    await RNFS.unlink(entry.path);
+    deleted.push(entry.name);
+  }
+  for (const entry of entries) {
     if (entry.isFile() && entry.name.endsWith('.gguf') && !inUse.has(entry.name)) {
       await RNFS.unlink(entry.path);
       deleted.push(entry.name);

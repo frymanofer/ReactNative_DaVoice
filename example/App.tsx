@@ -86,6 +86,7 @@ import { getLocalDemo, getSelectedModel, listModels, setLocalDemo } from './src/
 import { currentLocalDemo } from './src/local_llm/demo';
 import type { LocalDemo } from './src/local_llm/demo';
 import { resetLocalAgent } from './src/agent/LocalAgent';
+import { DID_NOT_CATCH, isNoiseFragment } from './src/aichat/fragments';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
@@ -1224,7 +1225,11 @@ function App(): React.JSX.Element {
       let nextHistory: GeminiChatMessage[] | null = null;
 
       const localModel = useLocalLLM ? await getSelectedModel() : null;
-      if (localModel && !isModelReady(localModel.id)) {
+      if (useLocalLLM && isNoiseFragment(userText)) {
+        // STT noise ("The.", "But.", "Alma Alma."): not sent to the model (2026-11-10 phone).
+        console.log(`[AIChat] noise fragment, asking to repeat: ${userText}`);
+        aiReply = DID_NOT_CATCH[appLanguageRef.current] ?? DID_NOT_CATCH.en;
+      } else if (localModel && !isModelReady(localModel.id)) {
         // The model is still downloading or loading. Say so right away
         // instead of holding the turn (and the mic) until it is ready.
         const status = localModelStatusRef.current;

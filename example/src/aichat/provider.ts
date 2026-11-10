@@ -17,7 +17,7 @@ import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
 import type { Agent, AgentEvent, AgentHistoryMessage, ToolDefinition, ToolTurnMessage, TurnResult } from 'react-native-davoice-llm';
 import { cancel as cancelGeneration, generateStream, loadState, saveState } from 'react-native-davoice-llm';
 import RNFS from 'react-native-fs';
-import { kvStatePath } from '../local_llm/ModelManager';
+import { kvStatePath, stablePromptKey } from '../local_llm/ModelManager';
 import { getLocalAgent } from '../agent/LocalAgent';
 import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
 
@@ -183,7 +183,17 @@ export class LocalLLMProvider implements LLMProvider {
     await ensureModelLoaded(model, this.licenseKey, undefined, onDownloadProgress);
     // The system prompt processed at an earlier start (saved below): restored in about a second instead of
     // processing ~3k tokens again (~40 s on the S20's CPU). Only once per load; a broken file is deleted.
-    const statePath = kvStatePath(model);
+    // The prompt first (no engine work): its system part picks the saved state (language, tools, wording; see stablePromptKey).
+    // A failure here keeps the old single state file (and the warm-up builds its prompt itself, as before).
+    let statePath = kvStatePath(model);
+    let warmPrompt: string | null = null;
+    try {
+      const warmDate = currentDateText();
+      warmPrompt = await (await this.agentFor(model)).call<string>('prompt', { text: 'Hello', history: toAgentHistory(history), date: warmDate });
+      statePath = kvStatePath(model, stablePromptKey(warmPrompt, warmDate));
+    } catch (error) {
+      console.log('[LocalLLM] warm-up prompt not built early (single state file):', error);
+    }
     const stateExists = await RNFS.exists(statePath).catch(() => false);
     const load = `${model.id}#${nativeLoadCount()}`;
     if (this.stateRestoredFor !== load && stateExists) {
@@ -208,11 +218,11 @@ export class LocalLLMProvider implements LLMProvider {
     const generation = (async () => {
       try {
         const agent = await this.agentFor(model);
-        const prompt = await agent.call<string>('prompt', {
+        const prompt = warmPrompt ?? (await agent.call<string>('prompt', {
           text: 'Hello',
           history: toAgentHistory(history),
           date: currentDateText(),
-        });
+        }));
         const started = Date.now();
         let tokens = 0;
         await generateStream(prompt, (_token, done) => {

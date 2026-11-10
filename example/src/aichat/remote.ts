@@ -3,6 +3,7 @@ import type { AgentRemoteRequest } from 'react-native-davoice-llm';
 import { generateGeminiReply, normalizeTextForSpeech } from './index';
 import type { GeminiChatMessage } from './index';
 import { LOCAL_LLM_LAYER2, LOCAL_LLM_NO_REMOTE_MESSAGE, LOCAL_LLM_NOT_IN_DEMO_MESSAGE } from '../local_llm/constants';
+import { DID_NOT_CATCH, isTooShortForDecline } from './fragments';
 import { getTTSLanguage } from '../tts';
 
 // The remote assistant of Local AI Chat's DaVoice Agent model: Gemini (the
@@ -42,6 +43,11 @@ export async function answerRemoteRequest(
   // The model said it can't do this (remote.cannotReplies, reason "cannot"): not available in this demo.
   if (request.reason === 'cannot') {
     const language = getTTSLanguage();
+    // A fragment of speech the model declined is noise, not an unsupported feature (2026-11-10 phone: "Alma Alma.").
+    if (isTooShortForDecline(request.userText ?? request.query ?? '')) {
+      console.log('[AIChat][REMOTE] declined fragment: asking to repeat');
+      return { text: DID_NOT_CATCH[language] ?? DID_NOT_CATCH.en };
+    }
     console.log('[AIChat][REMOTE] not available in this demo (the model declined)');
     return { text: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en };
   }
