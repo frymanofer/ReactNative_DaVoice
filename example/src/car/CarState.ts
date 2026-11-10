@@ -3,6 +3,8 @@
 // CarCard shows what the AI understood and which tool it used. Nothing here
 // talks to a real vehicle.
 
+import type { Pos, Steering } from './positions';
+
 export type Seat = 'driver' | 'passenger' | 'rear_left' | 'rear_right';
 export type Level = 'off' | 'low' | 'medium' | 'high';
 export type WindowPosition = 'open' | 'close' | 'half' | 'crack';
@@ -14,9 +16,14 @@ export interface CarState {
   fan: number;
   airflow: string;
   defrost: { windshield: boolean; rear: boolean };
-  windows: Record<'driver' | 'passenger' | 'rear_left' | 'rear_right', WindowPosition>;
-  doors: Record<'driver' | 'passenger' | 'rear_left' | 'rear_right', 'open' | 'closed'>;
+  /** The car's configuration: which side the steering wheel is on (driver / passenger are resolved from it). */
+  vehicle: { steering: Steering };
+  /** By place (2026-11-10): front_left / front_right / rear_left / rear_right. */
+  windows: Record<Pos, WindowPosition>;
+  doors: Record<Pos, 'open' | 'closed'>;
+  /** Every door locked (the car); doorLocks has each door (2026-11-10: each door separately). */
   locked: boolean;
+  doorLocks: Record<Pos, boolean>;
   sunroof: 'open' | 'tilt' | 'close';
   sunshade: 'open' | 'close';
   trunk: 'open' | 'close';
@@ -62,9 +69,11 @@ const initialState = (): CarState => ({
   fan: 3,
   airflow: 'face',
   defrost: { windshield: false, rear: false },
-  windows: { driver: 'close', passenger: 'close', rear_left: 'close', rear_right: 'close' },
-  doors: { driver: 'closed', passenger: 'closed', rear_left: 'closed', rear_right: 'closed' },
+  vehicle: { steering: 'left' },   // Brazil: left-hand drive
+  windows: { front_left: 'close', front_right: 'close', rear_left: 'close', rear_right: 'close' },
+  doors: { front_left: 'closed', front_right: 'closed', rear_left: 'closed', rear_right: 'closed' },
   locked: false,
+  doorLocks: { front_left: false, front_right: false, rear_left: false, rear_right: false },
   sunroof: 'close',
   sunshade: 'open',
   trunk: 'close',
@@ -126,8 +135,14 @@ export function setDriving(driving: boolean): void {
   emit();
 }
 
+/** The steering-wheel side (vehicle configuration); driver / passenger follow it. */
+export function setSteering(steering: Steering): void {
+  state = { ...state, vehicle: { ...state.vehicle, steering } };
+  emit();
+}
+
 export function resetCar(): void {
-  state = { ...initialState(), driving: state.driving };
+  state = { ...initialState(), driving: state.driving, vehicle: state.vehicle };
   actions = [];
   emit();
 }

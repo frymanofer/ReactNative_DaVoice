@@ -58,6 +58,27 @@ const NARRATION: Record<AppLanguage, NarrationCopy> = {
     sayWakeWord: (wakeWords) => `Agora diga a palavra de ativação ${wakeWords} para continuar.`,
     cloneCreated: (voice) => `Olá! Eu sou ${voice}. Esta é a minha nova voz clonada.`,
   },
+  'pt-PT': {
+    wakeWordDetected: (wakeWord) => `${wakeWord} detetado.`,
+    modeSelection:
+      'Agora pode explorar as funcionalidades de voz de cinco formas diferentes. Escolha o Chat de IA local, que funciona inteiramente neste dispositivo; o Chat de IA completo, que usa o Gemini remoto; ou teste o reconhecimento e a síntese de voz em separado, ou combine os dois.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Pode clonar uma nova voz, selecionar uma das suas vozes clonadas ou escolher uma voz integrada.'
+        : 'Pode clonar uma nova voz ou escolher uma voz integrada.',
+    introduction: (voice) => [
+      `Olá. O meu nome é ${voice}. Nesta aplicação, vou usar a minha voz clonada para demonstrar as capacidades do nosso agente de IA por voz.`,
+      'Serei o seu guia pessoal e vou acompanhá-lo passo a passo nesta demonstração.',
+      'Primeiro, escolha a voz que pretende usar.',
+    ],
+    selectedVoice: (voice) => `Selecionou ${voice}.`,
+    speakerVerificationSetup:
+      'O passo seguinte é configurar a verificação do orador. Pode criar uma nova assinatura de voz, usar uma assinatura guardada ou saltar este passo.',
+    speakerVerificationSkipped: 'A verificação do orador foi ignorada.',
+    speakerVerificationReady: 'A verificação do orador está pronta!',
+    sayWakeWord: (wakeWords) => `Agora diga a palavra de ativação ${wakeWords} para continuar.`,
+    cloneCreated: (voice) => `Olá! Eu sou ${voice}. Esta é a minha nova voz clonada.`,
+  },
   de: {
     wakeWordDetected: (wakeWord) => `${wakeWord} erkannt.`,
     modeSelection:
@@ -162,6 +183,27 @@ const NARRATION: Record<AppLanguage, NarrationCopy> = {
     speakerVerificationReady: 'Sprekerverificatie is klaar!',
     sayWakeWord: (wakeWords) => `Zeg nu het activeringswoord ${wakeWords} om door te gaan.`,
     cloneCreated: (voice) => `Hallo! Ik ben ${voice}. Dit is mijn nieuwe gekloonde stem.`,
+  },
+  he: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} זוהה.`,
+    modeSelection:
+      'עכשיו אפשר לנסות את יכולות הקול בחמש דרכים שונות. בחרו שיחה עם בינה מלאכותית מקומית, שפועלת כולה במכשיר הזה; שיחה מלאה עם בינה מלאכותית, שמשתמשת במודל Gemini המרוחק; או נסו זיהוי דיבור והקראת טקסט בנפרד, או את שניהם יחד.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'אפשר לשכפל קול חדש, לבחור אחד מהקולות המשוכפלים שלכם, או לבחור קול מובנה.'
+        : 'אפשר לשכפל קול חדש או לבחור קול מובנה.',
+    introduction: (voice) => [
+      `שלום. קוראים לי ${voice}. באפליקציה הזאת אשתמש בקול המשוכפל שלי כדי להדגים את היכולות של סוכן הבינה המלאכותית הקולי שלנו.`,
+      'אני אהיה המדריך האישי שלכם ואלווה אתכם שלב אחר שלב בהדגמה הזאת.',
+      'קודם כול, בחרו את הקול שתרצו להשתמש בו.',
+    ],
+    selectedVoice: (voice) => `בחרתם בקול של ${voice}.`,
+    speakerVerificationSetup:
+      'השלב הבא הוא הגדרת אימות דובר. אפשר ליצור חתימה קולית חדשה, להשתמש בחתימה שמורה, או לדלג על השלב הזה.',
+    speakerVerificationSkipped: 'דילגתם על אימות הדובר.',
+    speakerVerificationReady: 'אימות הדובר מוכן!',
+    sayWakeWord: (wakeWords) => `עכשיו אמרו את מילת ההפעלה ${wakeWords} כדי להמשיך.`,
+    cloneCreated: (voice) => `שלום! אני ${voice}. זה הקול המשוכפל החדש שלי.`,
   },
 };
 

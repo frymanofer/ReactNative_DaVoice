@@ -81,6 +81,13 @@ export interface LocalLLMModelConfig {
    * reproducible tool choice and arguments. Unset = the engine's default (0.7). Gemini's sampling is separate
    * (GEMINI_TEMPERATURE in src/aichat/index.ts). */
   temperature?: number;
+  /** The car tools' descriptions this model sees (src/car/carTools.ts): 'v1' (default) = the wording ft7c was trained on,
+   * 'h2' = the same tools without example values. A model must get the wording it was trained / benchmarked with. */
+  toolWording?: 'v1' | 'h2' | 'h3';
+  /** The core's call guards (agent configure "guards": polarity, direction, absRel, zone, capability, numberGround, opposite):
+   * 'off' (default), 'shadow' = recorded in the chat log only (the call runs as the model made it), 'correct' = a wrong call is
+   * fixed when the fix is unambiguous, otherwise blocked. Every guard decision is a "guard ..." line in the chat log. */
+  callGuards?: 'off' | 'shadow' | 'correct';
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }

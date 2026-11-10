@@ -342,7 +342,7 @@
       ],
       "minScore": 0.45,
       "margin": 0.05,
-      "replacement": "I haven't changed your tracker."
+      "replacement": "I didn't change anything. Could you say that again?"
     },
     "claimCheckComment": "A reply sentence claiming a change (closer to claims than notClaims by margin, and at least minScore) is not said in a turn where no tool changed anything; replacement is said if nothing is left."
   },

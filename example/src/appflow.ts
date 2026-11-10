@@ -31,12 +31,14 @@ export function getSVUIDisplayScore(score: number, nativeIsMatch: boolean): numb
 // The app's language, chosen first: it picks the TTS model, the voice-cloning
 // encoder, the speech recognizer's locale (src/tts/index.ts) and the language
 // the AI chats reply in (llmReplyInstruction, added to their system prompts).
-export type AppLanguage = 'en' | 'pt-BR' | 'de' | 'es' | 'fr' | 'it' | 'nl';
+export type AppLanguage = 'en' | 'pt-BR' | 'pt-PT' | 'de' | 'es' | 'fr' | 'it' | 'nl' | 'he';
 export const APP_LANGUAGES: {
   id: AppLanguage;
   label: string;
   sttLocale: string;
   llmReplyInstruction: string;
+  /** Supported but not offered on the language screen (still works if selected in code / stored). */
+  hidden?: boolean;
 }[] = [
   {
     id: 'en',
@@ -53,6 +55,13 @@ export const APP_LANGUAGES: {
     // models follow better than the system prompt.
     llmReplyInstruction:
       'Important: always reply in Brazilian Portuguese (pt-BR). Sempre responda em português do Brasil.',
+  },
+  {
+    id: 'pt-PT',
+    label: 'Português de Portugal (European Portuguese)',
+    sttLocale: 'pt-PT',
+    llmReplyInstruction:
+      'Important: always reply in European Portuguese (pt-PT), never Brazilian Portuguese. Responde sempre em português de Portugal.',
   },
   {
     id: 'de',
@@ -83,6 +92,15 @@ export const APP_LANGUAGES: {
     label: 'Nederlands (Dutch)',
     sttLocale: 'nl-NL',
     llmReplyInstruction: 'The user speaks Dutch. Always reply in Dutch.',
+  },
+  {
+    // TTS v1 model (Piper + voice converter): voices, cloning, no emotion styles.
+    // Hidden from the language screen for now (2026-11-10); the support stays for later.
+    id: 'he',
+    hidden: true,
+    label: 'עברית (Hebrew)',
+    sttLocale: 'he-IL',
+    llmReplyInstruction: 'The user speaks Hebrew. Always reply in Hebrew. ענה תמיד בעברית.',
   },
 ];
 

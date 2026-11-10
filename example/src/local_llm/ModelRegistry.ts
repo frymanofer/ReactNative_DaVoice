@@ -1,8 +1,11 @@
 import RNFS from 'react-native-fs';
 import type { LocalLLMModelConfig, ModelId } from './types';
+import { currentLocalDemo, setCurrentLocalDemo } from './demo';
+import type { LocalDemo } from './demo';
 import {
   BUILTIN_LOCAL_LLM_MODELS,
   LOCAL_LLM_DEFAULT_MODEL,
+  LOCAL_LLM_DEMO_DEFAULT_MODEL,
   LOCAL_LLM_EARLIER_DEFAULT_MODEL,
   LOCAL_LLM_STORAGE_DIR,
 } from './constants';
@@ -18,6 +21,9 @@ interface RegistryFile {
   /** The app's default when the file was written. A new default (an app
    * update) is selected once, replacing an earlier choice. */
   defaultModelId?: ModelId;
+  /** The Local AI Chat demo (2026-11-10: calories / car) and each demo's own model choice. */
+  demo?: LocalDemo;
+  selectedByDemo?: Partial<Record<LocalDemo, ModelId>>;
 }
 
 function registryDir(): string {
@@ -43,6 +49,8 @@ async function readRegistry(): Promise<RegistryFile> {
         selectedModelId: newDefault ? LOCAL_LLM_DEFAULT_MODEL : (parsed.selectedModelId ?? LOCAL_LLM_DEFAULT_MODEL),
         customModels: Array.isArray(parsed.customModels) ? parsed.customModels : [],
         defaultModelId: LOCAL_LLM_DEFAULT_MODEL,
+        demo: parsed.demo === 'calories' || parsed.demo === 'car' ? parsed.demo : 'car',
+        selectedByDemo: parsed.selectedByDemo ?? {},
       };
     }
   } catch (error) {
@@ -50,6 +58,7 @@ async function readRegistry(): Promise<RegistryFile> {
     console.log('[LocalLLM] model registry unreadable, using defaults:', error);
   }
   cached = file;
+  setCurrentLocalDemo(file.demo ?? 'car');
   if (newDefault) {
     console.log(`[LocalLLM] new default model ${LOCAL_LLM_DEFAULT_MODEL} selected`);
     await writeRegistry((r) => r);
@@ -83,16 +92,27 @@ export async function getModel(id: ModelId): Promise<LocalLLMModelConfig | null>
 /** The selected model, falling back to the default if the stored selection
  * no longer exists (e.g. a custom model that was removed). */
 export async function getSelectedModel(): Promise<LocalLLMModelConfig> {
-  const { selectedModelId } = await readRegistry();
-  return (
-    (await getModel(selectedModelId)) ??
-    BUILTIN_LOCAL_LLM_MODELS.find((m) => m.id === LOCAL_LLM_DEFAULT_MODEL)!
-  );
+  const r = await readRegistry();
+  const demo = r.demo ?? 'car';
+  // each demo has its own model (its own pick, else the demo's default model)
+  const id = r.selectedByDemo?.[demo] ?? LOCAL_LLM_DEMO_DEFAULT_MODEL[demo] ?? r.selectedModelId;
+  return (await getModel(id)) ?? BUILTIN_LOCAL_LLM_MODELS.find((m) => m.id === LOCAL_LLM_DEFAULT_MODEL)!;
 }
 
+/** Selects a model for the current demo. */
 export async function setSelectedModel(id: ModelId): Promise<void> {
   if (!(await getModel(id))) throw new Error(`Unknown local LLM model "${id}"`);
-  await writeRegistry((r) => ({ ...r, selectedModelId: id }));
+  await writeRegistry((r) => ({ ...r, selectedModelId: id, selectedByDemo: { ...(r.selectedByDemo ?? {}), [r.demo ?? 'car']: id } }));
+}
+
+/** The Local AI Chat demo (calories / car), read from the registry file. */
+export async function getLocalDemo(): Promise<LocalDemo> {
+  return (await readRegistry()).demo ?? currentLocalDemo();
+}
+
+export async function setLocalDemo(demo: LocalDemo): Promise<void> {
+  setCurrentLocalDemo(demo);
+  await writeRegistry((r) => ({ ...r, demo }));
 }
 
 /** Derives a filesystem- and id-safe slug from a display name. */

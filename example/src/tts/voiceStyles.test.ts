@@ -1,6 +1,6 @@
 import { voiceStyleExamples } from "./voiceStyles";
 
-const LANGUAGES = ["en", "pt-BR", "de", "es", "fr", "it", "nl"] as const;
+const LANGUAGES = ["en", "pt-BR", "pt-PT", "de", "es", "fr", "it", "nl", "he"] as const;
 const KNOWN_ABILITIES = [
   "military_sergeant_hard",
   "whisper",

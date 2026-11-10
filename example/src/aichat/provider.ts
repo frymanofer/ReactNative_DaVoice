@@ -76,6 +76,12 @@ function currentDateText(): string {
   });
 }
 
+/** agent configure "guards" for a model's callGuards setting. */
+function callGuardSettings(mode: 'off' | 'shadow' | 'correct') {
+  const opposite = mode === 'correct' ? 'enforce' : mode;
+  return { polarity: mode, direction: mode, absRel: mode, zone: mode, capability: mode, numberGround: mode, opposite } as const;
+}
+
 function toAgentHistory(history: AIChatHistoryMessage[]): AgentHistoryMessage[] {
   return history.map((m) => ({ role: m.role, text: m.text, toolMessages: m.toolMessages }));
 }
@@ -152,6 +158,9 @@ export class LocalLLMProvider implements LLMProvider {
         memory: { profile: 'small', ...(model.relevantMemory === false ? { relevantMax: 0 } : {}) },
         // Local sampling for agent turns (0 = greedy); unset keeps the engine's default.
         ...(model.temperature !== undefined ? { sampling: { temperature: model.temperature } } : {}),
+        // Call guards (model.callGuards): sent every time, so switching models never keeps the previous model's guards.
+        // 'correct' fixes / blocks; the split-tool opposite check can only block ('enforce'). Every decision is logged.
+        guards: callGuardSettings(model.callGuards ?? 'off'),
       });
     }
     await this.chatTemplateSet;

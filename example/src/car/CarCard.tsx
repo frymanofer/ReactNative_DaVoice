@@ -36,13 +36,20 @@ export default function CarCard() {
   const earlier = actions.slice(-3, -1).reverse();
   const unit = s.temperature.unit === 'fahrenheit' ? '°F' : '°C';
   const chips = [
-    `${s.temperature.driver}${unit}`,
+    // two sides (2026-11-10): one value when both sides match, else driver | passenger
+    s.temperature.driver === s.temperature.passenger
+      ? `${s.temperature.driver}${unit}`
+      : `${pt ? 'mot.' : 'driver'} ${s.temperature.driver}${unit} | ${pt ? 'pass.' : 'passenger'} ${s.temperature.passenger}${unit}`,
     `${pt ? 'vent.' : 'fan'} ${s.fan}`,
     `${pt ? 'vidros' : 'windows'} ${windowsText(s)}`,
     Object.values(s.doors).some((d) => d === 'open')
       ? `${pt ? 'portas' : 'doors'} ${Object.entries(s.doors).filter(([, d]) => d === 'open').map(([k]) => k.replace('_', ' ')).join(', ')} ${pt ? 'abertas' : 'open'}`
       : null,
-    s.locked ? (pt ? '🔒 trancado' : '🔒 locked') : (pt ? 'destrancado' : 'unlocked'),
+    s.locked
+      ? (pt ? '🔒 trancado' : '🔒 locked')
+      : Object.values(s.doorLocks).some(Boolean)
+        ? `🔒 ${Object.entries(s.doorLocks).filter(([, l]) => l).map(([k]) => k.replace('_', ' ')).join(', ')}`
+        : (pt ? 'destrancado' : 'unlocked'),
     s.sunroof !== 'close' ? `${pt ? 'teto' : 'sunroof'} ${s.sunroof}` : null,
     s.seatHeater.driver !== 'off' ? `${pt ? 'banco' : 'seat heat'} ${s.seatHeater.driver}` : null,
     s.destination ? `→ ${s.destination}` : null,

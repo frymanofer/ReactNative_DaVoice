@@ -82,7 +82,10 @@ import {
 } from './src/tts/voiceClone';
 import type { VoiceCloneResult } from 'react-native-davoice/speech';
 import ModelPicker from './src/local_llm/ModelPicker';
-import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
+import { getLocalDemo, getSelectedModel, listModels, setLocalDemo } from './src/local_llm/ModelRegistry';
+import { currentLocalDemo } from './src/local_llm/demo';
+import type { LocalDemo } from './src/local_llm/demo';
+import { resetLocalAgent } from './src/agent/LocalAgent';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
@@ -129,7 +132,7 @@ const DEFAULT_BRAZILIAN_TTS_VOICE: TTSVoiceChoice = 'Rich';
 // Built-in voices are discovered from the loaded .dm through Speech.getAllVoices().
 
 function defaultTTSVoiceForLanguage(language: AppLanguage): TTSVoiceChoice {
-  return language === 'pt-BR' ? DEFAULT_BRAZILIAN_TTS_VOICE : DEFAULT_ENGLISH_TTS_VOICE;
+  return language === 'pt-BR' || language === 'pt-PT' ? DEFAULT_BRAZILIAN_TTS_VOICE : DEFAULT_ENGLISH_TTS_VOICE;
 }
 
 const SPEECH_INIT_TIMEOUT_MS = 120000;
@@ -229,11 +232,15 @@ function App(): React.JSX.Element {
     return ttsText;
   };
 
-  const speakText = (text: string, speaker: number = SPEAKER, speed?: number) =>
-    Speech.speak(applyTTSTextPolicy(text), speaker, speed);
-  const isBrazilianPortuguese = () => appLanguageRef.current === 'pt-BR';
+  const speakText = (text: string, speaker: number = SPEAKER, speed?: number) => {
+    // [E2E] marker for latency measurement (wake word -> transcript -> reply -> speech): logcat ReactNativeJS timestamps.
+    console.log(`[E2E] speak ${text.length} chars: ${text.slice(0, 60)}`);
+    return Speech.speak(applyTTSTextPolicy(text), speaker, speed);
+  };
+  // Both Portuguese models (brv1 and Portugal) read "Rich" badly; say "Ritchie".
+  const isPortuguese = () => appLanguageRef.current === 'pt-BR' || appLanguageRef.current === 'pt-PT';
   const spokenVoiceName = (voice: TTSVoiceChoice): string =>
-    isBrazilianPortuguese() && voice === 'Rich' ? 'Ritchie' : voice;
+    isPortuguese() && voice === 'Rich' ? 'Ritchie' : voice;
 
   const svOnboardingProgress = Math.max(
     0,
@@ -397,6 +404,11 @@ function App(): React.JSX.Element {
   const [isAIChatLoading, setIsAIChatLoading] = useState(false);
   const [isAIChatHelpVisible, setIsAIChatHelpVisible] = useState(false);
   const [isModelPickerVisible, setIsModelPickerVisible] = useState(false);
+  // Local AI Chat demo (2026-11-10): calories (Personal Agent) or car (Automotive Agent); each has its own pack, tools, card and model.
+  const [localDemo, setLocalDemoState] = useState<LocalDemo>(currentLocalDemo());
+  useEffect(() => {
+    getLocalDemo().then(setLocalDemoState).catch(() => undefined);
+  }, []);
   const [localModelName, setLocalModelName] = useState('');
   const [localModelStatus, setLocalModelStatus] = useState('');
   // Latest status for async chat turns (the state value can be stale inside them).
@@ -1998,6 +2010,18 @@ function App(): React.JSX.Element {
     return mcpToolsRef.current;
   };
 
+  /** Switches the Local AI Chat demo: the agent is re-created with that demo's pack; with rewarm, the chat restarts on its model. */
+  const switchLocalDemo = async (demo: LocalDemo, rewarm: boolean) => {
+    setLocalDemoState(demo);
+    if (demo === currentLocalDemo()) return;
+    await setLocalDemo(demo);
+    await resetLocalAgent();
+    if (rewarm) {
+      resetAIChatSession();
+      warmUpLocalModel([]);
+    }
+  };
+
   const warmUpLocalModel = (history: AIChatHistoryMessage[] = []) => {
     const seq = ++localModelWarmUpSeqRef.current;
     const isLatest = () => seq === localModelWarmUpSeqRef.current;
@@ -2006,7 +2030,11 @@ function App(): React.JSX.Element {
       .then(async (mcpTools) => {
         // The DaVoice Car's tools (on the phone) and the MCP server's (online: the
         // agent says a filler while they run).
-        await getLocalLLMProvider().setExternalTools([...carTools(LOCAL_LLM_CAR_TOOLS), ...mcpTools], undefined, (tool) => !CAR_TOOL_NAMES.has(tool.name));
+        // The car tools in the wording the selected model was trained / benchmarked with (model.toolWording).
+        // The car demo only: the calories demo has no car tools (its skill is in its pack).
+        const wording = (await getSelectedModel()).toolWording ?? 'v1';
+        const demoTools = currentLocalDemo() === 'car' ? carTools(LOCAL_LLM_CAR_TOOLS, wording) : [];
+        await getLocalLLMProvider().setExternalTools([...demoTools, ...mcpTools], undefined, (tool) => !CAR_TOOL_NAMES.has(tool.name));
         return getLocalLLMProvider().warmUp(
           history,
           (fraction) => {
@@ -2236,7 +2264,7 @@ function App(): React.JSX.Element {
           The language for speech recognition and the voices.
         </Text>
         <View style={styles.ttsOptionSection}>
-          {APP_LANGUAGES.map((language) => (
+          {APP_LANGUAGES.filter((language) => !language.hidden).map((language) => (
             <TouchableOpacity
               key={language.id}
               style={[styles.svButton, styles.cloneWideButton, styles.ttsOptionButtonIdle]}
@@ -2288,6 +2316,27 @@ function App(): React.JSX.Element {
                 </Text>
               )}
               {isLocalAIChat && (
+                <View style={styles.localDemoRow}>
+                  {(
+                    [
+                      { demo: 'calories', label: 'Calories demo' },
+                      { demo: 'car', label: 'Car demo' },
+                    ] as const
+                  ).map(({ demo, label }) => (
+                    <TouchableOpacity
+                      key={demo}
+                      style={[styles.localDemoButton, localDemo === demo ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle]}
+                      activeOpacity={0.7}
+                      disabled={isAIChatLoading}
+                      onPress={() => {
+                        switchLocalDemo(demo, true).catch((error) => console.log('[LocalDemo] switch failed:', String(error)));
+                      }}>
+                      <Text style={styles.svButtonText}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {isLocalAIChat && (
                 <View style={[styles.speechSummaryBlock, styles.localModelRow]}>
                   <View style={styles.localModelInfo}>
                     <Text style={styles.speechSentenceLabel}>Model</Text>
@@ -2304,8 +2353,8 @@ function App(): React.JSX.Element {
                   </TouchableOpacity>
                 </View>
               )}
-              {isLocalAIChat && <CaloriesCard />}
-              {isLocalAIChat && <CarCard />}
+              {isLocalAIChat && localDemo === 'calories' && <CaloriesCard />}
+              {isLocalAIChat && localDemo === 'car' && <CarCard />}
               <View style={styles.speechSummaryBlock}>
                 <Text style={styles.speechSentenceLabel}>Status</Text>
                 <Text style={styles.speechSentenceText}>
@@ -2804,18 +2853,20 @@ function App(): React.JSX.Element {
             <View style={styles.appModeStack}>
               {(
                 [
-                  { key: 'local_ai_chat', label: 'Local AI Chat',        desc: 'STT → on-device LLM → TTS' },
-                  { key: 'full_ai_chat',  label: 'Full AI Chat',         desc: 'STT → Gemini → TTS' },
-                  { key: 'combined',      label: 'Combined STT + TTS',   desc: 'Speak → hear it back' },
-                  { key: 'stt_only',      label: 'STT Only',             desc: 'Show transcript, no playback' },
-                  { key: 'type_to_tts',   label: 'Type to TTS',          desc: 'Type text → hear it spoken' },
+                  { key: 'local_ai_chat', demo: 'car', label: 'Local AI · Car demo', desc: 'Automotive Agent: simulated VW car, on-device' },
+                  { key: 'local_ai_chat', demo: 'calories', label: 'Local AI · Calories demo', desc: 'Personal Agent: calories and memory, on-device' },
+                  { key: 'full_ai_chat',  demo: undefined, label: 'Full AI Chat',         desc: 'STT → Gemini → TTS' },
+                  { key: 'combined',      demo: undefined, label: 'Combined STT + TTS',   desc: 'Speak → hear it back' },
+                  { key: 'stt_only',      demo: undefined, label: 'STT Only',             desc: 'Show transcript, no playback' },
+                  { key: 'type_to_tts',   demo: undefined, label: 'Type to TTS',          desc: 'Type text → hear it spoken' },
                 ] as const
-              ).map(({ key, label, desc }) => (
+              ).map(({ key, demo, label, desc }) => (
                 <TouchableOpacity
-                  key={key}
-                  style={[styles.appModeButton, appModeChoice === key ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle]}
+                  key={demo ? `${key}-${demo}` : key}
+                  style={[styles.appModeButton, appModeChoice === key && (!demo || localDemo === demo) ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle]}
                   activeOpacity={0.7}
                   onPress={async () => {
+                    if (demo) await switchLocalDemo(demo, false);   // the mode's warm-up then loads that demo's pack and model
                     setAppModeChoice(key);
                     if (appModeChoiceResolverRef.current) {
                       appModeChoiceResolverRef.current(key);
@@ -3614,6 +3665,17 @@ const styles = StyleSheet.create({
   },
   speechSentenceCardTTSIOS: {
     marginTop: -80,
+  },
+  localDemoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  localDemoButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
   localModelRow: {
     flexDirection: 'row',

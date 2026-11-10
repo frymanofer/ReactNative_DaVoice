@@ -18,6 +18,8 @@
     "notConfirmed": "Tudo bem, não vou fazer isso.",
     "notAuthorized": "Desculpe, você não tem permissão para isso.",
     "invalidArgs": "Desculpe, não entendi todos os detalhes. Pode repetir?",
+    "unsupported": "Desculpe, isso não está disponível neste app.",
+    "guardConflict": "Desculpe, acho que não entendi direito. Pode repetir?",
     "replyReminder": "(Responda em português do Brasil.)"
   },
   "webSearch": {

@@ -3,7 +3,7 @@
 // "military_sergeant_hard"); [] when it has none. To use one, put free text in
 // square brackets before the words it applies to, until the next tag:
 //   "[drill sergeant] Give me 50 push-ups! [regular] Thanks."
-// Tags in Portuguese work too ("[sussurrando] ..."), and are never spoken.
+// Tags in Portuguese work too ("[sussurrando] ...", "[a sussurrar] ..."), and are never spoken.
 
 import type { AppLanguage } from "../appflow";
 
@@ -17,7 +17,8 @@ type ExampleText = { label: string; text: string };
 
 // One example per known ability, per language. Every tag below is checked to
 // select its own ability when the voice has all of them.
-const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
+// Hebrew (TTS v1) voices have no styles, so it has no examples here.
+const STYLE_EXAMPLES: Record<string, Partial<Record<AppLanguage, ExampleText>>> = {
   whisper: {
     en: {
       label: "Whisper",
@@ -26,6 +27,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
     "pt-BR": {
       label: "Sussurro",
       text: "[sussurrando em segredo] Silêncio, isso é um segredo! Não conte para ninguém!",
+    },
+    "pt-PT": {
+      label: "Sussurro",
+      text: "[a sussurrar em segredo] Silêncio, isto é um segredo! Não contes a ninguém!",
     },
     de: {
       label: "Flüstern",
@@ -57,6 +62,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
       label: "Sussurro suave",
       text: "[sussurro suave e terno] Feche os olhos e descanse. Vai ficar tudo bem.",
     },
+    "pt-PT": {
+      label: "Sussurro suave",
+      text: "[sussurro suave e terno] Fecha os olhos e descansa. Vai correr tudo bem.",
+    },
     de: {
       label: "Sanftes Flüstern",
       text: "[sanft und beruhigend flüsternd] Schließe die Augen und ruhe dich aus. Alles wird gut.",
@@ -86,6 +95,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
     "pt-BR": {
       label: "Sussurro forte",
       text: "[sussurro forte e urgente] Abaixe agora! Eles estão atrás da porta!",
+    },
+    "pt-PT": {
+      label: "Sussurro forte",
+      text: "[sussurro forte e urgente] Baixa-te já! Eles estão atrás da porta!",
     },
     de: {
       label: "Kräftiges Flüstern",
@@ -117,6 +130,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
       label: "Sussurro bem baixo",
       text: "[sussurro quase inaudível] Psiu... o bebê finalmente dormiu.",
     },
+    "pt-PT": {
+      label: "Sussurro muito baixo",
+      text: "[sussurro quase inaudível] Chiu... o bebé finalmente adormeceu.",
+    },
     de: {
       label: "Sehr leises Flüstern",
       text: "[kaum hörbares Flüstern] Psst ... das Baby schläft endlich.",
@@ -146,6 +163,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
     "pt-BR": {
       label: "Sussurro bravo",
       text: "[sussurrando com raiva] Eu falei para não mexer nisso. Coloque de volta agora.",
+    },
+    "pt-PT": {
+      label: "Sussurro zangado",
+      text: "[a sussurrar com raiva] Eu disse-te para não mexeres nisso. Põe isso no sítio já.",
     },
     de: {
       label: "Wütendes Flüstern",
@@ -177,6 +198,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
       label: "Feliz",
       text: "[feliz e sorrindo] Que piada engraçada! Eu não consegui parar de rir.",
     },
+    "pt-PT": {
+      label: "Feliz",
+      text: "[feliz e a sorrir] Que piada tão engraçada! Não consegui parar de rir.",
+    },
     de: {
       label: "Fröhlich",
       text: "[fröhlich und lebensfroh] Was für ein lustiger Witz! Ich musste einfach lachen.",
@@ -206,6 +231,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
     "pt-BR": {
       label: "Gargalhada",
       text: "[gargalhando histericamente] Não acredito que você disse isso! Que hilário!",
+    },
+    "pt-PT": {
+      label: "Gargalhada",
+      text: "[às gargalhadas histéricas] Não acredito que disseste isso! Que hilariante!",
     },
     de: {
       label: "Hysterisches Lachen",
@@ -237,6 +266,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
       label: "Motivador",
       text: "[treinador motivador] Você é mais forte do que imagina. Só mais um passo, você consegue!",
     },
+    "pt-PT": {
+      label: "Motivador",
+      text: "[treinador motivador] És mais forte do que imaginas. Só mais um passo, tu consegues!",
+    },
     de: {
       label: "Motivierend",
       text: "[motivierender Coach] Du bist stärker, als du denkst. Noch ein Schritt, du schaffst das!",
@@ -266,6 +299,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
     "pt-BR": {
       label: "Gritando incentivo",
       text: "[gritando e encorajando] Vamos lá! Mais rápido! Você está quase lá!",
+    },
+    "pt-PT": {
+      label: "Grito de incentivo",
+      text: "[a gritar e a encorajar] Vamos lá! Mais depressa! Estás quase lá!",
     },
     de: {
       label: "Lauter Ansporn",
@@ -297,6 +334,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
       label: "Decepcionado",
       text: "[decepcionado e triste] Eu realmente achei que você viria hoje. Que pena.",
     },
+    "pt-PT": {
+      label: "Desiludido",
+      text: "[desiludido e triste] Pensei mesmo que vinhas hoje. Que pena.",
+    },
     de: {
       label: "Enttäuscht",
       text: "[enttäuscht und traurig] Ich dachte wirklich, dass du heute kommst. Na ja.",
@@ -326,6 +367,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
     "pt-BR": {
       label: "Sargento",
       text: "[sargento militar durão] Ao chão e faça cinquenta flexões!",
+    },
+    "pt-PT": {
+      label: "Sargento",
+      text: "[sargento militar duro] Para o chão e faz cinquenta flexões!",
     },
     de: {
       label: "Drill-Sergeant",
@@ -357,6 +402,10 @@ const STYLE_EXAMPLES: Record<string, Record<AppLanguage, ExampleText>> = {
       label: "Sargento gentil",
       text: "[sargento do exército gentil] Bom trabalho, soldado. Descanse um pouco e beba água.",
     },
+    "pt-PT": {
+      label: "Sargento gentil",
+      text: "[sargento do exército gentil] Bom trabalho, soldado. Descansa um pouco e bebe água.",
+    },
     de: {
       label: "Freundlicher Feldwebel",
       text: "[freundlicher Feldwebel] Gute Arbeit, Soldat. Ruh dich fünf Minuten aus und trink etwas Wasser.",
@@ -387,11 +436,13 @@ function genericExample(ability: string, language: AppLanguage): ExampleText {
   const textByLanguage: Record<AppLanguage, string> = {
     en: `[${words}] Hello! This is my voice in this style.`,
     "pt-BR": `[${words}] Olá! Esta é a minha voz com este estilo.`,
+    "pt-PT": `[${words}] Olá! Esta é a minha voz com este estilo.`,
     de: `[${words}] Hallo! So klingt meine Stimme in diesem Stil.`,
     es: `[${words}] ¡Hola! Así suena mi voz con este estilo.`,
     fr: `[${words}] Bonjour ! Voici ma voix avec ce style.`,
     it: `[${words}] Ciao! Questa è la mia voce con questo stile.`,
     nl: `[${words}] Hallo! Zo klinkt mijn stem in deze stijl.`,
+    he: `[${words}] שלום! ככה נשמע הקול שלי בסגנון הזה.`,
   };
   return { label, text: textByLanguage[language] };
 }
@@ -404,11 +455,13 @@ const LAST_ABILITIES = ["disappointed"];
 const HIDDEN_ABILITIES: Record<AppLanguage, string[]> = {
   en: [],
   "pt-BR": [],
+  "pt-PT": [],
   de: [],
   es: [],
   fr: [],
   it: [],
   nl: [],
+  he: [],
 };
 
 function abilityRank(ability: string): number {
@@ -462,9 +515,12 @@ export const STYLE_TAG_HINT: Record<AppLanguage, string> = {
   en: "Put a tag in square brackets before the words it applies to, e.g. [happy] Hello! or [whispering] Listen. [regular] goes back to the normal voice.",
   "pt-BR":
     "Coloque uma etiqueta entre colchetes antes das palavras, por exemplo [feliz] Olá! ou [sussurrando] Escute. [normal] volta à voz normal.",
+  "pt-PT":
+    "Coloca uma etiqueta entre parênteses retos antes das palavras, por exemplo [feliz] Olá! ou [a sussurrar] Ouve. [normal] volta à voz normal.",
   de: "Setze ein Tag in eckigen Klammern vor die Wörter, zum Beispiel [fröhlich] Hallo! Mit [normal] kehrst du zur normalen Stimme zurück.",
   es: "Pon una etiqueta entre corchetes antes de las palabras, por ejemplo [feliz] ¡Hola! [normal] vuelve a la voz normal.",
   fr: "Placez une balise entre crochets avant les mots, par exemple [joyeux] Bonjour ! [normal] revient à la voix normale.",
   it: "Inserisci un tag tra parentesi quadre prima delle parole, ad esempio [felice] Ciao! [normale] torna alla voce normale.",
   nl: "Zet een tag tussen vierkante haakjes voor de woorden, bijvoorbeeld [vrolijk] Hallo! [normaal] keert terug naar de normale stem.",
+  he: "שימו תגית בסוגריים מרובעים לפני המילים, למשל [happy] שלום! [regular] מחזיר לקול הרגיל.",
 };

@@ -31,11 +31,18 @@ import { narrationFor } from '../narration';
 const ttsModels: Record<AppLanguage, any> = {
   en: require('../../assets/models/model_ex2_rich_kate.dm'),
   'pt-BR': require('../../assets/models/model_ex2_portuguese_brv1.dm'),
+  // Portugal Portuguese: its own model (folder portuguese_pt -> Portugal text rules).
+  'pt-PT': require('../../assets/models/model_ex2_portuguese_pt.dm'),
   de: require('../../assets/models/model_ex2_german.dm'),
   es: require('../../assets/models/model_ex2_spanish.dm'),
   fr: require('../../assets/models/model_ex2_french.dm'),
   it: require('../../assets/models/model_ex2_italian.dm'),
   nl: require('../../assets/models/model_ex2_dutch.dm'),
+  // TTS v1 (Piper + voice converter). !!! DEV ONLY: its base Piper voice is non-commercial;
+  // rebuild with a licensed voice (TTS2/TTSv1/tools/build_hebrew.py --model) before shipping.
+  // NOT BUNDLED (2026-11-10: Hebrew hidden from the language screen; a require() here would ship the 125 MB file).
+  // To bring Hebrew back: restore `require('../../assets/models/model_v1_hebrew.dm')` and remove `hidden` in src/appflow.ts.
+  he: null,
 };
 const BRAZILIAN_SPEAKER_SPEED = 1.0;
 
@@ -45,11 +52,16 @@ const BRAZILIAN_SPEAKER_SPEED = 1.0;
 const voiceEmbedders: Record<AppLanguage, any> = {
   en: require('../../assets/models/embedder_en.dm'),
   'pt-BR': require('../../assets/models/embedder_brv1.dm'),
+  // Must match model_ex2_portuguese_pt.dm; brv1 voices do not fit it (and vice versa).
+  'pt-PT': require('../../assets/models/embedder_pt_pt.dm'),
   de: require('../../assets/models/embedder_de.dm'),
   es: require('../../assets/models/embedder_es.dm'),
   fr: require('../../assets/models/embedder_fr.dm'),
   it: require('../../assets/models/embedder_it.dm'),
   nl: require('../../assets/models/embedder_nl.dm'),
+  // The v1 voice embedder: its voices fit only the v1 (Hebrew) model.
+  // NOT BUNDLED (see ttsModels.he): restore `require('../../assets/models/embedder_he.dm')` with it.
+  he: null,
 };
 
 // The app's language (the language screen sets it before the speech library loads).
@@ -61,14 +73,14 @@ export function getTTSLanguage(): AppLanguage {
   return ttsLanguage;
 }
 export function getVoiceEmbedder() {
-  return voiceEmbedders[ttsLanguage];
+  return voiceEmbedders[ttsLanguage] ?? voiceEmbedders.en;   // a language whose files aren't bundled (he) falls back to English
 }
 
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
-  const model = ttsModels[ttsLanguage];
+  const model = ttsModels[ttsLanguage] ?? ttsModels.en;   // a language whose files aren't bundled (he) falls back to English
   // Every voice, including a cloned voice, belongs to the selected language model.
   if (ttsLanguage !== 'en') {
-    return { model, speed: ttsLanguage === 'pt-BR' ? BRAZILIAN_SPEAKER_SPEED : CLONED_VOICE_SPEED, usesTTS2: true };
+    return { model, speed: ttsLanguage === 'pt-BR' || ttsLanguage === 'pt-PT' ? BRAZILIAN_SPEAKER_SPEED : CLONED_VOICE_SPEED, usesTTS2: true };
   }
   if (useTTS2Only) {
     const speeds: Record<BundledTTSVoice, number> = {

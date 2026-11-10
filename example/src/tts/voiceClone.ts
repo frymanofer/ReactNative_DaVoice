@@ -45,10 +45,12 @@ export const VOICE_VOLUME_STEP = 10;
 const VOICE_CLONE_READING_TEXTS: Record<AppLanguage, string> = {
   en: 'Hello! This is my voice. I am recording a short sample so that my assistant can speak just like me. Today is a good day to try something new.',
   'pt-BR': 'Olá! Esta é a minha voz. Estou gravando uma amostra curta para que meu assistente possa falar como eu. Hoje é um bom dia para experimentar algo novo.',
+  'pt-PT': 'Olá! Esta é a minha voz. Estou a gravar uma pequena amostra para que o meu assistente possa falar como eu. Hoje é um bom dia para experimentar algo novo.',
   de: 'Hallo! Das ist meine Stimme. Ich nehme eine kurze Probe auf, damit mein Assistent wie ich sprechen kann. Heute ist ein guter Tag, um etwas Neues auszuprobieren.',
   es: '¡Hola! Esta es mi voz. Estoy grabando una muestra breve para que mi asistente pueda hablar como yo. Hoy es un buen día para probar algo nuevo.',
   fr: 'Bonjour ! Voici ma voix. J’enregistre un court échantillon pour que mon assistant puisse parler comme moi. C’est une bonne journée pour essayer quelque chose de nouveau.',
   it: 'Ciao! Questa è la mia voce. Sto registrando un breve campione affinché il mio assistente possa parlare come me. Oggi è un buon giorno per provare qualcosa di nuovo.',
+  he: 'שלום! זה הקול שלי. אני מקליט דוגמה קצרה כדי שהעוזר שלי יוכל לדבר בדיוק כמוני. היום הוא יום טוב לנסות משהו חדש.',
   nl: 'Hallo! Dit is mijn stem. Ik neem een kort fragment op zodat mijn assistent net als ik kan spreken. Vandaag is een goede dag om iets nieuws te proberen.',
 };
 
