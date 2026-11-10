@@ -23,6 +23,12 @@ export function isTooShortForDecline(text: string): boolean {
   return words.length <= 2 && !words.some((w) => /\d/.test(w));
 }
 
+/** A bare "Done." (en / pt): in the car demo every real action is confirmed by the app's own sentence from the tool result, so
+ * the model saying only "Done." means nothing was done (2026-11-10 phone: "Eh?", "Can.", "You do." -> "Done."). */
+export function isBareDone(sentence: string): boolean {
+  return /^\s*(done|all set|okay,? done|ok,? done|pronto|prontinho|feito|ok,? feito|tudo certo)\s*[.!]?\s*$/i.test(sentence);
+}
+
 export const DID_NOT_CATCH: Record<string, string> = {
   en: "Sorry, I didn't catch that. Could you say it again?",
   'pt-BR': 'Desculpe, não entendi. Pode repetir?',

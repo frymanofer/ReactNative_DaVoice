@@ -86,7 +86,8 @@ import { getLocalDemo, getSelectedModel, listModels, setLocalDemo } from './src/
 import { currentLocalDemo } from './src/local_llm/demo';
 import type { LocalDemo } from './src/local_llm/demo';
 import { resetLocalAgent } from './src/agent/LocalAgent';
-import { DID_NOT_CATCH, isNoiseFragment } from './src/aichat/fragments';
+import { DID_NOT_CATCH, isBareDone, isNoiseFragment } from './src/aichat/fragments';
+import { setAIChatSentenceRewriter } from './src/aichat';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
@@ -409,6 +410,13 @@ function App(): React.JSX.Element {
   const [localDemo, setLocalDemoState] = useState<LocalDemo>(currentLocalDemo());
   useEffect(() => {
     getLocalDemo().then(setLocalDemoState).catch(() => undefined);
+    // Car demo: the model's bare "Done." is never a confirmation (the app says what it did) -> "didn't catch that".
+    setAIChatSentenceRewriter((sentence) =>
+      selectedAppModeRef.current === 'local_ai_chat' && currentLocalDemo() === 'car' && isBareDone(sentence)
+        ? DID_NOT_CATCH[appLanguageRef.current] ?? DID_NOT_CATCH.en
+        : sentence,
+    );
+    return () => setAIChatSentenceRewriter(null);
   }, []);
   const [localModelName, setLocalModelName] = useState('');
   const [localModelStatus, setLocalModelStatus] = useState('');

@@ -12,3 +12,9 @@ test('a declined request of two words or fewer is treated as unclear', () => {
   expect(isTooShortForDecline('abre o capô')).toBe(false);
   expect(isTooShortForDecline('open the hood')).toBe(false);
 });
+
+import { isBareDone } from '../src/aichat/fragments';
+test('a bare Done is recognized, a real confirmation is not', () => {
+  for (const t of ['Done.', 'done', 'Pronto.', 'Feito!', 'Ok, feito.', 'All set.']) expect(isBareDone(t)).toBe(true);
+  for (const t of ['I set the fan to level 4.', 'Done: fan speed 4.', 'Pronto, abri o vidro.']) expect(isBareDone(t)).toBe(false);
+});

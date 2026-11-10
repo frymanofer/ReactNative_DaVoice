@@ -499,7 +499,8 @@ export async function speakNextAIChatSentence({
   // Hand every complete sentence to the speech library right away, without
   // waiting for the previous one to finish: the library queues them.
   while (aiChatSpeechQueueRef.current.length > 0) {
-    const sentence: string = aiChatSpeechQueueRef.current.shift();
+    const raw: string = aiChatSpeechQueueRef.current.shift();
+    const sentence: string = sentenceRewriter ? sentenceRewriter(raw) : raw;
     const text = normalizeTextForSpeech(sentence);
     if (!text) continue;
     aiChatSpeechPendingRef.current += 1;
@@ -520,6 +521,12 @@ export async function speakNextAIChatSentence({
     });
   }
   await finishIfAllSpoken();
+}
+
+/** Rewrites a reply sentence before it is spoken (null: as is). Set by the app (2026-11-10: the car demo's bare "Done."). */
+let sentenceRewriter: ((sentence: string) => string) | null = null;
+export function setAIChatSentenceRewriter(rewrite: ((sentence: string) => string) | null): void {
+  sentenceRewriter = rewrite;
 }
 
 export async function enqueueAIChatSpeechFromDelta({
