@@ -411,6 +411,19 @@ function App(): React.JSX.Element {
   }, []);
   const [localModelName, setLocalModelName] = useState('');
   const [localModelStatus, setLocalModelStatus] = useState('');
+  // Seconds in the current loading stage (download / load / warm-up), for the loading screen.
+  const [loadingStageStartedAt, setLoadingStageStartedAt] = useState(0);
+  const [loadingNow, setLoadingNow] = useState(0);
+  const loadingStage = localModelStatus.startsWith('Downloading') ? 'download' : localModelStatus.startsWith('Warming') ? 'warmup'
+    : localModelStatus.startsWith('Failed') ? 'failed' : localModelStatus === 'Ready' ? 'ready' : 'load';
+  useEffect(() => {
+    setLoadingStageStartedAt(Date.now());
+  }, [loadingStage]);
+  useEffect(() => {
+    if (loadingStage === 'ready' || loadingStage === 'failed') return;
+    const timer = setInterval(() => setLoadingNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [loadingStage]);
   // Latest status for async chat turns (the state value can be stale inside them).
   const localModelStatusRef = useRef('');
   localModelStatusRef.current = localModelStatus;
@@ -2032,7 +2045,9 @@ function App(): React.JSX.Element {
         // agent says a filler while they run).
         // The car tools in the wording the selected model was trained / benchmarked with (model.toolWording).
         // The car demo only: the calories demo has no car tools (its skill is in its pack).
-        const wording = (await getSelectedModel()).toolWording ?? 'v1';
+        const selected = await getSelectedModel();
+        if (isLatest()) setLocalModelName(selected.displayName);
+        const wording = selected.toolWording ?? 'v1';
         const demoTools = currentLocalDemo() === 'car' ? carTools(LOCAL_LLM_CAR_TOOLS, wording) : [];
         await getLocalLLMProvider().setExternalTools([...demoTools, ...mcpTools], undefined, (tool) => !CAR_TOOL_NAMES.has(tool.name));
         return getLocalLLMProvider().warmUp(
@@ -2282,6 +2297,112 @@ function App(): React.JSX.Element {
   const aiChatTitle = isLocalAIChat
     ? 'Local AI Chat (on-device)'
     : '*Limited* **Gemini 3.1** Flash Lite Chat';
+
+  const demoTitle = localDemo === 'car' ? 'Car demo' : 'Calories demo';
+
+  // Local AI Chat, step 1 (2026-11-10): its own loading screen until the model is ready (download, load, warm-up).
+  if (shouldShowFullAIChatScreen && isLocalAIChat && localModelStatus !== 'Ready') {
+    const pct = Number(localModelStatus.match(/Downloading (\d+)%/)?.[1] ?? 0);
+    const seconds = Math.max(0, Math.round(((loadingNow || Date.now()) - loadingStageStartedAt) / 1000));
+    const order = ['download', 'load', 'warmup'] as const;
+    const at = loadingStage === 'failed' ? -1 : order.indexOf(loadingStage as (typeof order)[number]);
+    const stages = [
+      { key: 'download', label: 'Download the model', detail: loadingStage === 'download' ? `${pct}%` : 'once, ~380 MB' },
+      { key: 'load', label: 'Load it into memory', detail: '' },
+      { key: 'warmup', label: 'Warm up', detail: 'reads its instructions and tools once, so replies are fast' },
+    ];
+    return (
+      <View style={styles.linearGradient}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <ScrollView style={styles.screenScroll} contentContainerStyle={[styles.aiChatScrollContent, { paddingTop: contentTopPadding }]}>
+          {renderScreenLogo()}
+          <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
+            <Text style={styles.svPromptTitle}>{demoTitle}</Text>
+            <Text style={styles.svPromptSubtitle}>{localModelName || 'On-device model'}</Text>
+            <View style={styles.loadingStages}>
+              {stages.map((stage, i) => {
+                const done = at > i, active = at === i;
+                return (
+                  <View key={stage.key} style={styles.loadingStageRow}>
+                    <View style={[styles.loadingStageDot, done ? styles.loadingStageDone : active ? styles.loadingStageActive : styles.loadingStagePending]}>
+                      <Text style={styles.loadingStageDotText}>{done ? '✓' : String(i + 1)}</Text>
+                    </View>
+                    <View style={styles.loadingStageInfo}>
+                      <Text style={[styles.speechSentenceText, !done && !active && styles.loadingStageMuted]}>{stage.label}</Text>
+                      {active && <Text style={styles.speechSentenceLabel}>{[stage.detail, `${seconds} s`].filter(Boolean).join(' · ')}</Text>}
+                      {active && stage.key === 'download' && (
+                        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${pct}%` }]} /></View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+            {loadingStage === 'failed' && <Text style={[styles.svPromptSubtitle, styles.loadingError]}>{localModelStatus}</Text>}
+            <View style={styles.ttsTestActionRow}>
+              {loadingStage === 'failed' && (
+                <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={() => warmUpLocalModel(aiChatMessages)}>
+                  <Text style={styles.ttsSpeakButtonText}>Retry</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]} activeOpacity={0.7} onPress={leaveFullAIChatMode}>
+                <Text style={styles.svButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Local AI Chat, step 2: only once ready - the car (or calories) status, what was heard (STT), the reply (TTS), the model.
+  if (shouldShowFullAIChatScreen && isLocalAIChat) {
+    return (
+      <View style={styles.linearGradient}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <ScrollView style={styles.screenScroll} contentContainerStyle={[styles.aiChatScrollContent, { paddingTop: contentTopPadding }]}
+          keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
+          <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
+            <Text style={styles.svPromptTitle}>{demoTitle}</Text>
+            {localDemo === 'car' ? <CarCard /> : <CaloriesCard />}
+            <View style={styles.speechSummaryBlock}>
+              <Text style={styles.speechSentenceLabel}>You said{isAIChatLoading ? ' · working...' : ''}</Text>
+              <Text style={styles.aiChatLiveTranscriptText}>
+                {aiChatLiveTranscript || aiChatTranscript || 'Say the wake word, then speak.'}
+              </Text>
+            </View>
+            <View style={styles.speechSummaryBlock}>
+              <Text style={styles.speechSentenceLabel}>Reply</Text>
+              <Text style={styles.speechSentenceText}>{aiChatResponse || 'The reply will appear here and be spoken.'}</Text>
+            </View>
+            <View style={styles.chatModelFooter}>
+              <Text style={styles.speechSentenceLabel}>Model: {localModelName}</Text>
+              <TouchableOpacity activeOpacity={0.7} disabled={isAIChatLoading} onPress={() => setIsModelPickerVisible(true)}>
+                <Text style={styles.localModelChangeText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.ttsTestActionRow}>
+              <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={resetAIChatSession}>
+                <Text style={styles.ttsSpeakButtonText}>Reset Chat</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]} activeOpacity={0.7} onPress={leaveFullAIChatMode}>
+                <Text style={styles.svButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+        <ModelPicker
+          visible={isModelPickerVisible}
+          isBusy={isAIChatLoading}
+          onClose={() => setIsModelPickerVisible(false)}
+          onModelSelected={(model) => {
+            setLocalModelName(model.displayName);
+            warmUpLocalModel(aiChatMessages);
+          }}
+        />
+      </View>
+    );
+  }
 
   if (shouldShowFullAIChatScreen) {
     return (
@@ -3665,6 +3786,45 @@ const styles = StyleSheet.create({
   },
   speechSentenceCardTTSIOS: {
     marginTop: -80,
+  },
+  loadingStages: {
+    width: '100%',
+    marginTop: 22,
+    gap: 16,
+  },
+  loadingStageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  loadingStageDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingStageDone: { backgroundColor: '#2e9e5b' },
+  loadingStageActive: { backgroundColor: '#3b82f6' },
+  loadingStagePending: { backgroundColor: 'rgba(255, 255, 255, 0.15)' },
+  loadingStageDotText: { color: '#ffffff', fontWeight: '700' },
+  loadingStageInfo: { flex: 1 },
+  loadingStageMuted: { opacity: 0.5 },
+  loadingError: { color: '#ff8a8a', marginTop: 16 },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+  },
+  progressFill: { height: 8, backgroundColor: '#3b82f6' },
+  chatModelFooter: {
+    width: '100%',
+    marginTop: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   localDemoRow: {
     flexDirection: 'row',
