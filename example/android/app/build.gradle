@@ -8,6 +8,12 @@ react {
   autolinkLibrariesWithApp()
 }
 
+// The JS bundle embeds the agent packs (agent/, agent_automotive/) and the car tool JSON (src/**/*.json). The React Native
+// plugin only watches .js/.ts files, so a JSON-only edit used to ship the old pack: make the bundle tasks rebuild on them too.
+tasks.matching { it.name.startsWith("createBundle") && it.name.endsWith("JsAndAssets") }.configureEach {
+  inputs.files(fileTree("../../agent"), fileTree("../../agent_automotive"), fileTree("../../src") { include "**/*.json" })
+}
+
 android {
   namespace "com.exampleapp"                 // <-- keep your package
   ndkVersion rootProject.ext.ndkVersion
