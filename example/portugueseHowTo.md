@@ -1,25 +1,34 @@
 # Guia em português: app de exemplo DaVoice (React Native)
 
 > Para: outro agente Claude que vai usar, testar ou extrair partes deste app de exemplo
-> (`example/`). Tudo aqui foi conferido no código. Os caminhos de arquivos são relativos à
-> pasta `example/`. A versão em inglês está em `englishHowTo.md`.
+> (`example/`). Tudo aqui foi conferido no código (última atualização: 10/11/2026,
+> `react-native-davoice-llm` 1.0.12). Os caminhos de arquivos são relativos à pasta
+> `example/`. A versão em inglês está em `englishHowTo.md`.
 
-> **Status: modelos iniciais, para teste.** O modelo que roda no aparelho nesta demo ("DaVoice Agent 0.6B (VW demo)",
-> checkpoint `ft7c_it750`) é um **modelo inicial, para testes, não um produto final**. Nos testes atuais ele executa
-> corretamente (ferramenta e argumentos) cerca de 55–60% dos comandos de carro em português do Brasil. Às vezes
-> recusa um comando que poderia fazer e, de vez em quando, executa uma ação errada ou oposta; por isso todas as
-> ações do carro aqui são simuladas. **Mais treinamento é necessário e já está em andamento:** dados específicos para
-> as falhas encontradas (inclusive as vistas nos celulares), verificações determinísticas na camada do app e novos
-> checkpoints, avaliados antes de substituir este. Considere os resultados uma prévia do pipeline de voz (wake word,
-> verificação de locutor, STT/TTS, agente no aparelho), não a precisão final.
+> **Status: modelos de teste, ainda em treinamento.** O modelo da demo do carro, que roda no
+> aparelho ("DaVoice Automotive Agent 0.6B", checkpoint `ft7f2_it900`), é **um modelo de
+> teste, não um produto final**:
+> - num Galaxy S20, com as ferramentas de carro do app, ele acerta por completo (ferramenta e
+>   argumentos) cerca de **78% dos comandos de carro**, também em português do Brasil;
+> - no nosso conjunto de teste mais novo e mais difícil, que o modelo nunca viu, acerta cerca
+>   de **59%** dos comandos em português do Brasil.
+>
+> Às vezes confunde vidro com porta, recusa um comando que poderia fazer ou, raramente,
+> executa uma ação errada. Por isso todas as ações do carro são **simuladas** e conferidas
+> pelo app (guards, veja 2.3). Um Agente Automotivo dedicado está em treinamento (primeiro em
+> português do Brasil); novos checkpoints só substituem este depois de passar nos testes de
+> segurança. Considere os resultados uma prévia do pipeline de voz (wake word, verificação de
+> locutor, STT/TTS, agente no aparelho), não a precisão final.
 
 O app demonstra um assistente de voz que roda no próprio aparelho:
 
 - palavra de ativação (wake word);
 - verificação de locutor (speaker verification / identificação do locutor);
 - reconhecimento de fala (STT) e síntese de fala (TTS), com clonagem de voz;
-- um chat de IA local (LLM no aparelho) com ferramentas: contador de calorias e um carro
-  simulado (comandos automotivos).
+- duas demos de IA local (LLM no aparelho) com ferramentas:
+  - **Demo do carro:** um carro Volkswagen simulado (vidros, portas, travas, ar-condicionado,
+    navegação, rádio...);
+  - **Demo de calorias:** contador de calorias e memória pessoal.
 
 Pacotes usados (`package.json`):
 
@@ -27,8 +36,8 @@ Pacotes usados (`package.json`):
 |---|---|
 | `react-native-wakeword` | palavra de ativação + verificação de locutor (onboarding e verificação) |
 | `react-native-davoice` | STT + TTS (`Speech`), clonagem de voz, filtro por locutor no STT |
-| `react-native-davoice-llm` | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas |
-| `react-native-fs` | arquivos: assinatura de voz, modelos baixados, banco do agente |
+| `react-native-davoice-llm` (1.0.12) | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas, guards de chamada |
+| `react-native-fs` | arquivos: assinatura de voz, modelos baixados, estados de prompt salvos, banco do agente |
 
 ---
 
@@ -45,19 +54,29 @@ npx react-native run-android     # ou: npx react-native run-ios
 
 - Em uma build *debug*, o JavaScript vem do Metro (`npx react-native start`). No Android,
   com o aparelho no USB: `adb reverse tcp:8081 tcp:8081`.
+- **Build release no Android:** `cd android && ./gradlew :app:assembleRelease`.
+  - `android/gradle.properties` dá 8 GB ao Gradle, o que o empacotamento do APK de ~1,5 GB
+    precisa.
+  - `android/app/build.gradle` refaz o bundle JS quando só os pacotes do agente (`agent/`,
+    `agent_automotive/`) ou o JSON das ferramentas em `src/` mudam.
 - Logs do JS no Android: `adb logcat | grep ReactNativeJS`.
 - As chaves de licença DaVoice ficam no código do exemplo. Em outro app, use as suas
   (contato: info@davoice.io).
 
 ### 1.2 Fluxo de inicialização
 
-1. **Idioma.** A primeira tela pergunta o idioma. Escolha **"Português do Brasil"**. Essa
-   escolha define:
-   - o modelo de TTS em português (`assets/models/model_ex2_portuguese_brv1.dm`);
-   - o codificador de voz para clonagem (`assets/models/embedder_brv1.dm`);
-   - o locale do STT (`pt-BR`);
-   - o idioma das respostas do LLM;
-   - o pacote do agente em português (`agent/pt-BR/`).
+1. **Idioma.** A primeira tela pergunta o idioma. Escolha **"Português do Brasil"**.
+   - Também há Português de Portugal, inglês, alemão, espanhol, francês, italiano e
+     holandês.
+   - O hebraico tem suporte no código, mas está escondido nesta tela (`hidden: true` em
+     `APP_LANGUAGES`). Os arquivos de TTS dele não vão no app: para voltar a oferecê-lo,
+     restaure os dois `require()` marcados em `src/tts/index.ts` e tire o `hidden`.
+   - A escolha define:
+     - o modelo de TTS em português (`assets/models/model_ex2_portuguese_brv1.dm`);
+     - o codificador de voz para clonagem (`assets/models/embedder_brv1.dm`);
+     - o locale do STT (`pt-BR`);
+     - o idioma das respostas do LLM;
+     - o idioma do pacote do agente (`agent/pt-BR/`, e o mesmo em `agent_automotive/pt-BR/`).
 
    Configuração: `APP_LANGUAGES` em `src/appflow.ts` e os mapas de modelo em
    `src/tts/index.ts`.
@@ -79,7 +98,8 @@ npx react-native run-android     # ou: npx react-native run-ios
 
 | Modo | O que faz |
 |---|---|
-| **Local AI Chat** | STT → LLM no aparelho → TTS. Inclui calorias e o carro simulado. |
+| **Local AI · Car demo** | STT → Agente Automotivo no aparelho → TTS, com o carro simulado |
+| **Local AI · Calories demo** | STT → Agente Pessoal no aparelho → TTS, com calorias e memória |
 | Full AI Chat | STT → Gemini (nuvem) → TTS. Precisa de uma chave Gemini válida. |
 | Combined STT + TTS | você fala e ouve o texto de volta |
 | STT Only | só mostra a transcrição |
@@ -123,194 +143,242 @@ Com a verificação ligada:
   verificados na frase) e `speakerId` (o último). Veja `SpeechResultsEvent` em
   `react-native-davoice`.
 
-Para ações sensíveis, como "abre as portas", "destrava o carro", "abre o porta-malas" ou
-um pagamento, a regra recomendada é: **executar só se o locutor verificado da frase for o
-dono.** No `Agent` (`react-native-davoice-llm`) isso já tem um mecanismo:
+**Este exemplo já faz isso para as portas.** As ferramentas `open_door` e `unlock_car`
+declaram um escopo de autorização em `src/car/carToolDefinitions*.json`:
+```json
+"execution": { "authorization": { "scope": "door_locks", "message": "Unlock the car?" } }
+```
+O núcleo do agente **nunca executa** uma ferramenta assim sem um "sim" do app. Ele envia um
+pedido `authorizeTool` para `onRequest`, e `isToolAuthorized` em `src/agent/LocalAgent.ts`
+responde com `ownerMayAct()` (`src/speaker_verification/currentSpeaker.ts`):
+- verificação de locutor **desligada** (pulada): liberado (é uma demo);
+- verificação **ligada**: liberado só se o dono cadastrado foi verificado nesse pedido. Outra
+  voz recebe "não autorizado", e nada abre.
 
-1. Declare a ferramenta sensível com `execution.authorization` e um escopo:
-   ```json
-   {
-     "name": "unlock_doors",
-     "description": "Destrava as portas do carro.",
-     "inputSchema": { "type": "object", "properties": {}, "required": [] },
-     "execution": { "authorization": { "scope": "door_locks", "message": "Destravar as portas?" } }
-   }
-   ```
-2. O núcleo do agente **nunca executa** essa ferramenta sem um "sim" do app. Ele envia um
-   pedido `authorizeTool` para `onRequest` (veja `src/agent/LocalAgent.ts`). Responda com
-   base no locutor verificado:
-   ```ts
-   const OWNER_ID = 'owner';       // o id usado em addSpeaker(OWNER_ID, enrollmentJsonPath)
-   let lastSpeakerId: string | undefined;
-   Speech.onSpeechResults = (e) => { lastSpeakerId = e.speakerId; /* ... */ };
+Outros escopos são recusados, a não ser que estejam em `AUTHORIZED_TOOL_SCOPES` (vazio). Para
+uma confirmação simples de "sim/não", sem checar o locutor, a ferramenta declara
+`execution.confirmation`; o exemplo faz isso em `send_message`, com um diálogo antes de
+enviar.
 
-   onRequest: async (request) => {
-     if (request.type === 'authorizeTool') {
-       const sensitive = request.scope === 'door_locks';
-       return { authorized: !sensitive || lastSpeakerId === OWNER_ID };
-     }
-     if (request.type === 'confirmTool') return { confirmed: await askToConfirm(request) };
-     // ...
-   }
-   ```
-3. Para uma confirmação de "sim/não" (sem checar o locutor), use
-   `execution.confirmation`. O exemplo faz isso em `send_message`: o app mostra um diálogo
-   antes de enviar.
-
-**Estado atual deste exemplo, para não haver confusão:**
-- O carro simulado **não tem** ferramenta de portas ou travas. Pedidos assim são
-  recusados como "não disponível".
-- `AUTHORIZED_TOOL_SCOPES` em `src/agent/LocalAgent.ts` está **vazio**, então qualquer
-  ferramenta que declare `authorization` é recusada.
-
-O código acima é o padrão a implementar quando uma ferramenta sensível for adicionada.
-
-### 1.4 Comandos de exemplo em português (Local AI Chat)
+### 1.4 Comandos de exemplo em português
 
 Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
 
-- **Carro (simulado):**
-  - "abre a janela do passageiro"
-  - "fecha todos os vidros"
-  - "coloca o ar em vinte e dois graus"
-  - "esquenta dois graus"
-  - "ventilação no três"
-  - "liga o desembaçador do para-brisa"
-  - "toca Caetano Veloso"
-  - "sintoniza noventa e oito vírgula cinco"
-  - "aumenta o volume"
-  - "me leva pra casa"
-  - "quanto de autonomia eu tenho?"
+- **Demo do carro:**
+  - vidros: "abre o vidro traseiro direito", "fecha o vidro do carona", "abre o vidro da
+    frente do lado esquerdo até a metade", "fecha todos os vidros", "abre os vidros de trás";
+  - portas e travas: "abre a porta traseira esquerda", "fecha as portas", "tranca o carro",
+    "destranca a porta do motorista";
+  - ar-condicionado: "coloca o ar em vinte e dois graus", "esquenta dois graus", "deixa o lado
+    do passageiro em vinte", "coloca 20 graus pro motorista e 23 pro passageiro",
+    "ventilação no três", "liga o desembaçador do para-brisa";
+  - mídia: "toca Caetano Veloso", "sintoniza noventa e oito vírgula cinco", "aumenta o
+    volume";
+  - navegação: "me leva pra casa", "quanto tempo falta?", "acha um posto no caminho";
+  - estado do carro: "quanto de autonomia eu tenho?".
 - **Pedidos incompletos (o app deve perguntar):**
-  - "abre a janela" → "Qual vidro você quer abrir?"
-  - "liga o desembaçador" → "O vidro da frente ou o de trás?"
-- **Calorias:**
-  - "comi dois ovos"
-  - "almocei um prato de arroz com feijão"
-  - "quantas calorias hoje?"
-  - "desfaz"
-- **Conversa e conhecimento:**
-  - "quem é você?" (resposta fixa do pacote `agent/pt-BR/agent.json`, `fixedReplies`)
-  - "me conta uma história"
-  - "me escreve um poema sobre o mar" ou "me conta uma curiosidade sobre o Brasil": o modelo passa
-    adiante; sem modelo remoto configurado, o app responde com a mensagem de 2.2
+  - "abre a janela" → "Qual janela você quer abrir?";
+  - "liga o desembaçador" → "O da frente ou o de trás?".
+- **Demo de calorias:**
+  - "comi dois ovos";
+  - "almocei um prato de arroz com feijão";
+  - "quantas calorias hoje?";
+  - "desfaz".
+- **Conversa e conhecimento (nas duas demos):**
+  - "quem é você?" (resposta fixa do pacote, `fixedReplies`);
+  - "o que você pode fazer no carro?" (lista fixa das funções do carro);
+  - "me conta uma curiosidade sobre o Brasil": o modelo passa adiante; sem modelo remoto
+    configurado, o app responde com a mensagem de 2.2.
 
 ---
 
-## 2. O chat de IA local: o que esperar e como testar
+## 2. As demos de IA local: o que esperar e como testar
 
-### 2.1 Modelos e download
+### 2.1 As duas demos, os modelos e a tela de carregamento
 
-- **Seletor de modelos:** fica no modo Local AI Chat (`src/local_llm/ModelPicker.tsx`). A
-  lista está em `src/local_llm/constants.ts`:
-  - **"DaVoice Agent 0.6B (VW demo)"** (padrão e primeira opção): Qwen3-0.6B ajustado para
-    decidir ferramentas, treinado também com comandos automotivos em português;
-  - modelos genéricos maiores, como alternativa: Qwen2.5 1.5B/3B, Gemma 3n. Eles respondem
-    tudo no próprio aparelho, mas são mais lentos.
-- **Download:** cada modelo é baixado uma vez (o "DaVoice Agent" tem cerca de 380 MB) e
-  conferido por sha256. Se o hash não bater, o arquivo é apagado. Use Wi-Fi.
-- **Estados na tela:** download → "Warming up..." → "Ready". O aquecimento processa o prompt
-  de sistema (persona + ferramentas de calorias e do carro, cerca de 3.300 tokens).
-  - **Na primeira vez** leva cerca de **40 s** num Galaxy S20 (CPU). Depois, o app **salva
-    esse estado em disco** (`*.kvstate` na pasta dos modelos, cerca de 380 MB) com
-    `saveState` do `react-native-davoice-llm`.
-  - **Nas próximas aberturas** o estado é restaurado (`loadState`) em cerca de um segundo, e
-    o "Ready" chega logo.
-  - O estado só é salvo de novo se o prompt mudar bastante (outras ferramentas, outro idioma).
-    Código: `src/aichat/provider.ts` (`warmUp`) e `kvStatePath` em
-    `src/local_llm/ModelManager.ts`.
-- **Não fale antes do "Ready":** um comando dito durante o aquecimento espera o aquecimento
+| | Demo do carro | Demo de calorias |
+|---|---|---|
+| Modelo (padrão) | **DaVoice Automotive Agent 0.6B** | **DaVoice Personal Agent 0.6B** |
+| Pacote do agente (prompt de sistema) | `agent_automotive/` (sem a skill de calorias) | `agent/` + `agent/skills/calories/` |
+| Ferramentas | o carro simulado (`src/car/`, 22 ferramentas) | calorias, memória, busca na web |
+| Cartão | Cartão do carro | Cartão de calorias |
+| Banco de dados | `davoice_agent*_car.db` | `davoice_agent*.db` |
+
+- **Implementação:** `src/local_llm/demo.ts` guarda a demo atual, e
+  `LOCAL_LLM_DEMO_DEFAULT_MODEL` em `src/local_llm/constants.ts` define o modelo de cada demo.
+  Hoje as duas entradas usam o mesmo arquivo, `ft7f2_it900` (cerca de 380 MB, baixado uma vez
+  e conferido por sha256); cada uma vai ganhar o próprio modelo quando o treinamento dela
   terminar.
+- **Outros modelos:** cada demo lembra a sua escolha feita em **Change** (seletor de modelos,
+  `src/local_llm/ModelPicker.tsx`). O seletor também lista o ft7e (o padrão de produção,
+  `LOCAL_LLM_DEFAULT_MODEL`), o ft7c (reserva), a entrada experimental do it900 e modelos
+  genéricos maiores (Qwen2.5 1.5B/3B, Gemma 3n). Os maiores são mais lentos.
+- **Tela de carregamento:** ao escolher uma demo, o app mostra uma tela própria de
+  carregamento com três etapas até o modelo ficar pronto:
+  1. Download (barra de progresso);
+  2. Carregar na memória;
+  3. Aquecimento.
+
+  Ela mostra os segundos de cada etapa e, em caso de erro, Retry e Back.
+- **Tela da conversa:** só no "Ready" o app passa para uma tela limpa com:
+  - o estado do carro (ou o cartão de calorias) no alto;
+  - **You said** (o STT ao vivo);
+  - **Reply** (o que é falado);
+  - o nome do modelo com **Change**;
+  - Reset Chat e Back.
+- **Aquecimento e estado salvo:** o aquecimento processa o prompt de sistema (persona +
+  ferramentas: cerca de 3.100 tokens na demo do carro e cerca de 4.000 na de calorias).
+  - **Na primeira vez** de cada demo e idioma leva cerca de **30–40 s** num Galaxy S20 (CPU).
+    Depois, o app **salva esse prompt processado** (`*.kvstate` na pasta dos modelos, cerca
+    de 435 MB) com `saveState` do `react-native-davoice-llm`.
+  - **Nas próximas vezes** o estado é restaurado (`loadState`) em **menos de um segundo**, e o
+    "Ready" chega logo. Medido no S20: restauração em 0,7–0,9 s, aquecimento em 0,5–0,6 s.
+  - Os estados são guardados **por prompt** (demo, idioma, ferramentas): os 2 mais recentes
+    por arquivo de modelo. Trocar de demo é rápido depois do primeiro aquecimento de cada uma.
+  - Um novo dia ainda paga parte do aquecimento, porque a data fica perto do começo do prompt.
+  - Código: `warmUp` em `src/aichat/provider.ts`; `kvStatePath` e `stablePromptKey` em
+    `src/local_llm/ModelManager.ts`.
 
 ### 2.2 Como o turno funciona
 
-- O modelo ajustado decide sozinho, a cada frase: chamar uma ferramenta (carro, calorias,
-  memória, busca na web), perguntar (pedido incompleto), recusar (não suportado) ou
-  **passar adiante** para um modelo remoto.
-- **O que é passado adiante:** conhecimento geral, escrever um texto, papo, e às vezes em
-  que o modelo pequeno não produz resposta. O modelo de 0,6B foi treinado para **agir**
-  (ferramentas), não para conversar.
-- **Modelo remoto: configuração atual.** Hoje **não há modelo remoto configurado**
-  (`LOCAL_LLM_LAYER2 = 'none'` em `src/local_llm/constants.ts`). Tudo o que é passado adiante
-  recebe esta resposta fixa, sem a frase de espera ("deixa eu ver…"):
-  - em português: **"Preciso enviar isso para um modelo remoto. Para isso funcionar,
-    configure um modelo remoto no aplicativo."**
-  - em inglês: *"I need to send this to a remote Model. To make this work, please setup a
-    remote model in the App."*
+- O modelo ajustado decide sozinho, a cada frase: chamar uma ferramenta, perguntar (pedido
+  incompleto), recusar (não suportado) ou **passar adiante** para um modelo remoto.
+- **O app diz o que foi feito.** Depois de uma ação no carro o modelo não fala: a frase da
+  própria ferramenta, montada a partir do resultado real, é dita e o turno termina. Código:
+  `done()` / `say` em `src/car/carTools.ts`, enviados com `toolReply`. A frase diz a ação, a
+  posição, a zona e o valor, em português ou inglês:
+  - sucesso: "Abri o vidro traseiro direito." / "Coloquei o lado do motorista em 20°C e o do
+    passageiro em 23°C.";
+  - já estava assim: "A porta dianteira direita já está trancada.";
+  - recusado pelo carro: "O carro está trancado. Quer que eu destranque?", "Não posso fazer
+    isso com o carro em movimento." Nada muda, e o modelo nunca age sozinho depois de uma
+    recusa (antes ele destrancava o carro por conta própria);
+  - consultas (horário de chegada, autonomia, pneus) são respondidas pelo app com os valores.
 
-  O texto fica em `LOCAL_LLM_NO_REMOTE_MESSAGE` (`src/local_llm/constants.ts`) e é devolvido
-  por `answerRemoteRequest` em `src/aichat/remote.ts`. Essa mensagem é **esperada** e não
-  é erro: comandos do carro e das calorias continuam funcionando normalmente, sem internet.
+  Nada é anunciado antes de a ferramenta confirmar.
+- **O que é passado adiante:** conhecimento geral, escrever um texto, papo. O modelo de 0,6B
+  foi treinado para **agir** (ferramentas), não para conversar.
+- **Modelo remoto: configuração atual.** **Não há modelo remoto configurado**
+  (`LOCAL_LLM_LAYER2 = 'none'` em `src/local_llm/constants.ts`).
+  - Tudo o que é passado adiante recebe esta resposta fixa: **"Preciso enviar isso para um
+    modelo remoto. Para isso funcionar, configure um modelo remoto no aplicativo."** O texto
+    fica em `LOCAL_LLM_NO_REMOTE_MESSAGE`.
+  - Um pedido que o modelo entendeu, mas que a demo não faz, recebe
+    `LOCAL_LLM_NOT_IN_DEMO_MESSAGE`: "Isso não está disponível nesta demonstração. Para
+    disponibilizar, entre em contato com info@davoice.io".
+
+  Essas mensagens são **esperadas**, não erros.
 - **Como configurar um modelo remoto.** Mude `LOCAL_LLM_LAYER2`:
   - `'cloud'`: o app envia o pedido ao Gemini (`src/aichat/remote.ts`, chave
     `GEMINI_API_KEY` em `local.config.ts`). O agente fala uma frase de espera enquanto
     aguarda; se o Gemini falhar, ele diz que não conseguiu.
-  - Qualquer outro serviço (seu próprio servidor, outro LLM na nuvem): implemente
-    `answerRemoteRequest` em `src/aichat/remote.ts`. Ele recebe o pedido (`query`,
-    `userText`, histórico, fatos da memória, resultados das ferramentas) e devolve
-    `{ text }`, ou `{ failure, detail }` em caso de erro.
-  - `'device'`: um segundo modelo no aparelho (`LOCAL_LLM_LAYER2_MODEL`, o Qwen3 0.6B original,
-    cerca de 470 MB). **Não recomendado:** os dois modelos disputam a mesma CPU, tudo fica bem
-    mais lento, e o modelo pequeno às vezes misturava fatos da memória com pedidos de ação.
-- **Busca na web:** Wikipedia por padrão. Tavily ou Brave exigem chave em
+  - Qualquer outro serviço: implemente `answerRemoteRequest` em `src/aichat/remote.ts`. Ele
+    recebe o pedido (`query`, `userText`, histórico, fatos da memória, resultados das
+    ferramentas) e devolve `{ text }`, ou `{ failure, detail }` em caso de erro.
+  - `'device'`: um segundo modelo no aparelho (`LOCAL_LLM_LAYER2_MODEL`, cerca de 470 MB).
+    **Não recomendado:** os dois modelos disputam a mesma CPU.
+- **Ruído do reconhecimento de fala:** transcrições curtas que são só preenchimento ("The.",
+  "Mas.", "é...", "Alma Alma.") recebem "Desculpe, não entendi. Pode repetir?" sem passar pelo
+  modelo. Na demo do carro, um "Pronto." solto do modelo é trocado do mesmo jeito, já que as
+  ações de verdade são confirmadas pela frase do próprio app. Código:
+  `src/aichat/fragments.ts`.
+- **Busca na web** (demo de calorias): Wikipedia por padrão. Tavily ou Brave exigem chave em
   `local.config.ts`.
-- **Respostas faladas:** cada frase do texto é enviada ao TTS assim que fica pronta. O
-  texto aparece na tela antes da voz.
+- **Respostas faladas:** cada frase do texto é enviada ao TTS assim que fica pronta. O texto
+  aparece na tela antes da voz.
 
 ### 2.3 O que esperar (honestamente)
 
-- É um modelo de **0,6B parâmetros no telefone**. Ele escolhe a ferramenta certa na
-  maioria das vezes, mas **erra argumentos com frequência**, por exemplo:
-  - lado/zona errados ("janela do passageiro" → todas);
+- É um modelo de **0,6B parâmetros no telefone**. Ele escolhe a ferramenta certa na maioria
+  das vezes, mas ainda erra, por exemplo:
+  - em inglês, "open the windows" às vezes escolhe a ferramenta da porta;
+  - lado ou zona errados;
   - valor absoluto vs. relativo ("vinte e dois graus" vs. "sobe dois graus");
   - números falados.
+- **Os guards do núcleo** conferem cada chamada com as palavras do usuário antes de executar
+  (`callGuards: 'correct'` na entrada do modelo). Eles:
+  - corrigem um argumento claramente errado: "fecha" vs. "abre", "levanta o vidro" = fechar,
+    "desliga o desembaçador", o lado que o usuário disse, um número partido;
+  - normalizam um valor escrito em outra ordem ("right front" → `front_right`);
+  - **bloqueiam** uma chamada para o tipo errado de objeto, por exemplo a ferramenta de porta
+    para um vidro, com um natural "Desculpe, acho que não entendi direito. Pode repetir?". Uma
+    chamada bloqueada **nunca** vira outra ferramenta;
+  - bloqueiam uma chamada cujos argumentos são de outra ferramenta.
 
-  De vez em quando executa uma ação errada ou oposta. Por isso o carro é **simulado** e
-  ações sensíveis precisam de `authorization` / `confirmation`.
-- **Latência (Galaxy S20, só CPU):**
-  - cerca de 5 s até a primeira palavra;
-  - um comando do carro completo (chamada da ferramenta + "Pronto.") leva de 10 a 15 s.
+  Toda decisão de guard aparece no log (`guard ...`).
+- **Posições:** vidros, portas e travas aceitam `front_left`, `front_right`, `rear_left`,
+  `rear_right`, `driver`, `passenger`, `front`, `rear`, `left`, `right` ou `all`.
+  - `driver` / `passenger` são resolvidos pelo app a partir do lado do volante do carro
+    (`CarState.vehicle.steering`, padrão esquerdo; `setSteering()` em `src/car/CarState.ts`),
+    então nada supõe volante à esquerda.
+  - Mover o vidro, abrir a porta e travar a porta são ferramentas separadas.
+- **Duas temperaturas de uma vez:** `set_dual_zone_temperature` (motorista + passageiro). O app
+  confere cada valor e diz qual lado não conseguiu ajustar. Os modelos atuais ainda não foram
+  treinados nessa ferramenta: muitas vezes colocam os dois valores em `set_temperature`, o que
+  o núcleo bloqueia ("pode repetir?"), ou ajustam só um lado. Dois comandos separados ("lado do
+  motorista em 20", depois "lado do passageiro em 23") funcionam.
+- **Latência (Galaxy S20, só CPU, medida em 10/11/2026):**
+  - a decisão do modelo leva cerca de 1,3–2 s por comando;
+  - a frase da ação é falada logo em seguida.
 
-  Em iPhones com Metal é bem mais rápido.
-- **Memória do usuário:** com um fato salvo sobre o carro (por exemplo "meu carro é vermelho"),
-  o modelo de 0,6B às vezes responde com o fato em vez de executar o pedido sobre o carro.
-  É uma limitação conhecida do modelo atual.
-- Pedidos fora do que o carro sabe fazer (portas, travas, faróis, freio de mão) devem ser
-  **recusados**, não executados.
+  Em iPhones com Metal é mais rápido.
+- **Memória do usuário (demo de calorias):** um fato salvo às vezes aparece numa resposta que
+  não tem nada a ver. É uma limitação conhecida do modelo atual.
+- Pedidos que o carro não sabe fazer (capô, porta-malas, pisca-alerta, limpador, retrovisor,
+  freio de mão) devem ser **recusados**, não executados.
 
 ### 2.4 Como testar
 
-1. Entre em **Local AI Chat**. O modelo **"DaVoice Agent 0.6B (VW demo)"** já é o padrão.
-   Espere o "Ready" (cerca de 40 s na primeira vez; depois, segundos).
-   - Para testar o estado salvo: feche o app por completo, abra de novo e volte ao Local AI
-     Chat. O log mostra `[LocalLLM] KV state restored: N tokens in X ms`.
-   - Faça também uma pergunta geral ("me conta uma curiosidade sobre o Brasil"): a resposta
-     deve ser a mensagem do modelo remoto de 2.2.
-2. **Cartões na tela:**
-   - **Calorias** (`src/calories/CaloriesCard.tsx`): total do dia e lista.
-   - **Carro** (azul, `src/car/CarCard.tsx`), logo abaixo:
-     - a última ação em palavras e a **chamada exata** que a IA fez, por exemplo
-       `set_window(window: passenger, position: open)`;
-     - as duas ações anteriores;
-     - uma linha com o estado do carro;
-     - botão **"Parado / Em movimento"**: em movimento, o app recusa porta-malas,
-       portinhola de recarga, girar a tela, abrir todos os vidros e alguns modos
-       (`NOT_WHILE_DRIVING` em `src/car/carTools.ts`);
-     - botão **"Reiniciar"**: zera o carro.
+1. Escolha **Local AI · Car demo** (ou Calories). Espere a tela de carregamento terminar:
+   cerca de 30–40 s na primeira vez, cerca de um segundo depois.
+   - Para testar o estado salvo: feche o app por completo, abra de novo e volte à demo. O log
+     mostra `[LocalLLM] KV state restored: N tokens in X ms`.
+   - Faça uma pergunta geral ("me conta uma curiosidade sobre o Brasil"): a resposta deve ser
+     a mensagem do modelo remoto de 2.2.
+2. **Cartão do carro** (`src/car/CarCard.tsx`):
+   - a última ação em palavras e a **chamada exata** que a IA fez, por exemplo
+     `set_window(window: rear_right, position: open)`;
+   - as duas ações anteriores;
+   - uma linha com o estado do carro: temperatura por lado, vidros, portas abertas, travas;
+   - botão **"Parado / Em movimento"**: em movimento, o app recusa porta-malas, portinhola de
+     recarga, girar a tela, abrir todos os vidros, abrir portas e alguns modos
+     (`NOT_WHILE_DRIVING` em `src/car/carTools.ts`);
+   - botão **"Reiniciar"**: zera o carro.
+
+   Na demo de calorias, o cartão de calorias (`src/calories/CaloriesCard.tsx`) mostra o total
+   do dia e a lista.
 3. **O que verificar em cada comando:**
    - a ferramenta certa;
-   - os argumentos exatos (lado, valor, unidade);
+   - os argumentos exatos (posição, valor, unidade);
+   - a frase falada bate com o que aconteceu ("já está…", recusas);
    - pergunta quando falta informação;
    - recusa quando não é suportado;
-   - **nenhuma ação executada** em frases de conversa ("valeu", "show, ficou bom").
+   - **nenhuma ação executada** em frases de conversa ou em ruído de fala.
 4. **Ferramentas registradas:** `LOCAL_LLM_CAR_TOOLS` em `src/local_llm/constants.ts`:
-   - `'vw_demo'` (17 ferramentas, padrão: prompt menor e mais rápido);
-   - `'all'` (o catálogo inteiro de 30).
-5. **Log da conversa no aparelho (Android):**
-   `adb shell run-as com.exampleapp cat files/davoice_chat.log`. Mostra o que o modelo
-   gerou, as chamadas de ferramenta e os resultados.
-6. **Com a verificação de locutor ligada:** confirme que a wake word não dispara com outra
-   pessoa falando, e que `speakerId` aparece nos resultados do STT.
+   - `'vw_demo'` (padrão: 22 ferramentas na redação h3, prompt menor e mais rápido);
+   - `'all'` (o catálogo inteiro).
+
+   O `toolWording` da entrada do modelo escolhe o arquivo de descrições:
+   - `h3` (`src/car/carToolDefinitions.h3.json`: posições + duas zonas, gerado por
+     `Davoice_LLM_Training/tools/make_h3_schemas.py`);
+   - `h2`;
+   - `v1` (a redação original, para o ft7c antigo).
+5. **Log da conversa:**
+   - build debug: `adb shell run-as com.exampleapp cat files/davoice_chat.log`;
+   - build release: `adb logcat | grep DavoiceChat` (mesmo conteúdo).
+
+   Mostra as palavras do usuário, o que o modelo gerou, as decisões dos guards, as chamadas
+   de ferramenta e os resultados, a resposta, e linhas `[timing]` com os tempos de prompt e
+   de geração.
+6. **Testes do app:**
+   ```sh
+   npx jest __tests__/carTools.test.ts __tests__/fragments.test.ts
+   ```
+   Eles conferem as frases faladas do carro (sucesso / já estava / recusado, em português e
+   inglês, posições, lado do volante, duas zonas) e as regras de ruído de fala.
+7. **Com a verificação de locutor ligada:** confirme que a wake word não dispara com outra
+   pessoa falando, que `speakerId` aparece nos resultados do STT, e que outra voz não
+   consegue destrancar o carro.
 
 ### 2.5 Conversa por turnos: o usuário espera a IA terminar
 
@@ -442,6 +510,8 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
     `runSpeakerVerificationStartupFlow`, `writeEnrollmentJsonToFile`,
     `loadEnrollmentJsonFromFile`;
   - `src/speaker_verification/verification.ts`: verificação contínua ou pontual;
+  - `src/speaker_verification/currentSpeaker.ts`: quem foi verificado neste pedido,
+    `ownerMayAct()` (usado para autorizar as ferramentas de porta, 1.3);
   - `src/appflow.ts`: limiar e número de amostras.
 - **Asset:** `sv.dm` no bundle nativo:
   - Android: `android/app/src/main/assets/sv.dm`;
@@ -465,8 +535,8 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   - `setSpeakers([...])` troca a lista inteira (vazia = desligado);
   - `removeSpeaker(id)` tira um locutor;
   - `getSpeakerIds()` lista os cadastrados.
-- **Autorização de ações:** use `speakerId` / `speakerIds` dos resultados do STT. Veja o
-  padrão de autorização em 1.3.
+- **Autorização de ações:** use `speakerId` / `speakerIds` dos resultados do STT. Veja a
+  autorização das portas em 1.3.
 
 ### 3.3 STT e TTS (`react-native-davoice`)
 
@@ -480,6 +550,9 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   `.dm`):
   - TTS: `assets/models/model_ex2_portuguese_brv1.dm` (cerca de 143 MB);
   - clonagem de voz: `assets/models/embedder_brv1.dm`.
+  - Todo `require()` de um arquivo `.dm` coloca o arquivo no app, mesmo que esse código nunca
+    rode. Tire o `require()` de um idioma que você não oferece (é assim que o hebraico ficou
+    de fora).
 - **API mínima:**
   ```ts
   import Speech from 'react-native-davoice/speech';
@@ -487,7 +560,7 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   Speech.onSpeechResults = (e) => console.log(e.value[0], e.speakerId);
   await Speech.unPauseSpeechRecognition(-1);   // começa a ouvir
   await Speech.pauseSpeechRecognition();       // antes de falar
-  await Speech.speak('Pronto, abri a janela.', 0, 1.0);
+  await Speech.speak('Abri a janela.', 0, 1.0);
   ```
 - **Clonagem de voz:**
   `Speech.createVoiceClone(gravacao, pastaDeSaida + '/', require('./assets/models/embedder_brv1.dm'))`,
@@ -496,7 +569,7 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
 - **Texto para a voz:** não reescreva o texto para a fala no app (números, domínios como
   "DaVoice.io"). A biblioteca de TTS já faz esse pré-processamento.
 
-### 3.4 Chat de IA local e ferramentas (`react-native-davoice-llm`)
+### 3.4 IA local e ferramentas (`react-native-davoice-llm`)
 
 - **Instalação:**
   ```sh
@@ -508,45 +581,62 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   allprojects { repositories { maven { url "${project(":react-native-davoice-llm").projectDir}/libs" } } }
   ```
 - **Código para copiar:**
-  - `src/local_llm/`: lista de modelos e URLs com sha256 (`constants.ts`), download e
-    registro e estado salvo (`ModelManager.ts`, `ModelRegistry.ts`), carregamento
-    (`LocalLLMLoader.ts`), seletor (`ModelPicker.tsx`);
-  - `src/agent/LocalAgent.ts`: cria o `Agent` com o pacote do idioma, `onRequest`
-    (pedidos `remote` para o modelo remoto, `authorizeTool`, `confirmTool`);
-  - `src/aichat/remote.ts`: o modelo remoto (`answerRemoteRequest`: a mensagem fixa, o
-    Gemini ou o seu serviço, veja 2.2);
-  - `src/agent/AgentPack.ts`: escolhe `agent/` ou `agent/pt-BR/`;
-  - `src/aichat/provider.ts`: configura o agente por modelo (ferramentas, modelo remoto,
-    aquecimento, estado salvo com `saveState` / `loadState`) e faz o streaming para o TTS;
-  - **pacote do agente:** `agent/pt-BR/agent.json` (persona, mensagens, respostas fixas,
-    frases do modelo remoto) e `agent/pt-BR/skills/calories/` (`skill.json`, `foods.json`). São arquivos
-    JSON: dá para mudar o comportamento sem mudar código;
-  - **carro:** `src/car/carToolDefinitions.json` (definições das ferramentas no formato MCP:
-    `name`, `description`, `inputSchema`, `execution`), `src/car/carTools.ts` (handlers),
-    `src/car/CarState.ts` (estado simulado), `src/car/CarCard.tsx` (UI). Não dê o mesmo
-    nome a um módulo `.ts` e a um arquivo `.json`: o Metro resolve o `.json` primeiro.
+  - `src/local_llm/`:
+    - lista de modelos e URLs com sha256, mais o modelo padrão de cada demo
+      (`constants.ts`);
+    - a demo atual (`demo.ts`);
+    - download, registro com um modelo por demo e os estados salvos (`ModelManager.ts`,
+      `ModelRegistry.ts`);
+    - carregamento (`LocalLLMLoader.ts`) e seletor (`ModelPicker.tsx`).
+  - `src/agent/LocalAgent.ts`: cria o `Agent` com o pacote da demo e do idioma, `onRequest`
+    (`remote`, `authorizeTool`, `confirmTool`). Também tem `resetLocalAgent()` para trocar de
+    demo.
+  - `src/agent/AgentPack.ts`: escolhe `agent/` ou `agent/pt-BR/`, e o pacote do carro
+    (`automotiveAgentFor`).
+  - `src/aichat/remote.ts`: o modelo remoto (`answerRemoteRequest`: as mensagens fixas, o
+    Gemini ou o seu serviço, veja 2.2).
+  - `src/aichat/provider.ts`: configura o agente por modelo (ferramentas, guards, modelo
+    remoto, aquecimento, estado salvo por prompt com `saveState` / `loadState`) e faz o
+    streaming para o TTS.
+  - `src/aichat/fragments.ts`: regras de ruído de fala.
+  - **Pacotes do agente** (arquivos JSON: dá para mudar o comportamento sem mudar código):
+    - `agent/pt-BR/agent.json` + `agent/pt-BR/skills/calories/` (a demo de calorias);
+    - `agent_automotive/pt-BR/agent.json` (a demo do carro: a mesma persona e as mesmas
+      mensagens, sem a skill de calorias). Este é o prompt de sistema com que o modelo
+      automotivo é treinado: mantenha-o igual quando usar esse modelo.
+  - **Carro:**
+    - `src/car/carToolDefinitions.h3.json` (definições das ferramentas no formato MCP:
+      `name`, `description`, `inputSchema`, `execution`);
+    - `src/car/carTools.ts` (handlers e as frases faladas);
+    - `src/car/positions.ts` (posições, lado do volante, redação das frases);
+    - `src/car/CarState.ts` (estado simulado);
+    - `src/car/CarCard.tsx` (UI).
+
+    Não dê o mesmo nome a um módulo `.ts` e a um arquivo `.json`: o Metro resolve o `.json`
+    primeiro.
 - **API mínima:**
   ```ts
-  import { setLicense, loadModel, Agent } from 'react-native-davoice-llm';
+  import { setLicense, loadModel, Agent, toolReply } from 'react-native-davoice-llm';
   await setLicense(LICENSE);
   await loadModel(caminhoDoGguf, { contextSize: 8192 });
   const agent = await Agent.create({
-    pack: { agent: require('./agent/pt-BR/agent.json'), skills: [/* {skill, data} */] },
-    databasePath: `${RNFS.DocumentDirectoryPath}/davoice_agent_pt_br.db`,
+    pack: { agent: require('./agent_automotive/pt-BR/agent.json'), skills: [] },
+    databasePath: `${RNFS.DocumentDirectoryPath}/davoice_agent_pt_br_car.db`,
     chatTemplate: 'qwen3',
   }, { onRequest });
-  await agent.setTools(minhasFerramentas);          // ex.: as do carro
+  await agent.configure({ intentRouter: false, webSearchTool: true, timeTool: true, guards: { /* veja provider.ts */ } });
+  await agent.setTools(minhasFerramentas);   // um handler devolve toolReply(resultado, 'Abri a janela.') para falar ele mesmo
   const r = await agent.turn({ text, history }, (ev) => { if (ev.type === 'text') falar(ev.text); });
   // agent.cancel() para um turno em andamento (usado nas interrupções, veja 2.5)
   ```
 - **Modelos:** baixe o GGUF pelas URLs de `src/local_llm/constants.ts` e confira o sha256
   (o exemplo já faz isso). Modelos ajustados precisam do mesmo `chatTemplate` (`qwen3`) e
   das configurações da entrada (`usesRouter: false`, `modelTools: true`,
-  `remoteAssistant: true`).
+  `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`).
 - **Ferramentas novas:** um modelo pequeno depende muito do texto das descrições. Use
   descrições curtas e claras e diga explicitamente "absoluto vs. relativo" e qual lado é
-  qual. Mantenha no app **o mesmo texto** com que o modelo foi treinado: o modelo de
-  demonstração do carro espera as descrições de `src/car/carToolDefinitions.json`.
+  qual. Mantenha no app **o mesmo texto** com que o modelo foi treinado: o modelo da demo do
+  carro espera `src/car/carToolDefinitions.h3.json`.
 
 ---
 
@@ -554,11 +644,12 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
 
 1. Instale e rode o app (1.1); escolha **Português do Brasil**.
 2. Escolha uma voz; **crie a assinatura de voz** (5 frases); diga **"Hey Coach"**.
-3. Escolha **Local AI Chat** (o modelo **VW demo** já é o padrão) → espere "Ready".
-   Perguntas gerais recebem a mensagem "configure um modelo remoto" (veja 2.2).
-4. Teste os comandos de 1.4 e confira o cartão azul do carro (ferramenta e argumentos
-   exatos).
-5. Lembre que o chat é por turnos (2.5): espere a IA terminar antes de falar de novo.
-6. Teste também uma voz diferente: ela **não** deve ativar o assistente.
-7. Para portas, travas ou pagamentos, implemente `execution.authorization` + checagem do
-   `speakerId` (1.3) antes de qualquer ação real.
+3. Escolha **Local AI · Car demo** → espere a tela de carregamento (cerca de 30–40 s na
+   primeira vez, cerca de 1 s depois). Perguntas gerais recebem a mensagem "configure um
+   modelo remoto" (veja 2.2).
+4. Teste os comandos de 1.4. Confira o cartão do carro (ferramenta e argumentos exatos) e se
+   a frase falada bate com o que aconteceu.
+5. Teste a **Local AI · Calories demo** do mesmo jeito.
+6. Lembre que o chat é por turnos (2.5): espere a IA terminar antes de falar de novo.
+7. Teste também uma voz diferente: ela **não** deve ativar o assistente, nem destrancar o
+   carro.
