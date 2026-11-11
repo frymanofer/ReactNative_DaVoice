@@ -136,3 +136,12 @@ describe('other operations name what they did, or that nothing changed', () => {
   // Unsupported capabilities (no tool in the car: trunk, hazards ...) are refused by the core's capability guard with the pack's
   // "not available" reply (Davoice_LLM_Training/tools/guard_tests.py cap*); every catalog tool here has a handler.
 });
+
+test('a fan level outside 1-7 goes to the nearest end and says so (2026-11-10 round 2)', () => {
+  mockLang = 'pt-BR';
+  expect(say('set_fan_speed', { level: 9 })).toBe('A ventilação vai até o nível 7, então coloquei no nível 7.');
+  expect(say('set_fan_speed', { change: 2 })).toBe('A ventilação vai até o nível 7, e já está nele.');
+  mockLang = 'en';
+  expect(say('set_fan_speed', { level: 0 })).toBe('The lowest fan level is 1, so I set it to level 1.');
+  expect(say('set_fan_speed', { level: 4 })).toBe('I set the fan to level 4.');
+});

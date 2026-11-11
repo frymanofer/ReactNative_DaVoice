@@ -205,6 +205,69 @@ const NARRATION: Record<AppLanguage, NarrationCopy> = {
     sayWakeWord: (wakeWords) => `עכשיו אמרו את מילת ההפעלה ${wakeWords} כדי להמשיך.`,
     cloneCreated: (voice) => `שלום! אני ${voice}. זה הקול המשוכפל החדש שלי.`,
   },
+  da: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} registreret.`,
+    modeSelection:
+      'Nu kan du prøve stemmefunktionerne på fem forskellige måder. Vælg lokal AI-chat, der kører helt på denne enhed; fuld AI-chat, der bruger den eksterne Gemini-model; eller prøv talegenkendelse og oplæsning hver for sig eller sammen.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Du kan klone en ny stemme, vælge en af dine klonede stemmer eller vælge en indbygget stemme.'
+        : 'Du kan klone en ny stemme eller vælge en indbygget stemme.',
+    introduction: (voice) => [
+      `Hej. Jeg hedder ${voice}. I denne app bruger jeg min klonede stemme til at vise, hvad vores stemmestyrede AI-agent kan.`,
+      'Jeg er din personlige guide og fører dig trin for trin gennem denne demonstration.',
+      'Vælg først den stemme, du vil bruge.',
+    ],
+    selectedVoice: (voice) => `Du har valgt ${voice}.`,
+    speakerVerificationSetup:
+      'Næste trin er at konfigurere talerverifikation. Du kan oprette et nyt stemmeaftryk, bruge et gemt aftryk eller springe dette trin over.',
+    speakerVerificationSkipped: 'Talerverifikation er sprunget over.',
+    speakerVerificationReady: 'Talerverifikation er klar!',
+    sayWakeWord: (wakeWords) => `Sig nu aktiveringsordet ${wakeWords} for at fortsætte.`,
+    cloneCreated: (voice) => `Hej! Jeg er ${voice}. Dette er min nye klonede stemme.`,
+  },
+  sv: {
+    wakeWordDetected: (wakeWord) => `${wakeWord} upptäckt.`,
+    modeSelection:
+      'Nu kan du prova röstfunktionerna på fem olika sätt. Välj lokal AI-chatt, som körs helt på den här enheten; fullständig AI-chatt, som använder fjärrmodellen Gemini; eller prova taligenkänning och uppläsning var för sig eller tillsammans.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Du kan klona en ny röst, välja en av dina klonade röster eller välja en inbyggd röst.'
+        : 'Du kan klona en ny röst eller välja en inbyggd röst.',
+    introduction: (voice) => [
+      `Hej. Jag heter ${voice}. I den här appen använder jag min klonade röst för att visa vad vår röststyrda AI-agent kan.`,
+      'Jag är din personliga guide och tar dig steg för steg genom den här demonstrationen.',
+      'Välj först den röst du vill använda.',
+    ],
+    selectedVoice: (voice) => `Du har valt ${voice}.`,
+    speakerVerificationSetup:
+      'Nästa steg är att ställa in talarverifiering. Du kan skapa ett nytt röstavtryck, använda ett sparat avtryck eller hoppa över det här steget.',
+    speakerVerificationSkipped: 'Talarverifieringen hoppades över.',
+    speakerVerificationReady: 'Talarverifieringen är klar!',
+    sayWakeWord: (wakeWords) => `Säg nu aktiveringsordet ${wakeWords} för att fortsätta.`,
+    cloneCreated: (voice) => `Hej! Jag är ${voice}. Det här är min nya klonade röst.`,
+  },
+  el: {
+    wakeWordDetected: (wakeWord) => `Εντοπίστηκε η λέξη ενεργοποίησης ${wakeWord}.`,
+    modeSelection:
+      'Τώρα μπορείτε να δοκιμάσετε τις φωνητικές δυνατότητες με πέντε διαφορετικούς τρόπους. Επιλέξτε τοπική συνομιλία τεχνητής νοημοσύνης, που λειτουργεί εξ ολοκλήρου σε αυτή τη συσκευή· πλήρη συνομιλία τεχνητής νοημοσύνης, που χρησιμοποιεί το απομακρυσμένο μοντέλο Gemini· ή δοκιμάστε την αναγνώριση ομιλίας και τη σύνθεση ομιλίας χωριστά ή μαζί.',
+    cloningChoices: (hasClonedVoices) =>
+      hasClonedVoices
+        ? 'Μπορείτε να κλωνοποιήσετε μια νέα φωνή, να επιλέξετε μία από τις κλωνοποιημένες φωνές σας ή να διαλέξετε μια ενσωματωμένη φωνή.'
+        : 'Μπορείτε να κλωνοποιήσετε μια νέα φωνή ή να διαλέξετε μια ενσωματωμένη φωνή.',
+    introduction: (voice) => [
+      `Γεια σας. Με λένε ${voice}. Σε αυτή την εφαρμογή χρησιμοποιώ την κλωνοποιημένη φωνή μου για να δείξω τις δυνατότητες του φωνητικού μας βοηθού τεχνητής νοημοσύνης.`,
+      'Θα σας καθοδηγήσω βήμα βήμα σε αυτή την επίδειξη.',
+      'Πρώτα, επιλέξτε τη φωνή που θέλετε να χρησιμοποιήσετε.',
+    ],
+    selectedVoice: (voice) => `Επιλέξατε τη φωνή ${voice}.`,
+    speakerVerificationSetup:
+      'Το επόμενο βήμα είναι η ρύθμιση της επαλήθευσης ταυτότητας ομιλητή. Μπορείτε να δημιουργήσετε ένα νέο φωνητικό αποτύπωμα, να χρησιμοποιήσετε ένα αποθηκευμένο ή να παραλείψετε αυτό το βήμα.',
+    speakerVerificationSkipped: 'Η επαλήθευση ομιλητή παραλείφθηκε.',
+    speakerVerificationReady: 'Η επαλήθευση ομιλητή είναι έτοιμη!',
+    sayWakeWord: (wakeWords) => `Τώρα πείτε τη λέξη ενεργοποίησης ${wakeWords} για να συνεχίσετε.`,
+    cloneCreated: (voice) => `Γεια σας! Αυτή είναι η νέα κλωνοποιημένη φωνή μου, ${voice}.`,
+  },
 };
 
 export function narrationFor(language: AppLanguage): NarrationCopy {

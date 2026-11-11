@@ -443,6 +443,9 @@ function genericExample(ability: string, language: AppLanguage): ExampleText {
     it: `[${words}] Ciao! Questa è la mia voce con questo stile.`,
     nl: `[${words}] Hallo! Zo klinkt mijn stem in deze stijl.`,
     he: `[${words}] שלום! ככה נשמע הקול שלי בסגנון הזה.`,
+    da: `[${words}] Hej! Sådan lyder min stemme i denne stil.`,
+    sv: `[${words}] Hej! Så här låter min röst i den här stilen.`,
+    el: `[${words}] Γεια σας! Έτσι ακούγεται η φωνή μου σε αυτό το ύφος.`,
   };
   return { label, text: textByLanguage[language] };
 }
@@ -462,6 +465,9 @@ const HIDDEN_ABILITIES: Record<AppLanguage, string[]> = {
   it: [],
   nl: [],
   he: [],
+  da: [],
+  sv: [],
+  el: [],
 };
 
 function abilityRank(ability: string): number {
@@ -523,4 +529,7 @@ export const STYLE_TAG_HINT: Record<AppLanguage, string> = {
   it: "Inserisci un tag tra parentesi quadre prima delle parole, ad esempio [felice] Ciao! [normale] torna alla voce normale.",
   nl: "Zet een tag tussen vierkante haakjes voor de woorden, bijvoorbeeld [vrolijk] Hallo! [normaal] keert terug naar de normale stem.",
   he: "שימו תגית בסוגריים מרובעים לפני המילים, למשל [happy] שלום! [regular] מחזיר לקול הרגיל.",
+  da: "Sæt et mærke i firkantede parenteser foran ordene, f.eks. [happy] Hej! [regular] går tilbage til den normale stemme.",
+  sv: "Sätt en tagg inom hakparenteser före orden, t.ex. [happy] Hej! [regular] återgår till den vanliga rösten.",
+  el: "Βάλτε μια ετικέτα σε αγκύλες πριν από τις λέξεις, π.χ. [happy] Γεια σας! Το [regular] επαναφέρει την κανονική φωνή.",
 };

@@ -43,6 +43,10 @@ const ttsModels: Record<AppLanguage, any> = {
   // NOT BUNDLED (2026-11-10: Hebrew hidden from the language screen; a require() here would ship the 125 MB file).
   // To bring Hebrew back: restore `require('../../assets/models/model_v1_hebrew.dm')` and remove `hidden` in src/appflow.ts.
   he: null,
+  // TTS v1 (Piper + voice converter), commercial-OK voices: TTS2/build_<language>/model_<language>.dm.
+  da: require('../../assets/models/model_v1_danish.dm'),
+  sv: require('../../assets/models/model_v1_swedish.dm'),
+  el: require('../../assets/models/model_v1_greek.dm'),
 };
 const BRAZILIAN_SPEAKER_SPEED = 1.0;
 
@@ -62,6 +66,10 @@ const voiceEmbedders: Record<AppLanguage, any> = {
   // The v1 voice embedder: its voices fit only the v1 (Hebrew) model.
   // NOT BUNDLED (see ttsModels.he): restore `require('../../assets/models/embedder_he.dm')` with it.
   he: null,
+  // The v1 voice embedders (TTS2/build_<language>/embedder_<code>.dm): each fits only its own v1 model.
+  da: require('../../assets/models/embedder_da.dm'),
+  sv: require('../../assets/models/embedder_sv.dm'),
+  el: require('../../assets/models/embedder_el.dm'),
 };
 
 // The app's language (the language screen sets it before the speech library loads).

@@ -88,6 +88,15 @@ export interface LocalLLMModelConfig {
    * 'off' (default), 'shadow' = recorded in the chat log only (the call runs as the model made it), 'correct' = a wrong call is
    * fixed when the fix is unambiguous, otherwise blocked. Every guard decision is a "guard ..." line in the chat log. */
   callGuards?: 'off' | 'shadow' | 'correct';
+  /** Agent configure "historyAsRun" (2026-11-11): a guard-corrected call stays in the history as it ran, and the follow-up guard
+   * ("não, o outro de trás" keeps the previous action) is on with callGuards 'correct'. Default false. */
+  historyAsRun?: boolean;
+  /** Agent configure "guidedToolCalls": the certain parts of a JSON tool call are fed in one batch (same calls, fewer decode
+   * steps; S20 warm call round 2.2 -> 1.9 s). Default false. */
+  guidedToolCalls?: boolean;
+  /** Agent configure "promptOrder": 'trained' (default) | 'cache' (date after the tools: a new day reuses the saved prompt
+   * state). Only for a model validated in that order. */
+  promptOrder?: 'trained' | 'cache';
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }

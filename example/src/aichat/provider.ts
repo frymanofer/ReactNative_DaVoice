@@ -77,9 +77,13 @@ function currentDateText(): string {
 }
 
 /** agent configure "guards" for a model's callGuards setting. */
-function callGuardSettings(mode: 'off' | 'shadow' | 'correct') {
+function callGuardSettings(mode: 'off' | 'shadow' | 'correct', historyAsRun = false) {
   const opposite = mode === 'correct' ? 'enforce' : mode;
-  return { polarity: mode, direction: mode, absRel: mode, zone: mode, capability: mode, numberGround: mode, opposite } as const;
+  // followUp reads the previous turn's calls from the history: only meaningful (and only on) with historyAsRun.
+  const followUp = historyAsRun ? mode : 'off';
+  // dualZone (core g10+): one temperature per side said unambiguously -> the dual-zone call gets exactly those values; a call that would drop
+  // or copy a side is blocked (asked again), never redirected. Older native cores ignore the key.
+  return { polarity: mode, direction: mode, absRel: mode, zone: mode, capability: mode, numberGround: mode, opposite, followUp, dualZone: mode } as const;
 }
 
 function toAgentHistory(history: AIChatHistoryMessage[]): AgentHistoryMessage[] {
@@ -160,7 +164,11 @@ export class LocalLLMProvider implements LLMProvider {
         ...(model.temperature !== undefined ? { sampling: { temperature: model.temperature } } : {}),
         // Call guards (model.callGuards): sent every time, so switching models never keeps the previous model's guards.
         // 'correct' fixes / blocks; the split-tool opposite check can only block ('enforce'). Every decision is logged.
-        guards: callGuardSettings(model.callGuards ?? 'off'),
+        guards: callGuardSettings(model.callGuards ?? 'off', model.historyAsRun === true),
+        // Sent every time (shared agent): the previous model's settings must not stick.
+        historyAsRun: model.historyAsRun === true,
+        guidedToolCalls: model.guidedToolCalls === true,
+        promptOrder: model.promptOrder ?? 'trained',
       });
     }
     await this.chatTemplateSet;

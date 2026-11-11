@@ -24,6 +24,15 @@ export const LOCAL_LLM_DAVOICE_AGENT_VW_FT7F2_EXP: ModelId = 'davoice-agent-qwen
  * the S20 and the provisional Personal Agent baseline (user decision). Each gets its own replacement as its training finishes. */
 export const LOCAL_LLM_DAVOICE_PERSONAL: ModelId = 'davoice-personal-agent-0.6b';
 export const LOCAL_LLM_DAVOICE_AUTOMOTIVE: ModelId = 'davoice-automotive-agent-0.6b';
+/** EXPERIMENTAL Automotive Agent candidates (2026-11-11, user: C3 preferred, A fallback; both experimental until the full in-app test,
+ * NOT defaults). Same h3 tools, guards correcting + the follow-up guard (historyAsRun), guided tool calls. Not hosted: the files are
+ * sideloaded into the models folder for the test (an existing file is never downloaded). Car actions stay simulated. */
+export const LOCAL_LLM_DAVOICE_AUTOMOTIVE_C3_EXP: ModelId = 'davoice-automotive-agent-0.6b-c3-auto3-h3-it300-experimental';
+export const LOCAL_LLM_DAVOICE_AUTOMOTIVE_A_EXP: ModelId = 'davoice-automotive-agent-0.6b-a-auto1-h3-it1050-experimental';
+/** Automotive Agent r4b_it100 (2026-11-11 evening, user): round 4b from C3, the car demo's model. Core g9 frozen sets: pt-BR acceptance 139/161
+ * (C3 136), correct executed 320/370 (C3 312), wrong executed 38 (= C3), 0 opposite / unsupported executed, follow-ups 36/39 (C3 35), valid
+ * requests declined 3 (C3 7). Final g10 comparison pending. C3 stays in the list as the fallback. Car actions stay simulated. */
+export const LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B: ModelId = 'davoice-automotive-agent-0.6b-r4b-it100';
 
 // URLs are real, verified-reachable files (checked 2026-11-09). The Gemma entries use the same unsloth GGUF repos the AmigoLocal
 // reference app uses in production. Sizes are the servers' content-length.
@@ -63,6 +72,70 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     relevantMemory: false,
     toolWording: 'h3',
     callGuards: 'correct',
+    isCustom: false,
+  },
+  {
+    // Automotive Agent r4b_it100: the car demo's model (see LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B). C3 below is a backup, explicit pick only.
+    // URL uploaded by the user; verified 2026-11-11: HTTP 200, 381,565,920 bytes, sha256 of the download = the training artifact's.
+    id: LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B,
+    displayName: 'DaVoice Automotive Agent 0.6B (r4b)',
+    filename: 'davoice-automotive-qwen3-0.6b-r4b-it100-q4_0.gguf',
+    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/auto5_r4b_it100-q4_0.gguf',
+    sizeBytes: 381_565_920,
+    sha256: '1c078e961c5f4e16ae0f667d213fa06de53f3f4bc92c9248427bdb37237bd205',
+    contextSize: 8192,
+    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
+    remoteAssistant: true,
+    usesRouter: false,
+    modelTools: true,
+    temperature: 0,
+    relevantMemory: false,
+    toolWording: 'h3',
+    callGuards: 'correct',
+    historyAsRun: true,
+    guidedToolCalls: true,
+    isCustom: false,
+  },
+  {
+    // EXPERIMENTAL Automotive Agent C3 (see LOCAL_LLM_DAVOICE_AUTOMOTIVE_C3_EXP). Not hosted (url empty): sideloaded for the in-app test.
+    id: LOCAL_LLM_DAVOICE_AUTOMOTIVE_C3_EXP,
+    displayName: 'DaVoice Automotive Agent 0.6B (C3, EXPERIMENTAL)',
+    filename: 'davoice-automotive-qwen3-0.6b-auto3-h3-it300-q4_0.gguf',
+    url: '',
+    sizeBytes: 381_565_920,
+    sha256: '2fa0cbf7d0c1d258d8f218a228685efdff2ae5ecce2cdd899908ab3b805e7b1d',
+    contextSize: 8192,
+    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
+    remoteAssistant: true,
+    usesRouter: false,
+    modelTools: true,
+    temperature: 0,
+    relevantMemory: false,
+    toolWording: 'h3',
+    callGuards: 'correct',
+    historyAsRun: true,
+    guidedToolCalls: true,
+    isCustom: false,
+  },
+  {
+    // EXPERIMENTAL Automotive Agent A (fallback; see LOCAL_LLM_DAVOICE_AUTOMOTIVE_A_EXP). Not hosted: sideloaded for the in-app test.
+    id: LOCAL_LLM_DAVOICE_AUTOMOTIVE_A_EXP,
+    displayName: 'DaVoice Automotive Agent 0.6B (A, EXPERIMENTAL)',
+    filename: 'davoice-automotive-qwen3-0.6b-auto1-h3-it1050-q4_0.gguf',
+    url: '',
+    sizeBytes: 381_565_920,
+    sha256: '008bb5ca2efaf184f1b510f0a348a4542a11388b9b5a7148636a62c9275ac598',
+    contextSize: 8192,
+    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
+    remoteAssistant: true,
+    usesRouter: false,
+    modelTools: true,
+    temperature: 0,
+    relevantMemory: false,
+    toolWording: 'h3',
+    callGuards: 'correct',
+    historyAsRun: true,
+    guidedToolCalls: true,
     isCustom: false,
   },
   {
@@ -191,7 +264,7 @@ export const LOCAL_LLM_DEFAULT_MODEL: ModelId = LOCAL_LLM_DAVOICE_AGENT_VW_FT7E;
 /** Each Local AI Chat demo's model until the user picks another one in that demo (src/local_llm/demo.ts). */
 export const LOCAL_LLM_DEMO_DEFAULT_MODEL: Record<'calories' | 'car', ModelId> = {
   calories: LOCAL_LLM_DAVOICE_PERSONAL,
-  car: LOCAL_LLM_DAVOICE_AUTOMOTIVE,
+  car: LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B,   // 2026-11-11 evening (user): r4b_it100; was LOCAL_LLM_DAVOICE_AUTOMOTIVE (ft7f2_it900)
 };
 
 /** The default before the registry recorded it (files written until 2026-11-05). */
@@ -217,6 +290,9 @@ export const LOCAL_LLM_NOT_IN_DEMO_MESSAGE: Record<string, string> = {
   'pt-BR': 'Isso não está disponível nesta demonstração. Para disponibilizar, entre em contato com info@davoice.io',
   'pt-PT': 'Isto não está disponível nesta demonstração. Para o disponibilizar, contacte info@davoice.io',
   he: 'זה לא זמין בהדגמה הזאת. כדי לקבל את זה, צרו איתנו קשר בכתובת info@davoice.io',
+  da: 'Det er ikke tilgængeligt i denne demo. Kontakt info@davoice.io for at få det.',
+  sv: 'Det är inte tillgängligt i den här demon. Kontakta info@davoice.io för att få det.',
+  el: 'Αυτό δεν είναι διαθέσιμο σε αυτή την επίδειξη. Για να το αποκτήσετε, επικοινωνήστε με το info@davoice.io.',
 };
 
 /** What the agent says for a handed-over request when LOCAL_LLM_LAYER2 is 'none' (by app language; English otherwise). */
@@ -225,6 +301,9 @@ export const LOCAL_LLM_NO_REMOTE_MESSAGE: Record<string, string> = {
   'pt-BR': 'Preciso enviar isso para um modelo remoto. Para isso funcionar, configure um modelo remoto no aplicativo.',
   'pt-PT': 'Preciso de enviar isto para um modelo remoto. Para isto funcionar, configure um modelo remoto na aplicação.',
   he: 'אני צריך לשלוח את זה למודל מרוחק. כדי שזה יעבוד, הגדירו מודל מרוחק באפליקציה.',
+  da: 'Jeg skal sende det her til en ekstern model. Konfigurer en ekstern model i appen, så det virker.',
+  sv: 'Jag behöver skicka det här till en fjärrmodell. Ställ in en fjärrmodell i appen så att det fungerar.',
+  el: 'Πρέπει να το στείλω σε ένα απομακρυσμένο μοντέλο. Για να λειτουργήσει, ρυθμίστε ένα απομακρυσμένο μοντέλο στην εφαρμογή.',
 };
 
 /** The car tools the agent gets: 'vw_demo' = the Volkswagen Brazil demo's 17 (climate, windows, navigation, media/radio, seats,

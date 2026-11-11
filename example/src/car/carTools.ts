@@ -220,9 +220,12 @@ const HANDLERS: Record<string, Handler> = {
     if (level === undefined && change === undefined) throw new Refused(L('no fan level given', 'nenhum nível de ventilação informado'));
     const target = level !== undefined ? Number(level) : getCarState().fan + Number(change);
     const fan = range(Math.max(1, Math.min(7, target)), 1, 7, L('The fan level', 'O nível de ventilação'));
-    if (fan === getCarState().fan) return already(L(`fan already ${fan}`, `ventilação já no ${fan}`), L(`The fan is already at level ${fan}.`, `A ventilação já está no nível ${fan}.`));
+    // Outside 1-7 the car goes to the nearest end and says so (never a silent clamp, 2026-11-10 round 2).
+    const edge = target > 7 ? L('The fan goes up to level 7', 'A ventilação vai até o nível 7') : target < 1 ? L('The lowest fan level is 1', 'O nível mínimo da ventilação é 1') : '';
+    if (fan === getCarState().fan) return already(L(`fan already ${fan}`, `ventilação já no ${fan}`), edge ? L(`${edge}, and it is already there.`, `${edge}, e já está nele.`) : L(`The fan is already at level ${fan}.`, `A ventilação já está no nível ${fan}.`));
     updateCar((s) => ({ ...s, fan }));
-    return done(L(`fan speed ${fan}`, `ventilação no nível ${fan}`), { fan_level: fan }, L(`I set the fan to level ${fan}.`, `Coloquei a ventilação no nível ${fan}.`));
+    return done(L(`fan speed ${fan}`, `ventilação no nível ${fan}`), { fan_level: fan },
+      edge ? L(`${edge}, so I set it to level ${fan}.`, `${edge}, então coloquei no nível ${fan}.`) : L(`I set the fan to level ${fan}.`, `Coloquei a ventilação no nível ${fan}.`));
   },
   set_airflow: ({ mode }) => {
     if (getCarState().airflow === String(mode)) return already(L('airflow unchanged', 'ar sem mudança'), L(`The air already goes to ${EN_AIR[mode] ?? words(String(mode))}.`, `O ar já vai para o ${PT_AIR[mode] ?? mode}.`));

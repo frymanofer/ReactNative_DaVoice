@@ -5,6 +5,7 @@
  * @format
  */
 
+import RNFS from 'react-native-fs';
 import React, { useEffect, useState, useRef } from 'react';
 
 import { Platform } from 'react-native';
@@ -54,6 +55,7 @@ import {
 import {
   APP_LANGUAGES,
   AppLanguage,
+  ORIGINAL_TTS_VOICES,
   AppModeChoice,
   SV_ONBOARDING_SAMPLE_COUNT,
   SVPromptChoice,
@@ -134,6 +136,9 @@ const DEFAULT_BRAZILIAN_TTS_VOICE: TTSVoiceChoice = 'Rich';
 // Built-in voices are discovered from the loaded .dm through Speech.getAllVoices().
 
 function defaultTTSVoiceForLanguage(language: AppLanguage): TTSVoiceChoice {
+  // Danish / Swedish / Greek: the v1 model's own voice (no voice conversion: much faster).
+  const originalVoice = ORIGINAL_TTS_VOICES[language];
+  if (originalVoice) return originalVoice;
   return language === 'pt-BR' || language === 'pt-PT' ? DEFAULT_BRAZILIAN_TTS_VOICE : DEFAULT_ENGLISH_TTS_VOICE;
 }
 
@@ -242,7 +247,8 @@ function App(): React.JSX.Element {
   // Both Portuguese models (brv1 and Portugal) read "Rich" badly; say "Ritchie".
   const isPortuguese = () => appLanguageRef.current === 'pt-BR' || appLanguageRef.current === 'pt-PT';
   const spokenVoiceName = (voice: TTSVoiceChoice): string =>
-    isPortuguese() && voice === 'Rich' ? 'Ritchie' : voice;
+    isPortuguese() && voice === 'Rich' ? 'Ritchie'
+      : appLanguageRef.current === 'el' && voice === 'Eleni' ? 'Ελένη' : voice;
 
   const svOnboardingProgress = Math.max(
     0,
@@ -468,6 +474,7 @@ function App(): React.JSX.Element {
   // Sentences handed to the speech library and not yet finished (it queues them).
   const aiChatSpeechChainRef = useRef<Promise<void>>(Promise.resolve());
   const aiChatSpeechPendingRef = useRef(0);
+  const processAIChatTurnRef = useRef<((text: string) => Promise<void>) | null>(null);   // DEV in-app script (runDevInAppScript)
   const getLocalLLMProvider = (): LocalLLMProvider => {
     if (!localLLMProviderRef.current) {
       // The agent (web search, fillers, the calorie tracker's tools) is set
@@ -2368,6 +2375,32 @@ function App(): React.JSX.Element {
     );
   }
 
+  // DEV ONLY (2026-11-11 in-app test): plays files/inapp_test.txt through the same path as a final STT transcript, one line at a time,
+  // waiting for each reply and its speech; '#reset' starts a new conversation (Reset Chat). Skips only STT; never in release builds.
+  // The latest processAIChatTurn (it reads this render's chat history): a loop holding the closure from the render that started it
+  // would send every turn with the history of that moment (no previous turns).
+  processAIChatTurnRef.current = processAIChatTurn;
+  const runDevInAppScript = async () => {
+    if (!__DEV__) return;
+    const path = `${RNFS.DocumentDirectoryPath}/inapp_test.txt`;
+    const lines = (await RNFS.readFile(path, 'utf8')).split('\n').map((l) => l.trim()).filter(Boolean);
+    console.log(`[DevScript] ${lines.length} lines`);
+    const settle = async () => {
+      const t0 = Date.now();
+      await new Promise((r) => setTimeout(r, 800));
+      while ((aiChatInFlightRef.current || aiChatSpeechPendingRef.current > 0 || aiChatAwaitingSpeechFinishRef.current) && Date.now() - t0 < 90000) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+    };
+    for (const line of lines) {
+      if (line === '#reset') { resetAIChatSession(); await new Promise((r) => setTimeout(r, 1000)); continue; }
+      await processAIChatTurnRef.current?.(line);
+      await settle();
+    }
+    console.log('[DevScript] done');
+  };
+
   // Local AI Chat, step 2: only once ready - the car (or calories) status, what was heard (STT), the reply (TTS), the model.
   if (shouldShowFullAIChatScreen && isLocalAIChat) {
     return (
@@ -2402,6 +2435,11 @@ function App(): React.JSX.Element {
                 <Text style={styles.svButtonText}>Back</Text>
               </TouchableOpacity>
             </View>
+            {__DEV__ && (
+              <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={() => { void runDevInAppScript(); }}>
+                <Text style={styles.ttsSpeakButtonText}>Run test script (dev)</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
         <ModelPicker
@@ -2877,6 +2915,9 @@ function App(): React.JSX.Element {
 
   if (showTTSModelPrompt) {
     const emotionVoices = ttsVoiceOptions.filter((voice) => voiceAbilities[voice]);
+    // The v1 model's own voice: its own section, first (above the emotion voices).
+    const originalVoiceName = ORIGINAL_TTS_VOICES[appLanguageRef.current];
+    const originalVoice = originalVoiceName && ttsVoiceOptions.includes(originalVoiceName) ? originalVoiceName : null;
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
             <Text style={styles.svPromptTitle}>Choose Your Voice</Text>
@@ -2889,6 +2930,23 @@ function App(): React.JSX.Element {
               onPress={openVoiceCloneScreen}>
               <Text style={styles.svButtonText}>Clone a new Voice</Text>
             </TouchableOpacity>
+            {originalVoice ? (
+              <View style={styles.ttsOptionSection}>
+                <Text style={[styles.ttsOptionLabel, styles.ttsOptionLabelHighlight]}>Original Voice (fastest)</Text>
+                <View style={styles.ttsVoiceGrid}>
+                  <TouchableOpacity
+                    style={[
+                      styles.svButton,
+                      styles.ttsVoiceButton,
+                      ttsVoiceChoice === originalVoice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => setTtsVoiceChoice(originalVoice)}>
+                    <Text style={styles.svButtonText}>{originalVoice}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
             {emotionVoices.length > 0 ? (
               <View style={styles.ttsOptionSection}>
                 <Text style={[styles.ttsOptionLabel, styles.ttsOptionLabelHighlight]}>Voices with Emotions & Styles in Free Text</Text>
@@ -2918,7 +2976,7 @@ function App(): React.JSX.Element {
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>{emotionVoices.length > 0 ? 'Other Built-in Voices' : 'Built-in Voices'}</Text>
               <View style={styles.ttsVoiceGrid}>
-                {ttsVoiceOptions.filter((voice) => !voiceAbilities[voice]).map((voice) => (
+                {ttsVoiceOptions.filter((voice) => !voiceAbilities[voice] && voice !== originalVoice).map((voice) => (
                   <TouchableOpacity
                     key={voice}
                     style={[

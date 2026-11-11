@@ -51,6 +51,9 @@ const VOICE_CLONE_READING_TEXTS: Record<AppLanguage, string> = {
   fr: 'Bonjour ! Voici ma voix. J’enregistre un court échantillon pour que mon assistant puisse parler comme moi. C’est une bonne journée pour essayer quelque chose de nouveau.',
   it: 'Ciao! Questa è la mia voce. Sto registrando un breve campione affinché il mio assistente possa parlare come me. Oggi è un buon giorno per provare qualcosa di nuovo.',
   he: 'שלום! זה הקול שלי. אני מקליט דוגמה קצרה כדי שהעוזר שלי יוכל לדבר בדיוק כמוני. היום הוא יום טוב לנסות משהו חדש.',
+  da: 'Hej! Det her er min stemme. Jeg optager en kort prøve, så min assistent kan tale ligesom mig. I dag er en god dag til at prøve noget nyt.',
+  sv: 'Hej! Det här är min röst. Jag spelar in ett kort prov så att min assistent kan prata precis som jag. I dag är en bra dag att prova något nytt.',
+  el: 'Γεια σας! Αυτή είναι η φωνή μου. Ηχογραφώ ένα σύντομο δείγμα ώστε ο βοηθός μου να μπορεί να μιλάει όπως εγώ. Σήμερα είναι μια καλή μέρα για να δοκιμάσω κάτι καινούργιο.',
   nl: 'Hallo! Dit is mijn stem. Ik neem een kort fragment op zodat mijn assistent net als ik kan spreken. Vandaag is een goede dag om iets nieuws te proberen.',
 };
 

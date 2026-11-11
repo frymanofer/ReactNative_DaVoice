@@ -31,7 +31,7 @@ export function getSVUIDisplayScore(score: number, nativeIsMatch: boolean): numb
 // The app's language, chosen first: it picks the TTS model, the voice-cloning
 // encoder, the speech recognizer's locale (src/tts/index.ts) and the language
 // the AI chats reply in (llmReplyInstruction, added to their system prompts).
-export type AppLanguage = 'en' | 'pt-BR' | 'pt-PT' | 'de' | 'es' | 'fr' | 'it' | 'nl' | 'he';
+export type AppLanguage = 'en' | 'pt-BR' | 'pt-PT' | 'de' | 'es' | 'fr' | 'it' | 'nl' | 'he' | 'da' | 'sv' | 'el';
 export const APP_LANGUAGES: {
   id: AppLanguage;
   label: string;
@@ -70,6 +70,12 @@ export const APP_LANGUAGES: {
     llmReplyInstruction: 'The user speaks German. Always reply in German.',
   },
   {
+    id: 'el',
+    label: 'Ελληνικά (Greek)',
+    sttLocale: 'el-GR',
+    llmReplyInstruction: 'The user speaks Greek. Always reply in Greek. Απάντα πάντα στα ελληνικά.',
+  },
+  {
     id: 'es',
     label: 'Español (Spanish)',
     sttLocale: 'es-ES',
@@ -102,7 +108,30 @@ export const APP_LANGUAGES: {
     sttLocale: 'he-IL',
     llmReplyInstruction: 'The user speaks Hebrew. Always reply in Hebrew. ענה תמיד בעברית.',
   },
+  // Danish, Swedish, Greek: TTS v1 models (Piper + voice converter) like Hebrew, with commercial-OK
+  // Piper voices (TTS2/TTSv1/voices_commercial_ok.txt): voices and cloning, no emotion styles.
+  {
+    id: 'da',
+    label: 'Dansk (Danish)',
+    sttLocale: 'da-DK',
+    llmReplyInstruction: 'The user speaks Danish. Always reply in Danish. Svar altid på dansk.',
+  },
+  {
+    id: 'sv',
+    label: 'Svenska (Swedish)',
+    sttLocale: 'sv-SE',
+    llmReplyInstruction: 'The user speaks Swedish. Always reply in Swedish. Svara alltid på svenska.',
+  },
 ];
+
+/** A TTS v1 model's own voice (the native library lists it first, named after the language): no voice conversion,
+ * so much faster than the model's other voices. Shown first on the voice screen and the default voice of these
+ * languages. */
+export const ORIGINAL_TTS_VOICES: Partial<Record<AppLanguage, string>> = {
+  da: 'Mads', // male
+  sv: 'Erik', // male
+  el: 'Eleni', // female
+};
 
 /** The system-prompt line that sets the AI chats' reply language. */
 export function llmReplyInstruction(language: AppLanguage): string {
