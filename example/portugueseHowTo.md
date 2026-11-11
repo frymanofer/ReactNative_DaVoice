@@ -1,8 +1,8 @@
 # Guia em português: app de exemplo DaVoice (React Native)
 
 > Para: outro agente Claude que vai usar, testar ou extrair partes deste app de exemplo
-> (`example/`). Tudo aqui foi conferido no código (última atualização: 10/11/2026,
-> `react-native-davoice-llm` 1.0.12). Os caminhos de arquivos são relativos à pasta
+> (`example/`). Tudo aqui foi conferido no código (última atualização: 11/11/2026,
+> `react-native-davoice-llm` 1.0.13). Os caminhos de arquivos são relativos à pasta
 > `example/`. A versão em inglês está em `englishHowTo.md`.
 
 > **Status: modelos de teste, ainda em treinamento.** O modelo da demo do carro, que roda no
@@ -36,7 +36,7 @@ Pacotes usados (`package.json`):
 |---|---|
 | `react-native-wakeword` | palavra de ativação + verificação de locutor (onboarding e verificação) |
 | `react-native-davoice` | STT + TTS (`Speech`), clonagem de voz, filtro por locutor no STT |
-| `react-native-davoice-llm` (1.0.12) | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas, guards de chamada |
+| `react-native-davoice-llm` (1.0.13) | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas, guards de chamada |
 | `react-native-fs` | arquivos: assinatura de voz, modelos baixados, estados de prompt salvos, banco do agente |
 
 ---
@@ -206,13 +206,19 @@ Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
 
 - **Implementação:** `src/local_llm/demo.ts` guarda a demo atual, e
   `LOCAL_LLM_DEMO_DEFAULT_MODEL` em `src/local_llm/constants.ts` define o modelo de cada demo.
-  Hoje as duas entradas usam o mesmo arquivo, `ft7f2_it900` (cerca de 380 MB, baixado uma vez
-  e conferido por sha256); cada uma vai ganhar o próprio modelo quando o treinamento dela
-  terminar.
+  - Demo do carro: **DaVoice Automotive Agent 0.6B (r4b)**, `LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`
+    (checkpoint `r4b_it100`, cerca de 380 MB, baixado uma vez e conferido por sha256).
+  - Demo de calorias: o Personal Agent, ainda `ft7f2_it900`.
 - **Outros modelos:** cada demo lembra a sua escolha feita em **Change** (seletor de modelos,
   `src/local_llm/ModelPicker.tsx`). O seletor também lista o ft7e (o padrão de produção,
-  `LOCAL_LLM_DEFAULT_MODEL`), o ft7c (reserva), a entrada experimental do it900 e modelos
-  genéricos maiores (Qwen2.5 1.5B/3B, Gemma 3n). Os maiores são mais lentos.
+  `LOCAL_LLM_DEFAULT_MODEL`), o ft7c (reserva), a entrada experimental do it900, o Agente
+  Automotivo anterior `ft7f2_it900`, os checkpoints experimentais C3 e A (reservas: não
+  hospedados, só quando o arquivo é copiado para a pasta de modelos) e modelos genéricos
+  maiores (Qwen2.5 1.5B/3B, Gemma 3n). Os maiores são mais lentos.
+  - Só um modelo fica na memória por vez: escolher outro substitui o atual.
+  - A escolha anterior de uma demo vale mais que um novo padrão: num aparelho em que outro
+    modelo foi escolhido na demo do carro, escolha o r4b em **Change** (ou limpe os dados do
+    app).
 - **Tela de carregamento:** ao escolher uma demo, o app mostra uma tela própria de
   carregamento com três etapas até o modelo ficar pronto:
   1. Download (barra de progresso);
@@ -303,7 +309,10 @@ Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
   - **bloqueiam** uma chamada para o tipo errado de objeto, por exemplo a ferramenta de porta
     para um vidro, com um natural "Desculpe, acho que não entendi direito. Pode repetir?". Uma
     chamada bloqueada **nunca** vira outra ferramenta;
-  - bloqueiam uma chamada cujos argumentos são de outra ferramenta.
+  - bloqueiam uma chamada cujos argumentos são de outra ferramenta;
+  - mantêm a ação numa correção que só muda o alvo: "fecha o vidro traseiro esquerdo" → "não,
+    o outro de trás" fecha o traseiro direito (`followUp`; precisa de `historyAsRun: true` na
+    entrada do modelo, para o histórico mostrar cada chamada como ela rodou).
 
   Toda decisão de guard aparece no log (`guard ...`).
 - **Posições:** vidros, portas e travas aceitam `front_left`, `front_right`, `rear_left`,
@@ -313,10 +322,17 @@ Diga "Hey Coach", espere o app ouvir e fale um dos comandos:
     então nada supõe volante à esquerda.
   - Mover o vidro, abrir a porta e travar a porta são ferramentas separadas.
 - **Duas temperaturas de uma vez:** `set_dual_zone_temperature` (motorista + passageiro). O app
-  confere cada valor e diz qual lado não conseguiu ajustar. Os modelos atuais ainda não foram
-  treinados nessa ferramenta: muitas vezes colocam os dois valores em `set_temperature`, o que
-  o núcleo bloqueia ("pode repetir?"), ou ajustam só um lado. Dois comandos separados ("lado do
-  motorista em 20", depois "lado do passageiro em 23") funcionam.
+  confere cada valor e diz qual lado não conseguiu ajustar. O r4b foi treinado nela e acerta a
+  maioria dos pedidos com duas temperaturas, em qualquer ordem ("o carona quer 26 e eu 19").
+  Um pedido de um lado só ("lado do passageiro em 22") usa `set_temperature` com uma zona.
+  - Chega com o `react-native-davoice-llm` 1.0.14 (núcleo g11): um guard `dualZone` coloca os
+    valores que o usuário disse nos lados certos da chamada dupla e bloqueia (pede de novo) uma
+    chamada que perderia ou copiaria um lado. Ele nunca troca uma ferramenta por outra.
+- **Valores fora da faixa** ("coloca o ventilador no 12"; o ventilador vai de 1 a 7): com o
+  1.0.13 o usuário ouve o genérico "pode repetir?". A partir do 1.0.14, as frases do pacote
+  `outOfRange` / `outOfRangeAsk` (já em `agent_automotive/agent.json` e `pt-BR/`) dizem a
+  faixa: "Desculpe, 12 não dá: vai de 1 a 7."; um número que o usuário não disse é
+  perguntado.
 - **Latência (Galaxy S20, só CPU, medida em 10/11/2026):**
   - a decisão do modelo leva cerca de 1,3–2 s por comando;
   - a frase da ação é falada logo em seguida.
@@ -632,7 +648,10 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
 - **Modelos:** baixe o GGUF pelas URLs de `src/local_llm/constants.ts` e confira o sha256
   (o exemplo já faz isso). Modelos ajustados precisam do mesmo `chatTemplate` (`qwen3`) e
   das configurações da entrada (`usesRouter: false`, `modelTools: true`,
-  `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`).
+  `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`; no
+  Agente Automotivo também `historyAsRun: true` e `guidedToolCalls: true`). O `provider.ts` as
+  envia para `agent.configure` (`historyAsRun`, `guidedToolCalls`, `promptOrder` e os
+  `guards`, incluindo `followUp`, e `dualZone` a partir do 1.0.14).
 - **Ferramentas novas:** um modelo pequeno depende muito do texto das descrições. Use
   descrições curtas e claras e diga explicitamente "absoluto vs. relativo" e qual lado é
   qual. Mantenha no app **o mesmo texto** com que o modelo foi treinado: o modelo da demo do

@@ -1,8 +1,8 @@
 # How-to: the DaVoice example app (React Native)
 
 > For: another Claude agent that will use, test or extract parts of this example app
-> (`example/`). Everything here was checked against the code (last update: 2026-11-10,
-> `react-native-davoice-llm` 1.0.12). File paths are relative to `example/`. A Brazilian
+> (`example/`). Everything here was checked against the code (last update: 2026-11-11,
+> `react-native-davoice-llm` 1.0.13). File paths are relative to `example/`. A Brazilian
 > Portuguese version is in `portugueseHowTo.md`.
 
 > **Status: test models, still in training.** The car demo's on-device model ("DaVoice
@@ -36,7 +36,7 @@ Packages used (`package.json`):
 |---|---|
 | `react-native-wakeword` | wake word + speaker verification (onboarding and verification) |
 | `react-native-davoice` | STT + TTS (`Speech`), voice cloning, speaker filter on STT |
-| `react-native-davoice-llm` (1.0.12) | on-device LLM, `Agent` (a whole assistant turn), tools, call guards |
+| `react-native-davoice-llm` (1.0.13) | on-device LLM, `Agent` (a whole assistant turn), tools, call guards |
 | `react-native-fs` | files: voice signature, downloaded models, saved prompt states, the agent's database |
 
 ---
@@ -209,12 +209,18 @@ Say "Hey Coach", wait for the app to listen, then say a command.
 
 - **Implementation:** `src/local_llm/demo.ts` holds the current demo, and
   `LOCAL_LLM_DEMO_DEFAULT_MODEL` in `src/local_llm/constants.ts` sets each demo's model.
-  Today both entries use the same file, `ft7f2_it900` (about 380 MB, downloaded once and
-  checked by sha256); each will get its own model as its training finishes.
+  - Car demo: **DaVoice Automotive Agent 0.6B (r4b)**, `LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`
+    (checkpoint `r4b_it100`, about 380 MB, downloaded once and checked by sha256).
+  - Calories demo: the Personal Agent, still `ft7f2_it900`.
 - **Other models:** each demo remembers its own pick from **Change** (model picker,
   `src/local_llm/ModelPicker.tsx`). The picker also lists ft7e (the production default,
-  `LOCAL_LLM_DEFAULT_MODEL`), ft7c (fallback), the experimental it900 entry, and larger
-  general models (Qwen2.5 1.5B/3B, Gemma 3n). The larger ones are slower.
+  `LOCAL_LLM_DEFAULT_MODEL`), ft7c (fallback), the experimental it900 entry, the older
+  Automotive Agent `ft7f2_it900`, the experimental C3 and A checkpoints (backups: not hosted,
+  only when the file is copied into the models folder), and larger general models (Qwen2.5
+  1.5B/3B, Gemma 3n). The larger ones are slower.
+  - Only one model is in memory at a time: picking another one replaces it.
+  - A demo's earlier pick wins over a new default: on a phone where another model was picked
+    in the car demo, pick r4b in **Change** (or clear the app's data).
 - **Loading screen:** after you pick a demo, the app shows its own loading screen with
   three steps until the model is ready:
   1. Download (progress bar);
@@ -306,7 +312,10 @@ Say "Hey Coach", wait for the app to listen, then say a command.
   - **block** a call to the wrong kind of object, e.g. a door tool for a window, with a
     natural "Sorry, I'm not sure I got that right. Could you say it again?". A blocked call
     is **never** turned into another tool;
-  - block a call whose arguments belong to another tool.
+  - block a call whose arguments belong to another tool;
+  - keep the action in a correction that only changes the target: "close the rear left
+    window" → "no, the other one at the back" closes the rear right one (`followUp`; it needs
+    the model entry's `historyAsRun: true`, so the history shows each call as it ran).
 
   Every guard decision is in the log (`guard ...`).
 - **Positions:** windows, doors and locks take `front_left`, `front_right`, `rear_left`,
@@ -316,10 +325,17 @@ Say "Hey Coach", wait for the app to listen, then say a command.
     so nothing assumes left-hand drive.
   - Window movement, door opening and door locking are separate tools.
 - **Two temperatures at once:** `set_dual_zone_temperature` (driver + passenger). The app
-  checks each value and says which side it couldn't set. The current models were not
-  trained on this tool yet: they often put both values into `set_temperature`, which the core
-  blocks ("could you say it again?"), or set only one side. Two separate commands ("driver
-  side 20", then "passenger side 23") work.
+  checks each value and says which side it couldn't set. r4b was trained on it and gets most
+  two-temperature requests right, in either order ("o carona quer 26 e eu 19"). A one-side
+  request ("passenger side 22") uses `set_temperature` with a zone.
+  - Coming with `react-native-davoice-llm` 1.0.14 (core g11): a `dualZone` guard puts the values
+    the user said on the right sides of the dual call, and blocks (asks again) a call that would
+    drop or copy a side. It never turns one tool into another.
+- **Values out of range** ("set the fan to 29"; the fan goes from 1 to 7): with 1.0.13 the user
+  hears the generic "could you say it again?". From 1.0.14, the pack strings `outOfRange` /
+  `outOfRangeAsk` (already in `agent_automotive/agent.json` and `pt-BR/`) say the range instead:
+  "Sorry, 29 isn't possible: it goes from 1 to 7."; a number the user never said is asked
+  for.
 - **Latency (Galaxy S20, CPU only, measured 2026-11-10):**
   - the model's decision takes about 1.3–2 s per command;
   - the action's sentence is spoken right after.
@@ -631,7 +647,10 @@ and use your own license. The `src/` modules were split out of `App.tsx` exactly
 - **Models:** download the GGUF from the URLs in `src/local_llm/constants.ts` and check the
   sha256 (the example already does). Fine-tuned models need the same `chatTemplate`
   (`qwen3`) and the entry's settings (`usesRouter: false`, `modelTools: true`,
-  `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`).
+  `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`; for the
+  Automotive Agent also `historyAsRun: true` and `guidedToolCalls: true`). `provider.ts` sends
+  them to `agent.configure` (`historyAsRun`, `guidedToolCalls`, `promptOrder`, and the
+  `guards`, including `followUp`, and `dualZone` from 1.0.14).
 - **New tools:** a small model depends heavily on the description text. Keep descriptions
   short and clear, and say explicitly "absolute vs. relative" and which side is which. Keep
   **the same text** in the app that the model was trained on: the car demo model expects
