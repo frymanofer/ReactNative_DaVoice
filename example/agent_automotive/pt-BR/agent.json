@@ -20,6 +20,8 @@
     "invalidArgs": "Desculpe, não entendi todos os detalhes. Pode repetir?",
     "unsupported": "Desculpe, isso não está disponível neste app.",
     "guardConflict": "Desculpe, acho que não entendi direito. Pode repetir?",
+    "outOfRange": "Desculpe, {value} não dá: vai de {min} a {max}.",
+    "outOfRangeAsk": "Qual valor você quer? Vai de {min} a {max}.",
     "replyReminder": "(Responda em português do Brasil.)"
   },
   "webSearch": {

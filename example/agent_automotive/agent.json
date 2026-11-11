@@ -17,7 +17,9 @@
     "failed": "Sorry, that didn't work.",
     "notConfirmed": "Okay, I won't do that.",
     "notAuthorized": "Sorry, you're not allowed to do that.",
-    "invalidArgs": "Sorry, I didn't get all the details for that. Could you say it again?"
+    "invalidArgs": "Sorry, I didn't get all the details for that. Could you say it again?",
+    "outOfRange": "Sorry, {value} isn't possible: it goes from {min} to {max}.",
+    "outOfRangeAsk": "What value would you like? It goes from {min} to {max}."
   },
   "webSearch": {
     "rules": {
