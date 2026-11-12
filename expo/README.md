@@ -1,5 +1,8 @@
 # Expo Example: DaVoice + Wakeword + On-device AI Chat
 
+Full guides for using, testing and extracting this app: `englishHowTo.md` (English) and
+`portugueseHowTo.md` (Português do Brasil).
+
 This folder is the Expo version of `../example`: the same app (wake word, speaker
 verification, speech recognition, text to speech, and Local AI Chat with the on-device LLM
 agent: web search, memory, the calorie tracker), set up for Expo prebuild / EAS Build.
@@ -100,13 +103,15 @@ assets/models/local/
 
 Current models:
 
-- `assets/models/local/model_ex2_rich_kate.dm` (all text-to-speech voices: Ariana, Rich,
-  Hanna, Kate, Jenny, Matthew, Gloria)
+- `assets/models/local/model_ex2_rich_kate.dm` (English text-to-speech voices)
+- `assets/models/local/model_ex2_portuguese_brv1.dm` (Brazilian Portuguese text-to-speech voices)
 - `assets/models/local/hey_coach_model_28_22012026b.dm` (wake word)
 - `assets/models/local/sv.dm` (speaker verification)
 
-The on-device LLM and the agent's small embedding model are downloaded by the app at
-runtime into its documents folder; they are not part of the app.
+The other languages' voices, the on-device LLM, its pre-warmed states and the agent's small
+embedding model are downloaded by the app when first needed, into its documents folder; they
+are not part of the app. Which languages are built in is set in `language_packs.json` (see
+`englishHowTo.md` 1.5).
 
 Rule:
 
