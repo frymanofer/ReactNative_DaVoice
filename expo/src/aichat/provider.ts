@@ -8,13 +8,19 @@ import type { AIChatHistoryMessage, GeminiChatMessage } from './index';
 import { generateGeminiReply, generateGeminiReplyStream } from './index';
 
 import type { LocalLLMModelConfig } from '../local_llm/types';
-import { ensureModelLoaded, isModelReady } from '../local_llm/LocalLLMLoader';
+import { ensureLayer2Loaded, ensureModelLoaded, isModelReady, nativeLoadCount } from '../local_llm/LocalLLMLoader';
 import { getSelectedModel } from '../local_llm/ModelRegistry';
+import { LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL, LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
 import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
 import type { Agent, AgentEvent, AgentHistoryMessage, ToolDefinition, ToolTurnMessage, TurnResult } from 'react-native-davoice-llm';
+import { cancel as cancelGeneration, generateStream, loadState, saveState } from 'react-native-davoice-llm';
+import RNFS from 'react-native-fs';
+import { downloadPrebuiltState, kvStatePath, stablePromptKey } from '../local_llm/ModelManager';
+import { getTTSLanguage } from '../tts';
 import { getLocalAgent } from '../agent/LocalAgent';
+import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
 
 export interface LLMProvider {
   generateReply(history: AIChatHistoryMessage[], userText: string): Promise<string>;
@@ -71,6 +77,16 @@ function currentDateText(): string {
   });
 }
 
+/** agent configure "guards" for a model's callGuards setting. */
+function callGuardSettings(mode: 'off' | 'shadow' | 'correct', historyAsRun = false) {
+  const opposite = mode === 'correct' ? 'enforce' : mode;
+  // followUp reads the previous turn's calls from the history: only meaningful (and only on) with historyAsRun.
+  const followUp = historyAsRun ? mode : 'off';
+  // dualZone (core g10+): one temperature per side said unambiguously -> the dual-zone call gets exactly those values; a call that would drop
+  // or copy a side is blocked (asked again), never redirected. Older native cores ignore the key.
+  return { polarity: mode, direction: mode, absRel: mode, zone: mode, capability: mode, numberGround: mode, opposite, followUp, dualZone: mode } as const;
+}
+
 function toAgentHistory(history: AIChatHistoryMessage[]): AgentHistoryMessage[] {
   return history.map((m) => ({ role: m.role, text: m.text, toolMessages: m.toolMessages }));
 }
@@ -92,6 +108,7 @@ export interface LocalTurnOutcome {
  */
 export class LocalLLMProvider implements LLMProvider {
   private chatTemplateFor: string | null = null;
+  private configuredAgent: Agent | null = null;
   private chatTemplateSet: Promise<void> = Promise.resolve();
 
   constructor(
@@ -100,13 +117,14 @@ export class LocalLLMProvider implements LLMProvider {
   ) {}
 
   /**
-   * Tools of a remote MCP server, next to the calorie tracker's. They run
-   * online, so a filler is said while they run. Set before `warmUp`: the tool
-   * list is part of the system prompt the engine caches.
+   * The app's own tools (the DaVoice Car's) and a remote MCP server's, next to
+   * the calorie tracker's. `online` tools run on a server, so a filler is said
+   * while they run (default: all). Set before `warmUp`: the tool list is part
+   * of the system prompt the engine caches.
    */
-  async setExternalTools(tools: ToolDefinition[], note?: string): Promise<void> {
+  async setExternalTools(tools: ToolDefinition[], note?: string, online: (tool: ToolDefinition) => boolean = () => true): Promise<void> {
     const agent = await getLocalAgent();
-    await agent.setTools(tools, { online: () => true, note });
+    await agent.setTools(tools, { online, note });
   }
 
   isAvailable(): boolean {
@@ -116,13 +134,43 @@ export class LocalLLMProvider implements LLMProvider {
     return true;
   }
 
-  /** The agent, set up for `model`'s chat template. */
+  /** The agent, set up for `model`'s chat template and remote assistant. */
   private async agentFor(model: LocalLLMModelConfig): Promise<Agent> {
     const agent = await getLocalAgent();
-    // Set once per model, even when calls race (warm-up and a prefill).
-    if (this.chatTemplateFor !== model.id) {
+    // Set once per model AND per agent, even when calls race (warm-up and a prefill). A new agent (a JS reload,
+    // a retry after a failed create) starts with the defaults (router on, no model tools, engine sampling): without
+    // this it ran the fine-tuned model in the wrong setup.
+    if (this.chatTemplateFor !== model.id || this.configuredAgent !== agent) {
       this.chatTemplateFor = model.id;
-      this.chatTemplateSet = agent.configure({ chatTemplate: model.chatTemplate });
+      this.configuredAgent = agent;
+      const handsOver = model.remoteAssistant === true && LOCAL_LLM_USE_REMOTE_ASSISTANT;
+      this.chatTemplateSet = agent.configure({
+        chatTemplate: model.chatTemplate,
+        // Layer 2 (constants.ts LOCAL_LLM_LAYER2): the on-device general model, or the app's onRequest
+        // (src/aichat/remote.ts: Gemini, 15 s; or with 'none' the "set up a remote model" message).
+        remote: !handsOver
+          ? false
+          : LOCAL_LLM_LAYER2 === 'device'
+            ? { enabled: true, answer: 'layer2' }
+            : { enabled: true, timeoutMs: 15000 },
+        // false: the model decides every turn with every tool (no router, no skill rules).
+        intentRouter: model.usesRouter !== false,
+        // web_search + get_time for a model trained to call them (as in the benchmark).
+        webSearchTool: model.modelTools === true,
+        timeTool: model.modelTools === true,
+        // Saved facts: the pack's 'small' profile; without the per-request facts for models that opt out
+        // (relevantMemory: false). Sent every time: the agent is shared, the previous model's setting must not stick.
+        memory: { profile: 'small', ...(model.relevantMemory === false ? { relevantMax: 0 } : {}) },
+        // Local sampling for agent turns (0 = greedy); unset keeps the engine's default.
+        ...(model.temperature !== undefined ? { sampling: { temperature: model.temperature } } : {}),
+        // Call guards (model.callGuards): sent every time, so switching models never keeps the previous model's guards.
+        // 'correct' fixes / blocks; the split-tool opposite check can only block ('enforce'). Every decision is logged.
+        guards: callGuardSettings(model.callGuards ?? 'off', model.historyAsRun === true),
+        // Sent every time (shared agent): the previous model's settings must not stick.
+        historyAsRun: model.historyAsRun === true,
+        guidedToolCalls: model.guidedToolCalls === true,
+        promptOrder: model.promptOrder ?? 'trained',
+      });
     }
     await this.chatTemplateSet;
     return agent;
@@ -138,12 +186,107 @@ export class LocalLLMProvider implements LLMProvider {
   async warmUp(
     history: AIChatHistoryMessage[] = [],
     onDownloadProgress?: (fractionComplete: number) => void,
+    onWarming?: () => void,
   ): Promise<LocalLLMModelConfig> {
     const model = await getSelectedModel();
-    await ensureModelLoaded(model, this.licenseKey, undefined, onDownloadProgress);
-    await this.prefillForTurn(history, '');
+    // The pre-warmed state of the app's language (model.prebuiltStates) downloads next to the model: one progress bar over both files.
+    const language = getTTSLanguage();
+    const prebuilt = model.prebuiltStates?.[language];
+    const modelBytes = model.sizeBytes ?? 1;
+    const stateBytes = prebuilt?.sizeBytes ?? 0;
+    let modelPart = 0;
+    let statePart = 0;
+    const report = () => onDownloadProgress?.((modelPart * modelBytes + statePart * stateBytes) / (modelBytes + stateBytes));
+    const prebuiltDownload = downloadPrebuiltState(model, language, (f) => { statePart = f; report(); });
+    await ensureModelLoaded(model, this.licenseKey, undefined, (f) => { modelPart = f; report(); });
+    const prebuiltPath = await prebuiltDownload;
+    // The system prompt processed at an earlier start (saved below): restored in about a second instead of
+    // processing ~3k tokens again (~40 s on the S20's CPU). Only once per load; a broken file is deleted.
+    // The prompt first (no engine work): its system part picks the saved state (language, tools, wording; see stablePromptKey).
+    // A failure here keeps the old single state file (and the warm-up builds its prompt itself, as before).
+    let statePath = kvStatePath(model);
+    let warmPrompt: string | null = null;
+    try {
+      const warmDate = currentDateText();
+      warmPrompt = await (await this.agentFor(model)).call<string>('prompt', { text: 'Hello', history: toAgentHistory(history), date: warmDate });
+      statePath = kvStatePath(model, `${language}-${stablePromptKey(warmPrompt, warmDate)}`);   // language in the name: see downloadPrebuiltState
+    } catch (error) {
+      console.log('[LocalLLM] warm-up prompt not built early (single state file):', error);
+    }
+    const stateExists = await RNFS.exists(statePath).catch(() => false);
+    // No state of its own yet: the pre-warmed one (same prompt up to the date line in the cache prompt order).
+    const restorePath = stateExists ? statePath : prebuiltPath;
+    let restoredPrebuilt = false;
+    const load = `${model.id}#${nativeLoadCount()}`;
+    if (this.stateRestoredFor !== load && restorePath) {
+      const t0 = Date.now();
+      try {
+        const restored = await loadState(restorePath);
+        restoredPrebuilt = !stateExists;
+        console.log(`[LocalLLM] KV state restored${restoredPrebuilt ? ' (pre-warmed)' : ''}: ${restored} tokens in ${Date.now() - t0} ms`);
+      } catch (error) {
+        console.log('[LocalLLM] KV state not usable, deleted:', error);
+        await RNFS.unlink(restorePath).catch(() => undefined);
+      }
+    }
+    this.stateRestoredFor = load;
+    onWarming?.();
+    // Answer once, on the agent's real prompt for a short "Hello": the system
+    // prompt (persona, tools) is in the model's cache and the first decode has
+    // run, so the user's first turn starts right away. A few tokens are enough.
+    // A turn waits for this (generateReplyStream): the cancel() that ends the
+    // warm-up bumps the engine's generate epoch, and a turn that had already
+    // taken its epoch while queued behind the warm-up was cancelled before its
+    // first token (2026-11-09 phone: empty reply, handed to layer 2).
+    const generation = (async () => {
+      try {
+        const agent = await this.agentFor(model);
+        const prompt = warmPrompt ?? (await agent.call<string>('prompt', {
+          text: 'Hello',
+          history: toAgentHistory(history),
+          date: currentDateText(),
+        }));
+        const started = Date.now();
+        let tokens = 0;
+        await generateStream(prompt, (_token, done) => {
+          if (!done && ++tokens === 4) cancelGeneration();
+        });
+        const warmMs = Date.now() - started;
+        console.log(`[LocalLLM] warm-up answered (${tokens} tokens) in ${warmMs} ms`);
+        // Save the processed prompt for the next start: when there is no saved state yet, or the prompt changed enough
+        // that the warm-up had to do real work (new tools, persona, language). Not every start: the file is ~380 MB.
+        // A pre-warmed state that fit (a fast warm-up) is not copied: it stays the state of this prompt.
+        if ((!stateExists && !(restoredPrebuilt && warmMs <= 5000)) || warmMs > 5000) {
+          const t0 = Date.now();
+          await saveState(statePath)
+            .then((n) => console.log(`[LocalLLM] KV state saved: ${n} tokens in ${Date.now() - t0} ms`))
+            .catch((error) => console.log('[LocalLLM] KV state not saved:', error));
+        }
+      } catch (error) {
+        // Only a speed-up: a failure here must not block the chat.
+        console.log('[LocalLLM] warm-up generation skipped:', error);
+        await this.prefillForTurn(history, '');
+      }
+    })();
+    this.warmUpGeneration = generation;
+    try {
+      await generation;
+    } finally {
+      if (this.warmUpGeneration === generation) this.warmUpGeneration = null;
+    }
+    // The layer 2 model loads in the background AFTER the warm-up (both models compute on the same CPU cores: loaded side by side,
+    // the 3.3k-token warm-up and layer 2's own warm-up slowed each other down, 2026-11-09 phone). Until it is ready, a handed-over
+    // request hears agent.json "remote.layer2.unavailable".
+    if (model.remoteAssistant && LOCAL_LLM_USE_REMOTE_ASSISTANT && LOCAL_LLM_LAYER2 === 'device') {
+      ensureLayer2Loaded(LOCAL_LLM_LAYER2_MODEL).catch(() => undefined);
+    }
     return model;
   }
+
+  /** The warm-up generation while it runs: a turn starts only after it (see warmUp). */
+  private warmUpGeneration: Promise<void> | null = null;
+  /** The native load (model id + load count) whose saved KV state was already tried: once per load. */
+  private stateRestoredFor: string | null = null;
 
   /**
    * Processes the prompt-so-far into the model's cache in the background:
@@ -188,6 +331,11 @@ export class LocalLLMProvider implements LLMProvider {
     const model = await getSelectedModel();
     await ensureModelLoaded(model, this.licenseKey);
     const agent = await this.agentFor(model);
+    // Never start while the warm-up runs: its cancel() would stop this turn too (see warmUp).
+    if (this.warmUpGeneration) {
+      console.log('[LocalLLM] turn waits for the warm-up to finish');
+      await this.warmUpGeneration;
+    }
 
     const [profile, longTermFacts, localPassages] = await Promise.all([
       getProfile(this.speakerId),
@@ -209,6 +357,7 @@ export class LocalLLMProvider implements LLMProvider {
       },
     );
     onDelta('', true);
+    clearHeardSpeakers(); // the next request is checked on its own voice
     return { toolMessages: result.toolMessages, webSearch: result.webSearch };
   }
 }

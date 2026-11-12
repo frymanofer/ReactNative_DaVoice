@@ -139,12 +139,124 @@ async function downloadModelOnce(
  * any more (e.g. after a built-in model switched quantization, or a custom
  * model was removed without deleting its file). Partial downloads are kept.
  */
+/**
+ * Where the model's saved KV-cache state lives (react-native-davoice-llm saveState/loadState): the processed system
+ * prompt, restored at the next start instead of ~40 s of prompt processing on a phone CPU. Keyed by the model file
+ * (name + sha256 / size) and context size: a state is only valid for the exact weights and window it was made with.
+ */
+export function kvStatePath(model: LocalLLMModelConfig, promptKey?: string): string {
+  return `${modelsDir()}/${kvStatePrefix(model)}${promptKey ? `${promptKey}.` : ''}kvstate`;
+}
+
+/** Where the pre-warmed state for `language` (LocalLLMModelConfig.prebuiltStates) is stored: the same prefix as the model's own saved
+ * states, so the newest-2-per-model cleanup treats it as one of them. */
+export function prebuiltStatePath(model: LocalLLMModelConfig, language: string): string {
+  return `${modelsDir()}/${kvStatePrefix(model)}prebuilt-${language}.kvstate`;
+}
+
+const inFlightStateDownloads = new Map<string, Promise<string | null>>();
+
+/**
+ * Downloads the pre-warmed state of `language` for `model` if the model has one and it isn't on disk yet (sha256 checked; a failure only
+ * logs: the phone then warms up itself). Resolves to the file's path, or null when there is none.
+ */
+export function downloadPrebuiltState(
+  model: LocalLLMModelConfig,
+  language: string,
+  onProgress?: (fractionComplete: number) => void,
+): Promise<string | null> {
+  const entry = model.prebuiltStates?.[language];
+  if (!entry) return Promise.resolve(null);
+  const dest = prebuiltStatePath(model, language);
+  const running = inFlightStateDownloads.get(dest);
+  if (running) return running;
+  const job = (async () => {
+    if (await RNFS.exists(dest)) return dest;
+    if (!entry.url) return null;   // not hosted yet (a copied-in file above is still used)
+    if (!(await RNFS.exists(modelsDir()))) await RNFS.mkdir(modelsDir());
+    // The phone already saved its own state for this language (states are named "<lang>-<prompt hash>"): no 400 MB download.
+    const own = `${kvStatePrefix(model)}${language}-`;
+    if ((await RNFS.readDir(modelsDir())).some((e) => e.name.startsWith(own) && e.name.endsWith('.kvstate'))) return null;
+    const tmp = `${dest}.download`;
+    const { promise } = RNFS.downloadFile({
+      fromUrl: entry.url,
+      toFile: tmp,
+      begin: () => {},   // iOS needs a begin handler for progress (see downloadModelOnce)
+      progress: onProgress ? (res) => { if (res.contentLength > 0) onProgress(res.bytesWritten / res.contentLength); } : undefined,
+      progressInterval: 100,
+    });
+    const result = await promise;
+    if (result.statusCode !== 200) {
+      await RNFS.unlink(tmp).catch(() => undefined);
+      throw new Error(`pre-warmed state download failed: HTTP ${result.statusCode}`);
+    }
+    const hash = (await RNFS.hash(tmp, 'sha256')).toLowerCase();
+    if (hash !== entry.sha256.toLowerCase()) {
+      await RNFS.unlink(tmp).catch(() => undefined);
+      throw new Error('pre-warmed state download failed: checksum mismatch');
+    }
+    if (await RNFS.exists(dest)) await RNFS.unlink(tmp).catch(() => undefined);
+    else await RNFS.moveFile(tmp, dest);
+    onProgress?.(1);
+    return dest;
+  })()
+    .catch((error) => {
+      console.log('[LocalLLM] pre-warmed state not downloaded (the phone warms up itself):', error);
+      return null;
+    })
+    .finally(() => inFlightStateDownloads.delete(dest));
+  inFlightStateDownloads.set(dest, job);
+  return job;
+}
+
+/** File-name prefix shared by every saved state of this model (one per prompt: language, tools, wording). */
+function kvStatePrefix(model: LocalLLMModelConfig): string {
+  const key = (model.sha256 ?? String(model.sizeBytes ?? 0)).slice(0, 12);
+  return `${model.filename}.${key}.ctx${model.contextSize}.`;
+}
+
+/**
+ * Which saved state fits this prompt: a hash of its system part (persona, language, tools) WITHOUT the date line, which changes
+ * every day. Two languages or tool wordings then keep two states instead of overwriting one (each switch cost ~32-40 s of prompt
+ * processing on the S20); a new day still restores the state and only the part after the date is processed again.
+ */
+export function stablePromptKey(prompt: string, dateText: string): string {
+  const userAt = prompt.indexOf('<|im_start|>user');
+  const system = (userAt >= 0 ? prompt.slice(0, userAt) : prompt).split(dateText).join('');
+  let h = 0x811c9dc5;   // FNV-1a, 32 bits
+  for (let i = 0; i < system.length; i++) {
+    h ^= system.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+const KV_STATES_PER_MODEL = 2;
+
 export async function deleteUnusedModelFiles(models: LocalLLMModelConfig[]): Promise<string[]> {
   const dir = modelsDir();
   if (!(await RNFS.exists(dir))) return [];
   const inUse = new Set(models.map((m) => m.filename));
+  // Saved states: each model keeps its newest KV_STATES_PER_MODEL (one per prompt variant, ~470 MB each); others and states of
+  // removed models are deleted.
+  const prefixes = models.map(kvStatePrefix);
   const deleted: string[] = [];
-  for (const entry of await RNFS.readDir(dir)) {
+  const entries = await RNFS.readDir(dir);
+  const states = entries
+    .filter((e) => e.isFile() && (e.name.endsWith('.kvstate') || e.name.endsWith('.kvstate.tmp')))
+    .sort((x, y) => (y.mtime?.getTime() ?? 0) - (x.mtime?.getTime() ?? 0));
+  const kept = new Map<string, number>();
+  for (const entry of states) {
+    const prefix = prefixes.find((p) => entry.name.startsWith(p));
+    const n = prefix ? (kept.get(prefix) ?? 0) : Infinity;
+    if (prefix && !entry.name.endsWith('.tmp') && n < KV_STATES_PER_MODEL) {
+      kept.set(prefix, n + 1);
+      continue;
+    }
+    await RNFS.unlink(entry.path);
+    deleted.push(entry.name);
+  }
+  for (const entry of entries) {
     if (entry.isFile() && entry.name.endsWith('.gguf') && !inUse.has(entry.name)) {
       await RNFS.unlink(entry.path);
       deleted.push(entry.name);

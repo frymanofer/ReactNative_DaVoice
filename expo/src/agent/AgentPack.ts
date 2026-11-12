@@ -94,12 +94,14 @@ export interface AgentPackFiles {
   caloriesFoods: FoodsSeed;
 }
 
-const agentPacks: Record<AppLanguage, AgentPackFiles> = {
-  en: {
-    agent: require('../../agent/agent.json'),
-    caloriesSkill: require('../../agent/skills/calories/skill.json'),
-    caloriesFoods: require('../../agent/skills/calories/foods.json'),
-  },
+const englishAgentPack: AgentPackFiles = {
+  agent: require('../../agent/agent.json'),
+  caloriesSkill: require('../../agent/skills/calories/skill.json'),
+  caloriesFoods: require('../../agent/skills/calories/foods.json'),
+};
+
+const agentPacks: Partial<Record<AppLanguage, AgentPackFiles>> = {
+  en: englishAgentPack,
   'pt-BR': {
     agent: require('../../agent/pt-BR/agent.json'),
     caloriesSkill: require('../../agent/pt-BR/skills/calories/skill.json'),
@@ -107,7 +109,21 @@ const agentPacks: Record<AppLanguage, AgentPackFiles> = {
   },
 };
 
+/** The Automotive Agent's pack (agent_automotive/: the app pack without the calorie skill, the prompt the automotive model is
+ * trained with; 2026-11-10). */
+const automotivePacks: Partial<Record<AppLanguage, AgentConfig>> = {
+  en: require('../../agent_automotive/agent.json'),
+  'pt-BR': require('../../agent_automotive/pt-BR/agent.json'),
+};
+
+export function automotiveAgentFor(language: AppLanguage): AgentConfig {
+  return automotivePacks[language] ?? automotivePacks.en!;
+}
+
 /** The agent pack of the app's language. */
 export function agentPackFor(language: AppLanguage): AgentPackFiles {
-  return agentPacks[language];
+  // Translated agent data is currently available for English and pt-BR. The
+  // language instruction still makes every supported language reply in the
+  // selected language while the shared skill data remains English.
+  return agentPacks[language] ?? englishAgentPack;
 }

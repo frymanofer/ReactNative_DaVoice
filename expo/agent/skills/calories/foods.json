@@ -1,102 +1,126 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "Typical calories per common serving. Values are rough averages for a demo, not nutrition advice.",
   "foods": [
     {
       "name": "egg",
-      "calories": 78
+      "calories": 78,
+      "kcalPer100g": 143
     },
     {
       "name": "boiled egg",
-      "calories": 78
+      "calories": 78,
+      "kcalPer100g": 155
     },
     {
       "name": "omelette",
-      "calories": 190
+      "calories": 190,
+      "kcalPer100g": 154
     },
     {
       "name": "banana",
-      "calories": 105
+      "calories": 105,
+      "kcalPer100g": 89
     },
     {
       "name": "apple",
-      "calories": 95
+      "calories": 95,
+      "kcalPer100g": 52
     },
     {
       "name": "orange",
-      "calories": 62
+      "calories": 62,
+      "kcalPer100g": 47
     },
     {
       "name": "pear",
-      "calories": 100
+      "calories": 100,
+      "kcalPer100g": 57
     },
     {
       "name": "peach",
-      "calories": 60
+      "calories": 60,
+      "kcalPer100g": 39
     },
     {
       "name": "mango",
-      "calories": 200
+      "calories": 200,
+      "kcalPer100g": 60
     },
     {
       "name": "cup of grapes",
-      "calories": 100
+      "calories": 100,
+      "kcalPer100g": 69
     },
     {
       "name": "grapes",
-      "calories": 100
+      "calories": 100,
+      "kcalPer100g": 69
     },
     {
       "name": "strawberries",
-      "calories": 50
+      "calories": 50,
+      "kcalPer100g": 32
     },
     {
       "name": "blueberries",
-      "calories": 85
+      "calories": 85,
+      "kcalPer100g": 57
     },
     {
       "name": "carrot",
-      "calories": 25
+      "calories": 25,
+      "kcalPer100g": 41
     },
     {
       "name": "avocado",
-      "calories": 240
+      "calories": 240,
+      "kcalPer100g": 160
     },
     {
       "name": "slice of pizza",
-      "calories": 285
+      "calories": 285,
+      "kcalPer100g": 266
     },
     {
       "name": "pizza",
-      "calories": 285
+      "calories": 285,
+      "kcalPer100g": 266
     },
     {
       "name": "can of coke",
-      "calories": 140
+      "calories": 140,
+      "kcalPer100g": 42
     },
     {
       "name": "coke",
-      "calories": 140
+      "calories": 140,
+      "kcalPer100g": 42
     },
     {
       "name": "coca cola",
-      "calories": 140
+      "calories": 140,
+      "kcalPer100g": 42
     },
     {
       "name": "soda",
-      "calories": 140
+      "calories": 140,
+      "kcalPer100g": 42
     },
     {
       "name": "diet coke",
-      "calories": 1
+      "calories": 1,
+      "kcalPer100g": 0
     },
     {
       "name": "coffee",
-      "calories": 2
+      "calories": 2,
+      "kcalPer100g": 1
     },
     {
       "name": "espresso",
-      "calories": 3
+      "calories": 3,
+      "kcalPer100g": 9
     },
     {
       "name": "latte",
@@ -108,27 +132,33 @@
     },
     {
       "name": "tea",
-      "calories": 2
+      "calories": 2,
+      "kcalPer100g": 1
     },
     {
       "name": "water",
-      "calories": 0
+      "calories": 0,
+      "kcalPer100g": 0
     },
     {
       "name": "glass of milk",
-      "calories": 120
+      "calories": 120,
+      "kcalPer100g": 61
     },
     {
       "name": "milk",
-      "calories": 120
+      "calories": 120,
+      "kcalPer100g": 61
     },
     {
       "name": "orange juice",
-      "calories": 110
+      "calories": 110,
+      "kcalPer100g": 45
     },
     {
       "name": "juice",
-      "calories": 110
+      "calories": 110,
+      "kcalPer100g": 45
     },
     {
       "name": "smoothie",
@@ -140,71 +170,88 @@
     },
     {
       "name": "beer",
-      "calories": 150
+      "calories": 150,
+      "kcalPer100g": 43
     },
     {
       "name": "glass of wine",
-      "calories": 125
+      "calories": 125,
+      "kcalPer100g": 83
     },
     {
       "name": "wine",
-      "calories": 125
+      "calories": 125,
+      "kcalPer100g": 83
     },
     {
       "name": "slice of bread",
-      "calories": 80
+      "calories": 80,
+      "kcalPer100g": 265
     },
     {
       "name": "bread",
-      "calories": 80
+      "calories": 80,
+      "kcalPer100g": 265
     },
     {
       "name": "toast",
-      "calories": 80
+      "calories": 80,
+      "kcalPer100g": 290
     },
     {
       "name": "bagel",
-      "calories": 250
+      "calories": 250,
+      "kcalPer100g": 257
     },
     {
       "name": "croissant",
-      "calories": 230
+      "calories": 230,
+      "kcalPer100g": 406
     },
     {
       "name": "pita",
-      "calories": 165
+      "calories": 165,
+      "kcalPer100g": 275
     },
     {
       "name": "pancake",
-      "calories": 90
+      "calories": 90,
+      "kcalPer100g": 227
     },
     {
       "name": "waffle",
-      "calories": 220
+      "calories": 220,
+      "kcalPer100g": 291
     },
     {
       "name": "donut",
-      "calories": 250
+      "calories": 250,
+      "kcalPer100g": 421
     },
     {
       "name": "muffin",
-      "calories": 400
+      "calories": 400,
+      "kcalPer100g": 377
     },
     {
       "name": "cookie",
-      "calories": 50
+      "calories": 50,
+      "kcalPer100g": 488
     },
     {
       "name": "chocolate bar",
-      "calories": 230
+      "calories": 230,
+      "kcalPer100g": 535
     },
     {
       "name": "chocolate",
-      "calories": 230
+      "calories": 230,
+      "kcalPer100g": 546
     },
     {
       "name": "granola bar",
-      "calories": 120
+      "calories": 120,
+      "kcalPer100g": 471
     },
     {
       "name": "protein bar",
@@ -212,51 +259,63 @@
     },
     {
       "name": "yogurt",
-      "calories": 150
+      "calories": 150,
+      "kcalPer100g": 61
     },
     {
       "name": "bowl of oatmeal",
-      "calories": 160
+      "calories": 160,
+      "kcalPer100g": 71
     },
     {
       "name": "oatmeal",
-      "calories": 160
+      "calories": 160,
+      "kcalPer100g": 71
     },
     {
       "name": "cereal",
-      "calories": 200
+      "calories": 200,
+      "kcalPer100g": 379
     },
     {
       "name": "cup of rice",
-      "calories": 205
+      "calories": 205,
+      "kcalPer100g": 130
     },
     {
       "name": "rice",
-      "calories": 205
+      "calories": 205,
+      "kcalPer100g": 130
     },
     {
       "name": "pasta",
-      "calories": 220
+      "calories": 220,
+      "kcalPer100g": 158
     },
     {
       "name": "chicken breast",
-      "calories": 165
+      "calories": 165,
+      "kcalPer100g": 165
     },
     {
       "name": "chicken",
-      "calories": 165
+      "calories": 165,
+      "kcalPer100g": 190
     },
     {
       "name": "steak",
-      "calories": 500
+      "calories": 500,
+      "kcalPer100g": 271
     },
     {
       "name": "salmon",
-      "calories": 360
+      "calories": 360,
+      "kcalPer100g": 208
     },
     {
       "name": "tuna",
-      "calories": 130
+      "calories": 130,
+      "kcalPer100g": 132
     },
     {
       "name": "salad",
@@ -268,23 +327,28 @@
     },
     {
       "name": "burger",
-      "calories": 500
+      "calories": 500,
+      "kcalPer100g": 254
     },
     {
       "name": "hamburger",
-      "calories": 500
+      "calories": 500,
+      "kcalPer100g": 254
     },
     {
       "name": "cheeseburger",
-      "calories": 550
+      "calories": 550,
+      "kcalPer100g": 263
     },
     {
       "name": "fries",
-      "calories": 365
+      "calories": 365,
+      "kcalPer100g": 312
     },
     {
       "name": "hot dog",
-      "calories": 290
+      "calories": 290,
+      "kcalPer100g": 247
     },
     {
       "name": "burrito",
@@ -292,7 +356,8 @@
     },
     {
       "name": "taco",
-      "calories": 170
+      "calories": 170,
+      "kcalPer100g": 226
     },
     {
       "name": "sushi roll",
@@ -308,19 +373,23 @@
     },
     {
       "name": "potato",
-      "calories": 160
+      "calories": 160,
+      "kcalPer100g": 87
     },
     {
       "name": "sweet potato",
-      "calories": 110
+      "calories": 110,
+      "kcalPer100g": 90
     },
     {
       "name": "hummus",
-      "calories": 70
+      "calories": 70,
+      "kcalPer100g": 166
     },
     {
       "name": "falafel",
-      "calories": 57
+      "calories": 57,
+      "kcalPer100g": 333
     },
     {
       "name": "shawarma",
@@ -328,27 +397,33 @@
     },
     {
       "name": "slice of cheese",
-      "calories": 110
+      "calories": 110,
+      "kcalPer100g": 371
     },
     {
       "name": "cheese",
-      "calories": 110
+      "calories": 110,
+      "kcalPer100g": 402
     },
     {
       "name": "almonds",
-      "calories": 160
+      "calories": 160,
+      "kcalPer100g": 579
     },
     {
       "name": "nuts",
-      "calories": 170
+      "calories": 170,
+      "kcalPer100g": 607
     },
     {
       "name": "peanut butter",
-      "calories": 95
+      "calories": 95,
+      "kcalPer100g": 588
     },
     {
       "name": "ice cream",
-      "calories": 140
+      "calories": 140,
+      "kcalPer100g": 207
     }
   ]
 }

@@ -26,22 +26,30 @@ export const moonRocksSound = require('../../assets/cashRegisterSound.mp3');
 export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPressXThree.mp3');
 
 import type { AppLanguage, BundledTTSVoice, TTSVoiceChoice } from '../appflow';
+import { narrationFor } from '../narration';
+import { languagePackFilePath } from './languagePacks';
+import { BUNDLED_LANGUAGE_FILES } from './languagePacks.generated';
 
-// Expo: the models are shipped in the native app by
-// plugins/withDaVoiceNativeAssets (from assets/models/local) and loaded by file
-// name; a require() would also bundle them a second time through Metro.
-const sharedTTS2Model = 'model_ex2_rich_kate.dm';
-// Brazilian Portuguese: its own model (its voices are listed by Speech.getAllVoices()).
-const brazilianTTS2Model = 'model_ex2_portuguese_brv1.dm';
+// Which languages are built into the app (default English + Brazilian Portuguese) and which are downloaded
+// as language packs: language_packs.json -> languagePacks.generated.ts (BUNDLED_LANGUAGE_FILES holds the
+// require()s; see src/tts/languagePacks.ts). A language's voice-cloning embedder must match its model
+// (brv1 voices do not fit pt-PT, a v1 embedder (da/sv/el) fits only its own v1 model).
+// Hebrew is in neither (hidden; its TTS v1 base voice is non-commercial, never ship or upload it): to bring
+// it back, add it to the JSON with model_v1_hebrew.dm + embedder_he.dm and remove `hidden` in src/appflow.ts.
+
+// pt-BR / pt-PT speaking speed (restored 2026-11-12: lost in the language-pack change, which made every non-English voice throw).
 const BRAZILIAN_SPEAKER_SPEED = 1.0;
 
-// Voice encoder for Speech.createVoiceClone(audioPath, outputPath, getVoiceEmbedder()):
-// turns a recording (wav/mp3/m4a/...) into a <name>.emd voice for the language's
-// model; Speech.setExternalVoicesPath(folder) then makes it selectable.
-const voiceEmbedders: Record<AppLanguage, any> = {
-  en: require('../../assets/models/embedder_en.dm'),
-  'pt-BR': require('../../assets/models/embedder_brv1.dm'),
-};
+// The bundled file, else the downloaded language pack's file, else English (the app downloads the pack
+// before it selects the language, so the fallback means a hidden language like he, or a missing pack).
+function languageFile(kind: 'model' | 'embedder', language: AppLanguage): any {
+  const file = BUNDLED_LANGUAGE_FILES[language]?.[kind] ?? languagePackFilePath(language, kind);
+  if (file == null) {
+    console.warn(`[tts] no ${kind} for ${language} (not bundled, language pack not downloaded): using English`);
+    return BUNDLED_LANGUAGE_FILES.en?.[kind] ?? languagePackFilePath('en', kind);
+  }
+  return file;
+}
 
 // The app's language (the language screen sets it before the speech library loads).
 let ttsLanguage: AppLanguage = 'en';
@@ -52,12 +60,15 @@ export function getTTSLanguage(): AppLanguage {
   return ttsLanguage;
 }
 export function getVoiceEmbedder() {
-  return voiceEmbedders[ttsLanguage];
+  return languageFile('embedder', ttsLanguage);
 }
 
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
-  // Every Brazilian Portuguese voice (and cloned voice) is a voice of its model.
-  if (ttsLanguage === 'pt-BR') return { model: brazilianTTS2Model, speed: BRAZILIAN_SPEAKER_SPEED, usesTTS2: true };
+  const model = languageFile('model', ttsLanguage);
+  // Every voice, including a cloned voice, belongs to the selected language model.
+  if (ttsLanguage !== 'en') {
+    return { model, speed: ttsLanguage === 'pt-BR' || ttsLanguage === 'pt-PT' ? BRAZILIAN_SPEAKER_SPEED : CLONED_VOICE_SPEED, usesTTS2: true };
+  }
   if (useTTS2Only) {
     const speeds: Record<BundledTTSVoice, number> = {
       Ariana: ARIANA_SPEAKER_SPEED_NEW_MODEL,
@@ -68,20 +79,20 @@ export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
       Matthew: KATE_SPEAKER_SPEED_NEW_MODEL,
       Gloria: KATE_SPEAKER_SPEED_NEW_MODEL,
     };
-    return { model: sharedTTS2Model, speed: speeds[voice as BundledTTSVoice] ?? CLONED_VOICE_SPEED, usesTTS2: true };
+    return { model, speed: speeds[voice as BundledTTSVoice] ?? CLONED_VOICE_SPEED, usesTTS2: true };
   }
   const voices: Record<BundledTTSVoice, { model: any; speed: number; usesTTS2: boolean }> = {
-    Rich: { model: sharedTTS2Model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Kate: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Jenny: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Matthew: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Gloria: { model: sharedTTS2Model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Rich: { model, speed: RICH_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Kate: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Jenny: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Matthew: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Gloria: { model, speed: KATE_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
     // Every voice is a speaker of the shared model.
-    Ariana: { model: sharedTTS2Model, speed: ARIANA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
-    Hanna: { model: sharedTTS2Model, speed: HANNA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Ariana: { model, speed: ARIANA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
+    Hanna: { model, speed: HANNA_SPEAKER_SPEED_NEW_MODEL, usesTTS2: true },
   };
   // A cloned voice (an .emd in the cloned voices folder) is a voice of the shared model too.
-  return voices[voice as BundledTTSVoice] ?? { model: sharedTTS2Model, speed: CLONED_VOICE_SPEED, usesTTS2: true };
+  return voices[voice as BundledTTSVoice] ?? { model, speed: CLONED_VOICE_SPEED, usesTTS2: true };
 }
 
 export async function playWakewordIntroSpeech({
@@ -104,8 +115,7 @@ export async function playWakewordIntroSpeech({
   const speak = speakText ?? Speech.speak.bind(Speech);
   const speechUiEpoch = beginSpeechUiEpoch();
   await Speech.pauseSpeechRecognition();
-  const introLine =
-    `My name is ${selectedSpeakerName}, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.`;
+  const introLine = narrationFor(ttsLanguage).introduction(String(selectedSpeakerName))[0];
   // setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
   // setIntroSpeakerName(selectedSpeakerName);
   // setIntroScript(introLine);

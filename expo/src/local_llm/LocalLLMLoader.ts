@@ -9,6 +9,7 @@ import { downloadModel, getModelPath, isModelDownloaded } from './ModelManager';
 // is TTSLLM/local_llm/index.ts's exports.
 interface LocalLLMBridgeModule {
   setLicense: (licenseKey: string) => Promise<boolean>;
+  loadLayer2Model: (path: string, options?: { contextSize?: number; useMmap?: boolean }) => Promise<void>;
   loadModel: (
     path: string,
     options?: {
@@ -132,7 +133,14 @@ async function ensureModelLoadedOnce(
     cacheTypeK: options?.cacheTypeK,
     cacheTypeV: options?.cacheTypeV,
   });
+  nativeLoads++;
   console.log(`[LocalLLM] native load done for "${model.displayName}"`);
+}
+
+// Native loads so far: each starts with an empty KV cache (src/aichat/provider.ts restores the saved state once per load).
+let nativeLoads = 0;
+export function nativeLoadCount(): number {
+  return nativeLoads;
 }
 
 /** The model the native engine has (or is loading), if any. */
@@ -150,4 +158,36 @@ export function resetModelLoadLatch(): void {
   activeLoad = null;
   activeModelId = null;
   activeLoadDone = false;
+}
+
+/**
+ * The layer 2 model (constants.ts LOCAL_LLM_LAYER2_MODEL): downloaded if needed and loaded next to the
+ * main model, at most once even under concurrent callers. Call after `ensureModelLoaded` (it sets the
+ * license). A failure clears the latch, so the next call tries again.
+ */
+let layer2Load: Promise<void> | null = null;
+let layer2Ready = false;
+
+export function ensureLayer2Loaded(model: LocalLLMModelConfig): Promise<void> {
+  if (layer2Load) return layer2Load;
+  const load = (async () => {
+    if (!(await isModelDownloaded(model))) {
+      console.log(`[LocalLLM] downloading the layer 2 model "${model.displayName}"`);
+      await downloadModel(model);
+    }
+    const started = Date.now();
+    await localLLMBridge().loadLayer2Model(getModelPath(model), { contextSize: model.contextSize, useMmap: true });
+    layer2Ready = true;
+    console.log(`[LocalLLM] layer 2 model "${model.displayName}" loaded in ${Date.now() - started} ms`);
+  })().catch((error) => {
+    layer2Load = null;
+    console.log('[LocalLLM] layer 2 model not loaded:', error);
+    throw error;
+  });
+  layer2Load = load;
+  return load;
+}
+
+export function isLayer2Ready(): boolean {
+  return layer2Ready;
 }

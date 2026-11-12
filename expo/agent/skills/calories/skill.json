@@ -16,6 +16,16 @@
         "choice": "none"
       },
       {
+        "comment": "\"Unlog the eggs\": the embedding model reads it as log",
+        "any": [
+          "\\bun-?log"
+        ],
+        "choice": {
+          "name": "delete_food"
+        },
+        "exact": true
+      },
+      {
         "any": [
           "\\b(undo|cancel (it|that)|that was wrong|take that back)\\b"
         ],
@@ -173,7 +183,17 @@
         "I didn't have the eggs.",
         "I didn't drink the coke.",
         "I did not eat the toast.",
-        "I never ate the chips."
+        "I never ate the chips.",
+        "Can you remove the two eggs for me, please?",
+        "Could you delete the banana from my list?",
+        "Please remove the coffee.",
+        "Remove two eggs from today.",
+        "Can you take the pizza off my list?",
+        "I want to remove the sandwich.",
+        "Unlog the two eggs.",
+        "Can you unlog the eggs, please?",
+        "Please unlog the banana.",
+        "Un-log the coffee."
       ],
       "undo_last_change": [
         "Undo that.",
@@ -188,7 +208,11 @@
         "I did not say pizza.",
         "I never said rice, where did you get that?",
         "Where did you see that I said cheese?",
-        "I didn't say that, why did you log it?"
+        "I didn't say that, why did you log it?",
+        "I mean, remove the two eggs, not add two eggs.",
+        "I said remove, not add.",
+        "No, I wanted to remove it, not add it.",
+        "I asked you to remove the eggs, not log them."
       ],
       "correct_entry": [
         "I said one egg, not two.",
@@ -318,7 +342,7 @@
       ],
       "minScore": 0.45,
       "margin": 0.05,
-      "replacement": "I haven't changed your tracker."
+      "replacement": "I didn't change anything. Could you say that again?"
     },
     "claimCheckComment": "A reply sentence claiming a change (closer to claims than notClaims by margin, and at least minScore) is not said in a turn where no tool changed anything; replacement is said if nothing is left."
   },
@@ -574,6 +598,7 @@
     "searchedOn": " or on {sources}",
     "unreachable": " I couldn't reach {sources} right now.",
     "askCalories": " How many calories did it have?",
+    "askPortions": "I know {food} by the portion ({calories} calories each), not by weight. How many portions were {grams} grams?",
     "sourcesSeparator": " or ",
     "deleteNotFound": "I couldn't find {food} in today's list. The list has: {list}. Which one should I remove?",
     "deleteListItem": "{label}, {calories} calories",
@@ -595,6 +620,9 @@
     "replyRemoved": "Took off {calories} calories. Your total today is {total} calories.",
     "replySetTotal": "Your total today is now {total} calories.",
     "replyCorrected": "Changed {replaced} to {item}. Your total today is {total} calories.",
+    "replyToday": "Your total today is {total} calories: {list}.",
+    "replyTodayAnd": " and ",
+    "replyTodayEmpty": "You haven't logged anything today.",
     "replyUndone": "Undone. Your total today is {total} calories.",
     "replyComment": "reply*: what the agent says when the tool is done, filled from the tool's own result (the model does not reword it, so no number can come out wrong, and no second model round is spent). Leave one out to let the model word that reply."
   }

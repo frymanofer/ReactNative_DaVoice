@@ -563,7 +563,7 @@ export async function prepareWakewordSpeechSession({
     }
   }
   if (isFirstCall) {
-    setAppModeChoice('combined');
+    setAppModeChoice('local_ai_chat');
     setSpeechSessionUIActive(false);
     clearSpeechSentenceUI();
     try {

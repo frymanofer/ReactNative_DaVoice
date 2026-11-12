@@ -5,6 +5,7 @@
  * @format
  */
 
+import RNFS from 'react-native-fs';
 import React, { useEffect, useState, useRef } from 'react';
 
 import { Platform } from 'react-native';
@@ -52,21 +53,25 @@ import {
   stripWakeWordPrefix,
 } from './src/aichat';
 import {
+  APP_LANGUAGES,
+  AppLanguage,
+  ORIGINAL_TTS_VOICES,
   AppModeChoice,
   SV_ONBOARDING_SAMPLE_COUNT,
   SVPromptChoice,
   TTSVoiceChoice,
 } from './src/appflow';
+import { narrationFor } from './src/narration';
 import { LocalLLMProvider } from './src/aichat/provider';
 import {
-  CLONED_VOICES_PATH,
+  clonedVoicesPath,
   DEFAULT_VOICE_VOLUME_PERCENT,
   MAX_RECORDING_SECONDS,
   MAX_VOICE_VOLUME_PERCENT,
   MIN_VOICE_VOLUME_PERCENT,
   VOICE_VOLUME_STEP,
   RECOMMENDED_RECORDING_SECONDS,
-  VOICE_CLONE_READING_TEXT,
+  voiceCloneReadingText,
   cancelVoiceRecording,
   createClonedVoice,
   deleteClonedVoice,
@@ -79,12 +84,21 @@ import {
 } from './src/tts/voiceClone';
 import type { VoiceCloneResult } from 'react-native-davoice/speech';
 import ModelPicker from './src/local_llm/ModelPicker';
-import { getSelectedModel, listModels } from './src/local_llm/ModelRegistry';
+import { getLocalDemo, getSelectedModel, listModels, setLocalDemo } from './src/local_llm/ModelRegistry';
+import { currentLocalDemo } from './src/local_llm/demo';
+import type { LocalDemo } from './src/local_llm/demo';
+import { resetLocalAgent } from './src/agent/LocalAgent';
+import { DID_NOT_CATCH, isBareDone, isNoiseFragment } from './src/aichat/fragments';
+import { setAIChatSentenceRewriter } from './src/aichat';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
+import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import CaloriesCard from './src/calories/CaloriesCard';
+import CarCard from './src/car/CarCard';
+import { setSpeakerGate } from './src/speaker_verification/currentSpeaker';
+import { CAR_TOOL_NAMES, carTools } from './src/car/carTools';
 // MCP_SERVER_URL / MCP_SERVER_TOKEN for Local AI Chat, from the git-ignored
 // local.config.ts (web search and USDA keys are read in src/agent/LocalAgent.ts).
 import * as LocalConfig from './local.config';
@@ -98,7 +112,16 @@ import { getAdjustedSpeed, mergeSmartKeepPunct, registerSpeechHandlers } from '.
 import {
   runSpeakerVerificationStartupFlow,
 } from './src/speaker_verification/onboarding';
-import { getTTSVoiceConfig, playWakewordIntroSpeech, SPEAKER } from './src/tts';
+import { getTTSVoiceConfig, playWakewordIntroSpeech, setTTSLanguage, SPEAKER } from './src/tts';
+import { loadVoiceAbilities, STYLE_TAG_HINT, voiceStyleExamples } from './src/tts/voiceStyles';
+import {
+  cancelLanguagePackDownload,
+  downloadLanguagePack,
+  isDownloadableLanguage,
+  isLanguagePackReady,
+  languagePackSizeBytes,
+  type LanguagePackProgress,
+} from './src/tts/languagePacks';
 import {
   attachKeywordListenerOnce,
   AudioPermissionComponent,
@@ -114,8 +137,18 @@ import {
   shareWakewordRecordings,
 } from './src/wakeword';
 
-const DEFAULT_TTS_VOICE: TTSVoiceChoice = 'Rich';
-const TTS_VOICE_OPTIONS: TTSVoiceChoice[] = ['Ariana', 'Rich', 'Hanna', 'Kate', 'Jenny', 'Matthew', 'Gloria'];
+const DEFAULT_ENGLISH_TTS_VOICE: TTSVoiceChoice = 'Rich';
+// Hanna, Viki, Elaine. Matthew
+//const DEFAULT_ENGLISH_TTS_VOICE: TTSVoiceChoice = 'Elaine';
+const DEFAULT_BRAZILIAN_TTS_VOICE: TTSVoiceChoice = 'Rich';
+// Built-in voices are discovered from the loaded .dm through Speech.getAllVoices().
+
+function defaultTTSVoiceForLanguage(language: AppLanguage): TTSVoiceChoice {
+  // Danish / Swedish / Greek: the v1 model's own voice (no voice conversion: much faster).
+  const originalVoice = ORIGINAL_TTS_VOICES[language];
+  if (originalVoice) return originalVoice;
+  return language === 'pt-BR' || language === 'pt-PT' ? DEFAULT_BRAZILIAN_TTS_VOICE : DEFAULT_ENGLISH_TTS_VOICE;
+}
 
 const SPEECH_INIT_TIMEOUT_MS = 120000;
 // Id of the app's single enrolled speaker (live speaker-verification API).
@@ -162,9 +195,15 @@ function App(): React.JSX.Element {
     null | ((choice: { voice: TTSVoiceChoice }) => void)
   >(null);
   const appModeChoiceResolverRef = useRef<null | ((choice: AppModeChoice) => void)>(null);
-  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
+  const [ttsVoiceChoice, setTtsVoiceChoice] = useState<TTSVoiceChoice>(DEFAULT_ENGLISH_TTS_VOICE);
+  const [ttsVoiceOptions, setTtsVoiceOptions] = useState<TTSVoiceChoice[]>([]);
+  // Emotion / style variants of each built-in voice (src/tts/voiceStyles.ts);
+  // voices without any are not listed.
+  const [voiceAbilities, setVoiceAbilities] = useState<Record<string, string[]>>({});
+  const [showStyleExamples, setShowStyleExamples] = useState(false);
+  const [playingStyleExample, setPlayingStyleExample] = useState<string | null>(null);
   // Voice cloning (src/tts/voiceClone.ts): the cloned voices found in
-  // CLONED_VOICES_PATH, and the "Clone a new Voice" screen.
+  // clonedVoicesPath(), and the "Clone a new Voice" screen.
   const [clonedVoices, setClonedVoices] = useState<string[]>([]);
   const clonedVoicesRef = useRef<string[]>([]);
   const [showVoiceCloneScreen, setShowVoiceCloneScreen] = useState(false);
@@ -184,10 +223,10 @@ function App(): React.JSX.Element {
   const cloneScrollRef = useRef<ScrollView | null>(null);
   const cloneRecordButtonRef = useRef<View | null>(null);
   const cloneScrollToRecordPendingRef = useRef(false);
-  const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('combined');
-  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
-  const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_TTS_VOICE, useTTS2Only.current).model);
-  const selectedAppModeRef = useRef<AppModeChoice>('combined');
+  const [appModeChoice, setAppModeChoice] = useState<AppModeChoice>('local_ai_chat');
+  const selectedTTSVoiceRef = useRef<TTSVoiceChoice>(DEFAULT_ENGLISH_TTS_VOICE);
+  const selectedTTSModelRef = useRef(getTTSVoiceConfig(DEFAULT_ENGLISH_TTS_VOICE, useTTS2Only.current).model);
+  const selectedAppModeRef = useRef<AppModeChoice>('local_ai_chat');
   const enrollmentJsonRef = useRef<string | null>(null);
   const enrollmentJsonPathRef = useRef<string | null>(null);
   const [lastSVScore, setLastSVScore] = useState<{ score: number; isMatch: boolean } | null>(null);
@@ -208,8 +247,16 @@ function App(): React.JSX.Element {
     return ttsText;
   };
 
-  const speakText = (text: string, speaker: number = SPEAKER, speed?: number) =>
-    Speech.speak(applyTTSTextPolicy(text), speaker, speed);
+  const speakText = (text: string, speaker: number = SPEAKER, speed?: number) => {
+    // [E2E] marker for latency measurement (wake word -> transcript -> reply -> speech): logcat ReactNativeJS timestamps.
+    console.log(`[E2E] speak ${text.length} chars: ${text.slice(0, 60)}`);
+    return Speech.speak(applyTTSTextPolicy(text), speaker, speed);
+  };
+  // Both Portuguese models (brv1 and Portugal) read "Rich" badly; say "Ritchie".
+  const isPortuguese = () => appLanguageRef.current === 'pt-BR' || appLanguageRef.current === 'pt-PT';
+  const spokenVoiceName = (voice: TTSVoiceChoice): string =>
+    isPortuguese() && voice === 'Rich' ? 'Ritchie'
+      : appLanguageRef.current === 'el' && voice === 'Eleni' ? 'Ελένη' : voice;
 
   const svOnboardingProgress = Math.max(
     0,
@@ -281,9 +328,77 @@ function App(): React.JSX.Element {
   //   }
   // };
 
+  // The language, chosen first (null: the language screen is showing). It
+  // picks the TTS model, the voice-cloning encoder and the STT locale, so the
+  // permission request and the startup wait for it.
+  const [appLanguage, setAppLanguage] = useState<AppLanguage | null>(null);
+  const appLanguageRef = useRef<AppLanguage>('en');
+  function chooseAppLanguage(language: AppLanguage) {
+    appLanguageRef.current = language;
+    setTTSLanguage(language);
+    const defaultVoice = defaultTTSVoiceForLanguage(language);
+    selectedTTSVoiceRef.current = defaultVoice;
+    setTtsVoiceChoice(defaultVoice);
+    selectedTTSModelRef.current = getTTSVoiceConfig(defaultVoice, useTTS2Only.current).model;
+    setAppLanguage(language);
+  }
+
+  // Language packs (2026-11-12): only English and Brazilian Portuguese are bundled. Choosing another
+  // language shows the download screen until its pack (TTS model + voice embedder) is on the device;
+  // only then is the language selected and the app starts (src/tts/languagePacks.ts).
+  const [languagePackDownload, setLanguagePackDownload] = useState<{
+    language: AppLanguage;
+    progress: LanguagePackProgress | null;
+    error: string | null;
+  } | null>(null);
+  const languagePackDownloadRef = useRef<AppLanguage | null>(null);
+  const [downloadedLanguagePacks, setDownloadedLanguagePacks] = useState<Partial<Record<AppLanguage, boolean>>>({});
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const ready: Partial<Record<AppLanguage, boolean>> = {};
+      for (const { id } of APP_LANGUAGES) {
+        if (isDownloadableLanguage(id)) ready[id] = await isLanguagePackReady(id).catch(() => false);
+      }
+      if (alive) setDownloadedLanguagePacks(ready);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  async function selectAppLanguage(language: AppLanguage) {
+    if (!isDownloadableLanguage(language) || (await isLanguagePackReady(language).catch(() => false))) {
+      chooseAppLanguage(language);
+      return;
+    }
+    startLanguagePackDownload(language);
+  }
+  function startLanguagePackDownload(language: AppLanguage) {
+    languagePackDownloadRef.current = language;
+    setLanguagePackDownload({ language, progress: null, error: null });
+    const update = (patch: { progress?: LanguagePackProgress; error?: string }) =>
+      setLanguagePackDownload((current) => (current && current.language === language ? { ...current, ...patch } : current));
+    downloadLanguagePack(language, (progress) => update({ progress }))
+      .then(() => {
+        if (languagePackDownloadRef.current !== language) return; // the user went back meanwhile
+        languagePackDownloadRef.current = null;
+        setDownloadedLanguagePacks((ready) => ({ ...ready, [language]: true }));
+        setLanguagePackDownload(null);
+        chooseAppLanguage(language);
+      })
+      .catch((e) => update({ error: String(e?.message ?? e) }));
+  }
+  function leaveLanguagePackDownload() {
+    const language = languagePackDownloadRef.current;
+    languagePackDownloadRef.current = null;
+    if (language) cancelLanguagePackDownload(language);
+    setLanguagePackDownload(null);
+  }
+
   // permissions + appstate
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   useEffect(() => {
+    if (!appLanguage) return;
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === 'active') {
         try {
@@ -314,7 +429,7 @@ function App(): React.JSX.Element {
     return () => {
       appStateListener.remove();
     };
-  }, []);
+  }, [appLanguage]);
 
   useEffect(() => {
     if (isPermissionGranted && !didInitSID) {
@@ -329,7 +444,7 @@ function App(): React.JSX.Element {
   const [isSpeechSessionActive, setIsSpeechSessionActive] = useState(false);
   const [currentSpeechSentence, setCurrentSpeechSentence] = useState('');
   const [isIntroSpeaking, setIsIntroSpeaking] = useState(false);
-  const [introSpeakerName, setIntroSpeakerName] = useState<TTSVoiceChoice>(DEFAULT_TTS_VOICE);
+  const [introSpeakerName, setIntroSpeakerName] = useState<TTSVoiceChoice>(DEFAULT_ENGLISH_TTS_VOICE);
   const [introScript, setIntroScript] = useState('');
   const [isSpeakerIdentificationActive, setIsSpeakerIdentificationActive] = useState(false);
   const [isTTSTestMode, setIsTTSTestMode] = useState(false);
@@ -357,8 +472,33 @@ function App(): React.JSX.Element {
   const [isAIChatLoading, setIsAIChatLoading] = useState(false);
   const [isAIChatHelpVisible, setIsAIChatHelpVisible] = useState(false);
   const [isModelPickerVisible, setIsModelPickerVisible] = useState(false);
+  // Local AI Chat demo (2026-11-10): calories (Personal Agent) or car (Automotive Agent); each has its own pack, tools, card and model.
+  const [localDemo, setLocalDemoState] = useState<LocalDemo>(currentLocalDemo());
+  useEffect(() => {
+    getLocalDemo().then(setLocalDemoState).catch(() => undefined);
+    // Car demo: the model's bare "Done." is never a confirmation (the app says what it did) -> "didn't catch that".
+    setAIChatSentenceRewriter((sentence) =>
+      selectedAppModeRef.current === 'local_ai_chat' && currentLocalDemo() === 'car' && isBareDone(sentence)
+        ? DID_NOT_CATCH[appLanguageRef.current] ?? DID_NOT_CATCH.en
+        : sentence,
+    );
+    return () => setAIChatSentenceRewriter(null);
+  }, []);
   const [localModelName, setLocalModelName] = useState('');
   const [localModelStatus, setLocalModelStatus] = useState('');
+  // Seconds in the current loading stage (download / load / warm-up), for the loading screen.
+  const [loadingStageStartedAt, setLoadingStageStartedAt] = useState(0);
+  const [loadingNow, setLoadingNow] = useState(0);
+  const loadingStage = localModelStatus.startsWith('Downloading') ? 'download' : localModelStatus.startsWith('Warming') ? 'warmup'
+    : localModelStatus.startsWith('Failed') ? 'failed' : localModelStatus === 'Ready' ? 'ready' : 'load';
+  useEffect(() => {
+    setLoadingStageStartedAt(Date.now());
+  }, [loadingStage]);
+  useEffect(() => {
+    if (loadingStage === 'ready' || loadingStage === 'failed') return;
+    const timer = setInterval(() => setLoadingNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [loadingStage]);
   // Latest status for async chat turns (the state value can be stale inside them).
   const localModelStatusRef = useRef('');
   localModelStatusRef.current = localModelStatus;
@@ -394,6 +534,7 @@ function App(): React.JSX.Element {
   // Sentences handed to the speech library and not yet finished (it queues them).
   const aiChatSpeechChainRef = useRef<Promise<void>>(Promise.resolve());
   const aiChatSpeechPendingRef = useRef(0);
+  const processAIChatTurnRef = useRef<((text: string) => Promise<void>) | null>(null);   // DEV in-app script (runDevInAppScript)
   const getLocalLLMProvider = (): LocalLLMProvider => {
     if (!localLLMProviderRef.current) {
       // The agent (web search, fillers, the calorie tracker's tools) is set
@@ -640,9 +781,23 @@ function App(): React.JSX.Element {
       selectedTTSModelRef.current,
       enrollmentJsonPath,
       SV_SPEAKER_ID,
+      APP_LANGUAGES.find((language) => language.id === appLanguageRef.current)?.sttLocale,
     );
     console.log('[STT_DIAG] initialized', { withSV: !!enrollmentJsonPath,
       native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
+    const availableVoices = await Speech.getAllVoices();
+    const defaultVoice = defaultTTSVoiceForLanguage(appLanguageRef.current);
+    const voices = availableVoices.length > 0 ? availableVoices : [defaultVoice];
+    setTtsVoiceOptions(voices);
+    const abilities = await loadVoiceAbilities(Speech, availableVoices);
+    setVoiceAbilities(abilities);
+    console.log('[TTS] voices with emotions / styles:', abilities);
+    if (!voices.includes(selectedTTSVoiceRef.current)) {
+      const fallbackVoice = voices.includes(defaultVoice) ? defaultVoice : voices[0];
+      selectedTTSVoiceRef.current = fallbackVoice;
+      setTtsVoiceChoice(fallbackVoice);
+    }
+    console.log('[TTS] available voices:', voices);
     // Cloned voices: a (re)load forgets the folder, so set it again.
     updateClonedVoices(await loadClonedVoices());
     await applySelectedTTSVoice();
@@ -671,6 +826,57 @@ function App(): React.JSX.Element {
     if (result !== 0) {
       console.warn(`[TTS] Speech.changeVoice("${voice}") failed or is unsupported on this platform.`);
     }
+  }
+
+  // Plays an emotion / style example with its voice (the voice picked with
+  // Continue is applied again afterwards).
+  async function playStyleExample(voice: TTSVoiceChoice, text: string) {
+    if (!speechLibraryInitializedRef.current) return;
+    setPlayingStyleExample(text);
+    try {
+      await Speech.stopSpeaking();
+      await Speech.changeVoice(voice);
+      await speakText(text, SPEAKER, getTTSVoiceConfig(voice, useTTS2Only.current).speed);
+    } catch (error) {
+      console.warn('[TTS] style example failed:', error);
+    } finally {
+      setPlayingStyleExample((current) => (current === text ? null : current));
+    }
+  }
+
+  // The expandable list of emotion / style examples of `voice`; tapping one
+  // calls onPick with its text.
+  function renderStyleExamples(voice: TTSVoiceChoice, onPick: (text: string) => void, pickHint: string) {
+    const examples = voiceStyleExamples(voiceAbilities[voice] ?? [], appLanguageRef.current);
+    if (examples.length === 0) return null;
+    return (
+      <View style={styles.styleExamplesBox}>
+        <TouchableOpacity
+          style={styles.styleExamplesHeader}
+          activeOpacity={0.7}
+          onPress={() => setShowStyleExamples((prev) => !prev)}>
+          <Text style={styles.styleExamplesTitle}>
+            {showStyleExamples ? '▾' : '▸'} {voice}'s emotions & styles ({examples.length})
+          </Text>
+          <Text style={styles.styleExamplesSubtitle}>{showStyleExamples ? pickHint : 'Tap to see examples'}</Text>
+        </TouchableOpacity>
+        {showStyleExamples ? (
+          <>
+            {examples.map((example) => (
+              <TouchableOpacity
+                key={example.ability}
+                style={[styles.styleExampleButton, playingStyleExample === example.text && styles.ttsOptionButtonSelected]}
+                activeOpacity={0.7}
+                onPress={() => onPick(example.text)}>
+                <Text style={styles.styleExampleLabel}>{example.label}</Text>
+                <Text style={styles.styleExampleText}>{example.text}</Text>
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.cloneHint}>{STYLE_TAG_HINT[appLanguageRef.current]}</Text>
+          </>
+        ) : null}
+      </View>
+    );
   }
 
   // ---- Voice cloning screen ----
@@ -761,7 +967,7 @@ function App(): React.JSX.Element {
   }
 
   async function createVoiceFromSample() {
-    const problem = voiceNameProblem(cloneName, TTS_VOICE_OPTIONS);
+    const problem = voiceNameProblem(cloneName, [...ttsVoiceOptions, ...clonedVoices]);
     if (problem) {
       setCloneError(problem);
       return;
@@ -796,7 +1002,11 @@ function App(): React.JSX.Element {
     if (!cloneResult) return;
     try {
       await Speech.changeVoice(cloneResult.voice);
-      await speakText(`Hi! I am ${cloneResult.voice}. This is my new cloned voice.`, SPEAKER, getTTSVoiceConfig(cloneResult.voice, useTTS2Only.current).speed);
+      await speakText(
+        narrationFor(appLanguageRef.current).cloneCreated(cloneResult.voice),
+        SPEAKER,
+        getTTSVoiceConfig(cloneResult.voice, useTTS2Only.current).speed,
+      );
     } catch (error) {
       setCloneError(`The voice could not be played: ${errorText(error)}`);
     }
@@ -849,10 +1059,13 @@ function App(): React.JSX.Element {
   async function removeClonedVoice(name: string) {
     try {
       updateClonedVoices(await deleteClonedVoice(name));
-      setTtsVoiceChoice((current) => (current === name ? DEFAULT_TTS_VOICE : current));
+      // The loaded model's default voice (the Brazilian Portuguese model has its own voices).
+      const defaultVoice = defaultTTSVoiceForLanguage(appLanguageRef.current);
+      const fallbackVoice = ttsVoiceOptions.includes(defaultVoice) ? defaultVoice : ttsVoiceOptions[0] ?? defaultVoice;
+      setTtsVoiceChoice((current) => (current === name ? fallbackVoice : current));
       if (selectedTTSVoiceRef.current === name) {
         // The narrator was using it: back to the default voice.
-        selectedTTSVoiceRef.current = DEFAULT_TTS_VOICE;
+        selectedTTSVoiceRef.current = fallbackVoice;
         await applySelectedTTSVoice();
       }
     } catch (error) {
@@ -975,11 +1188,13 @@ function App(): React.JSX.Element {
       }
       const sttIds = await Speech.addSpeaker(SV_SPEAKER_ID, jsonPath);
       console.log('[SV] STT speakers:', sttIds);
+      setSpeakerGate(true, SV_SPEAKER_ID); // unlock / open door: only this voice
     } else {
       // Skip: make sure no speaker from an earlier run stays enrolled.
       console.log('[SV] skipped; clearing speakers');
       if (inst) await inst.setSpeakers([]);
       await Speech.setSpeakers([]);
+      setSpeakerGate(false, null);
     }
   }
 
@@ -1085,7 +1300,11 @@ function App(): React.JSX.Element {
       let nextHistory: GeminiChatMessage[] | null = null;
 
       const localModel = useLocalLLM ? await getSelectedModel() : null;
-      if (localModel && !isModelReady(localModel.id)) {
+      if (useLocalLLM && isNoiseFragment(userText)) {
+        // STT noise ("The.", "But.", "Alma Alma."): not sent to the model (2026-11-10 phone).
+        console.log(`[AIChat] noise fragment, asking to repeat: ${userText}`);
+        aiReply = DID_NOT_CATCH[appLanguageRef.current] ?? DID_NOT_CATCH.en;
+      } else if (localModel && !isModelReady(localModel.id)) {
         // The model is still downloading or loading. Say so right away
         // instead of holding the turn (and the mic) until it is ready.
         const status = localModelStatusRef.current;
@@ -1135,7 +1354,9 @@ function App(): React.JSX.Element {
           },
           (event) => {
             if (aiChatRequestIdRef.current !== requestId) return;
-            if (event.type === 'filler') {
+            if (event.type === 'filler' && event.reason === 'remote' && LOCAL_LLM_LAYER2 === 'none') {
+              // No remote model set up: the reply itself says so; no "let me check" first.
+            } else if (event.type === 'filler') {
               // Search fillers start the reply's speech queue; tool fillers
               // ("Sure, let me log that."), lookups and MCP tools are queued
               // like a sentence.
@@ -1146,6 +1367,8 @@ function App(): React.JSX.Element {
               }
             } else if (event.type === 'status' && event.status === 'searching') {
               setAiChatStatus('Searching the web...');
+            } else if (event.type === 'status' && event.status === 'remote' && LOCAL_LLM_LAYER2 !== 'none') {
+              setAiChatStatus('Asking the online assistant...');
             } else if (event.type === 'webSearch') {
               setAiChatStatus(
                 event.failed
@@ -1460,11 +1683,12 @@ function App(): React.JSX.Element {
           setIsSpeakerIdentificationActive,
           speechLibraryInitializedRef,
           speakModeSelectionNarration: async () => {
-            await speakStartupNarration([`${cleanWakeWord} detected.`]);
-            setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
+            const narration = narrationFor(appLanguageRef.current);
             await speakStartupNarration([
-              'Now you can test the voice capabilities in five different ways. You can select a Local AI Chat that runs fully on this device, a full AI Chat using remote Gemini, or simply test Speech to Text and Text to Speech individually or a combination of both.',
+              narration.wakeWordDetected(cleanWakeWord),
             ]);
+            setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
+            await speakStartupNarration([narration.modeSelection]);
           },
         });
 
@@ -1647,42 +1871,18 @@ function App(): React.JSX.Element {
         }
 
         // Bootstrap already resumed detection after loading the speech packages.
-        const narratorVoice = selectedTTSVoiceRef.current;
-        const cloningChoices = clonedVoicesRef.current.length > 0
-          ? 'You can either clone a new voice, select from your cloned voices, or select from the built-in voices.'
-          : 'You can either clone a new voice, or select from the built-in voices.';
+        const narratorVoice = spokenVoiceName(selectedTTSVoiceRef.current);
+        const narration = narrationFor(appLanguageRef.current);
+        const cloningChoices = narration.cloningChoices(clonedVoicesRef.current.length > 0);
 
-        /*if (narratorVoice === 'Rich') { 
-          await speakStartupNarration([
-            `Hey there. My name is ${voiceToUse}`,
-            `In this application we will use my cloned voice, in order to showcase our voice AI agent capabilities.`, 
-            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            `First, please choose which voice you want to use. You can stay with me, ${narratorVoice}, or switch to ${otherVoices}.`,
-          ]);
-        } else {*/
-          await speakStartupNarration([
-            `Hey there, My name is ${narratorVoice}. In this application we will use my cloned voice in order to showcase our voice AI agent capabilities.`, 
-            `Don't worry. I will be your personal guide to walk you through this demonstration step by step.`,
-            `First, please choose which voice you want to use. ${cloningChoices}`,
-          ]);
-        /*}*/
-/*
-        await speakStartupNarration([
-          `Hey there,, my name is ${narratorVoice}. In this application we will use my cloned voice to walk you through this demonstration step by step.`,
-          `First,, please choose which voice you want to use? You can stay with me,, ${narratorVoice},, or switch to ${alternativeVoice}?`,
-        ]);
-
-        await speakStartupNarration([
-          `Hey there! My name is ${narratorVoice}! In this application we will use my cloned voice to walk you through this demonstration step by step.`,
-          `First, please choose which voice you want to use? You can stay with me, ${narratorVoice}, or switch to ${alternativeVoice}?`,
-        ]);
-
-*/
+        const introduction = narration.introduction(narratorVoice);
+        introduction[2] = `${introduction[2]} ${cloningChoices}`;
+        await speakStartupNarration(introduction);
         await promptForTTSModelChoice();
 
         await speakStartupNarration([
-          `You selected ${selectedTTSVoiceRef.current}.`,
-          'The next phase, is setting speaker verification. You can create a new speaker signature, use a saved one, or skip this step.',
+          narration.selectedVoice(spokenVoiceName(selectedTTSVoiceRef.current)),
+          narration.speakerVerificationSetup,
         ]);
 
         // Pause STT before verification; wake-word detection stays active except
@@ -1736,8 +1936,10 @@ function App(): React.JSX.Element {
         }
 
         await speakStartupNarration([
-          svChoice === 'skip' ? 'Speaker verification skipped.' : 'Speaker verification is ready!',
-          `Now please say the wake word ${wakeWords} to continue.`,
+          svChoice === 'skip'
+            ? narration.speakerVerificationSkipped
+            : narration.speakerVerificationReady,
+          narration.sayWakeWord(wakeWords),
         ], { interruptOnWakeword: false });
         startupInProgressRef.current = false;
         setMessage(`Say the wake word "${wakeWords}" to continue.`);
@@ -1755,7 +1957,7 @@ function App(): React.JSX.Element {
     };
 
     if (initStartedRef.current) return;
-    if (!isPermissionGranted || !didInitSID) return;
+    if (!appLanguage || !isPermissionGranted || !didInitSID) return;
 
     initStartedRef.current = true;
     if (!calledOnce) {
@@ -1768,7 +1970,7 @@ function App(): React.JSX.Element {
       console.log('After calling AudioPermissionComponent();');
     }
 
-  }, [isPermissionGranted, didInitSID]);
+  }, [appLanguage, isPermissionGranted, didInitSID]);
 
   useEffect(() => {
     return () => {
@@ -1901,23 +2103,50 @@ function App(): React.JSX.Element {
     return mcpToolsRef.current;
   };
 
+  /** Switches the Local AI Chat demo: the agent is re-created with that demo's pack; with rewarm, the chat restarts on its model. */
+  const switchLocalDemo = async (demo: LocalDemo, rewarm: boolean) => {
+    setLocalDemoState(demo);
+    if (demo === currentLocalDemo()) return;
+    await setLocalDemo(demo);
+    await resetLocalAgent();
+    if (rewarm) {
+      resetAIChatSession();
+      warmUpLocalModel([]);
+    }
+  };
+
   const warmUpLocalModel = (history: AIChatHistoryMessage[] = []) => {
     const seq = ++localModelWarmUpSeqRef.current;
     const isLatest = () => seq === localModelWarmUpSeqRef.current;
     setLocalModelStatus('Loading...');
     loadMcpTools()
       .then(async (mcpTools) => {
-        // They run on a remote server: the agent says a filler while they run.
-        if (mcpTools.length > 0) await getLocalLLMProvider().setExternalTools(mcpTools);
-        return getLocalLLMProvider().warmUp(history, (fraction) => {
-          if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
-        });
+        // The DaVoice Car's tools (on the phone) and the MCP server's (online: the
+        // agent says a filler while they run).
+        // The car tools in the wording the selected model was trained / benchmarked with (model.toolWording).
+        // The car demo only: the calories demo has no car tools (its skill is in its pack).
+        const selected = await getSelectedModel();
+        if (isLatest()) setLocalModelName(selected.displayName);
+        const wording = selected.toolWording ?? 'v1';
+        const demoTools = currentLocalDemo() === 'car' ? carTools(LOCAL_LLM_CAR_TOOLS, wording) : [];
+        await getLocalLLMProvider().setExternalTools([...demoTools, ...mcpTools], undefined, (tool) => !CAR_TOOL_NAMES.has(tool.name));
+        return getLocalLLMProvider().warmUp(
+          history,
+          (fraction) => {
+            if (isLatest()) setLocalModelStatus(`Downloading ${Math.round(fraction * 100)}%`);
+          },
+          // Loaded; answering once so the first turn has no delay ("Ready" after).
+          () => {
+            if (isLatest()) setLocalModelStatus('Warming up...');
+          },
+        );
       })
       .then(async (model) => {
         if (!isLatest()) return;
         setLocalModelName(model.displayName);
         setLocalModelStatus('Ready');
-        const deleted = await deleteUnusedModelFiles(await listModels());
+        // The layer 2 file is kept only while it is used (LOCAL_LLM_LAYER2 'device').
+        const deleted = await deleteUnusedModelFiles([...(await listModels()), ...(LOCAL_LLM_LAYER2 === 'device' ? [LOCAL_LLM_LAYER2_MODEL] : [])]);
         if (deleted.length > 0) console.log('[AIChat] deleted unused model files:', deleted);
       })
       .catch((error) => {
@@ -2121,10 +2350,225 @@ function App(): React.JSX.Element {
     );
   };
 
+  // A language that isn't bundled: its download screen, until the language pack is on the device.
+  if (!appLanguage && languagePackDownload) {
+    const { language, progress, error } = languagePackDownload;
+    const label = APP_LANGUAGES.find((entry) => entry.id === language)?.label ?? language;
+    const total = progress?.bytesTotal || languagePackSizeBytes(language);
+    const done = Math.min(progress?.bytesDone ?? 0, total);
+    const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+    const mb = (bytes: number) => Math.round(bytes / 1e6);
+    const status = error
+      ? 'Download failed'
+      : progress?.stage === 'verify'
+        ? 'Checking the download…'
+        : progress
+          ? `Downloading… ${pct}%`
+          : 'Starting the download…';
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
+        <Text style={styles.svPromptTitle}>Downloading language pack</Text>
+        <Text style={styles.svPromptSubtitle}>{label}</Text>
+        <Text style={styles.svPromptSubtitle}>
+          The voices for this language are downloaded once ({mb(total)} MB). The app starts when the download is complete.
+        </Text>
+        <View style={styles.ttsOptionSection}>
+          <Text style={styles.speechSentenceText}>{status}</Text>
+          <Text style={styles.speechSentenceLabel}>{`${mb(done)} / ${mb(total)} MB`}</Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${pct}%` }]} />
+          </View>
+          {error && <Text style={[styles.svPromptSubtitle, styles.loadingError]}>{error}</Text>}
+        </View>
+        <View style={styles.ttsTestActionRow}>
+          {error && (
+            <TouchableOpacity
+              style={[styles.ttsSpeakButton, styles.aiChatResetButton]}
+              activeOpacity={0.7}
+              onPress={() => startLanguagePackDownload(language)}>
+              <Text style={styles.ttsSpeakButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
+            activeOpacity={0.7}
+            onPress={leaveLanguagePackDownload}>
+            <Text style={styles.svButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>,
+    );
+  }
+
+  // First of all: the language.
+  if (!appLanguage) {
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
+        <Text style={styles.svPromptTitle}>Choose Your Language</Text>
+        <Text style={styles.svPromptSubtitle}>
+          The language for speech recognition and the voices.
+        </Text>
+        <View style={styles.ttsOptionSection}>
+          {APP_LANGUAGES.filter((language) => !language.hidden).map((language) => (
+            <TouchableOpacity
+              key={language.id}
+              style={[styles.svButton, styles.cloneWideButton, styles.ttsOptionButtonIdle]}
+              activeOpacity={0.7}
+              onPress={() => selectAppLanguage(language.id)}>
+              <Text style={styles.svButtonText}>
+                {language.label}
+                {isDownloadableLanguage(language.id) && !downloadedLanguagePacks[language.id]
+                  ? `  ·  ⬇ ${Math.round(languagePackSizeBytes(language.id) / 1e6)} MB`
+                  : ''}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>,
+    );
+  }
+
   const isLocalAIChat = selectedAppModeRef.current === 'local_ai_chat';
   const aiChatTitle = isLocalAIChat
     ? 'Local AI Chat (on-device)'
     : '*Limited* **Gemini 3.1** Flash Lite Chat';
+
+  const demoTitle = localDemo === 'car' ? 'Car demo' : 'Calories demo';
+
+  // Local AI Chat, step 1 (2026-11-10): its own loading screen until the model is ready (download, load, warm-up).
+  if (shouldShowFullAIChatScreen && isLocalAIChat && localModelStatus !== 'Ready') {
+    const pct = Number(localModelStatus.match(/Downloading (\d+)%/)?.[1] ?? 0);
+    const seconds = Math.max(0, Math.round(((loadingNow || Date.now()) - loadingStageStartedAt) / 1000));
+    const order = ['download', 'load', 'warmup'] as const;
+    const at = loadingStage === 'failed' ? -1 : order.indexOf(loadingStage as (typeof order)[number]);
+    const stages = [
+      { key: 'download', label: 'Download the model', detail: loadingStage === 'download' ? `${pct}%` : 'once, ~380 MB' },
+      { key: 'load', label: 'Load it into memory', detail: '' },
+      { key: 'warmup', label: 'Warm up', detail: 'reads its instructions and tools once, so replies are fast' },
+    ];
+    return (
+      <View style={styles.linearGradient}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <ScrollView style={styles.screenScroll} contentContainerStyle={[styles.aiChatScrollContent, { paddingTop: contentTopPadding }]}>
+          {renderScreenLogo()}
+          <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
+            <Text style={styles.svPromptTitle}>{demoTitle}</Text>
+            <Text style={styles.svPromptSubtitle}>{localModelName || 'On-device model'}</Text>
+            <View style={styles.loadingStages}>
+              {stages.map((stage, i) => {
+                const done = at > i, active = at === i;
+                return (
+                  <View key={stage.key} style={styles.loadingStageRow}>
+                    <View style={[styles.loadingStageDot, done ? styles.loadingStageDone : active ? styles.loadingStageActive : styles.loadingStagePending]}>
+                      <Text style={styles.loadingStageDotText}>{done ? '✓' : String(i + 1)}</Text>
+                    </View>
+                    <View style={styles.loadingStageInfo}>
+                      <Text style={[styles.speechSentenceText, !done && !active && styles.loadingStageMuted]}>{stage.label}</Text>
+                      {active && <Text style={styles.speechSentenceLabel}>{[stage.detail, `${seconds} s`].filter(Boolean).join(' · ')}</Text>}
+                      {active && stage.key === 'download' && (
+                        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${pct}%` }]} /></View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+            {loadingStage === 'failed' && <Text style={[styles.svPromptSubtitle, styles.loadingError]}>{localModelStatus}</Text>}
+            <View style={styles.ttsTestActionRow}>
+              {loadingStage === 'failed' && (
+                <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={() => warmUpLocalModel(aiChatMessages)}>
+                  <Text style={styles.ttsSpeakButtonText}>Retry</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]} activeOpacity={0.7} onPress={leaveFullAIChatMode}>
+                <Text style={styles.svButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // DEV ONLY (2026-11-11 in-app test): plays files/inapp_test.txt through the same path as a final STT transcript, one line at a time,
+  // waiting for each reply and its speech; '#reset' starts a new conversation (Reset Chat). Skips only STT; never in release builds.
+  // The latest processAIChatTurn (it reads this render's chat history): a loop holding the closure from the render that started it
+  // would send every turn with the history of that moment (no previous turns).
+  processAIChatTurnRef.current = processAIChatTurn;
+  const runDevInAppScript = async () => {
+    if (!__DEV__) return;
+    const path = `${RNFS.DocumentDirectoryPath}/inapp_test.txt`;
+    const lines = (await RNFS.readFile(path, 'utf8')).split('\n').map((l) => l.trim()).filter(Boolean);
+    console.log(`[DevScript] ${lines.length} lines`);
+    const settle = async () => {
+      const t0 = Date.now();
+      await new Promise((r) => setTimeout(r, 800));
+      while ((aiChatInFlightRef.current || aiChatSpeechPendingRef.current > 0 || aiChatAwaitingSpeechFinishRef.current) && Date.now() - t0 < 90000) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+    };
+    for (const line of lines) {
+      if (line === '#reset') { resetAIChatSession(); await new Promise((r) => setTimeout(r, 1000)); continue; }
+      await processAIChatTurnRef.current?.(line);
+      await settle();
+    }
+    console.log('[DevScript] done');
+  };
+
+  // Local AI Chat, step 2: only once ready - the car (or calories) status, what was heard (STT), the reply (TTS), the model.
+  if (shouldShowFullAIChatScreen && isLocalAIChat) {
+    return (
+      <View style={styles.linearGradient}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <ScrollView style={styles.screenScroll} contentContainerStyle={[styles.aiChatScrollContent, { paddingTop: contentTopPadding }]}
+          keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
+          <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
+            <Text style={styles.svPromptTitle}>{demoTitle}</Text>
+            {localDemo === 'car' ? <CarCard /> : <CaloriesCard />}
+            <View style={styles.speechSummaryBlock}>
+              <Text style={styles.speechSentenceLabel}>You said{isAIChatLoading ? ' · working...' : ''}</Text>
+              <Text style={styles.aiChatLiveTranscriptText}>
+                {aiChatLiveTranscript || aiChatTranscript || 'Say the wake word, then speak.'}
+              </Text>
+            </View>
+            <View style={styles.speechSummaryBlock}>
+              <Text style={styles.speechSentenceLabel}>Reply</Text>
+              <Text style={styles.speechSentenceText}>{aiChatResponse || 'The reply will appear here and be spoken.'}</Text>
+            </View>
+            <View style={styles.chatModelFooter}>
+              <Text style={styles.speechSentenceLabel}>Model: {localModelName}</Text>
+              <TouchableOpacity activeOpacity={0.7} disabled={isAIChatLoading} onPress={() => setIsModelPickerVisible(true)}>
+                <Text style={styles.localModelChangeText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.ttsTestActionRow}>
+              <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={resetAIChatSession}>
+                <Text style={styles.ttsSpeakButtonText}>Reset Chat</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]} activeOpacity={0.7} onPress={leaveFullAIChatMode}>
+                <Text style={styles.svButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+            {__DEV__ && (
+              <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={() => { void runDevInAppScript(); }}>
+                <Text style={styles.ttsSpeakButtonText}>Run test script (dev)</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+        <ModelPicker
+          visible={isModelPickerVisible}
+          isBusy={isAIChatLoading}
+          onClose={() => setIsModelPickerVisible(false)}
+          onModelSelected={(model) => {
+            setLocalModelName(model.displayName);
+            warmUpLocalModel(aiChatMessages);
+          }}
+        />
+      </View>
+    );
+  }
 
   if (shouldShowFullAIChatScreen) {
     return (
@@ -2159,6 +2603,27 @@ function App(): React.JSX.Element {
                 </Text>
               )}
               {isLocalAIChat && (
+                <View style={styles.localDemoRow}>
+                  {(
+                    [
+                      { demo: 'calories', label: 'Calories demo' },
+                      { demo: 'car', label: 'Car demo' },
+                    ] as const
+                  ).map(({ demo, label }) => (
+                    <TouchableOpacity
+                      key={demo}
+                      style={[styles.localDemoButton, localDemo === demo ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle]}
+                      activeOpacity={0.7}
+                      disabled={isAIChatLoading}
+                      onPress={() => {
+                        switchLocalDemo(demo, true).catch((error) => console.log('[LocalDemo] switch failed:', String(error)));
+                      }}>
+                      <Text style={styles.svButtonText}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {isLocalAIChat && (
                 <View style={[styles.speechSummaryBlock, styles.localModelRow]}>
                   <View style={styles.localModelInfo}>
                     <Text style={styles.speechSentenceLabel}>Model</Text>
@@ -2175,7 +2640,8 @@ function App(): React.JSX.Element {
                   </TouchableOpacity>
                 </View>
               )}
-              {isLocalAIChat && <CaloriesCard />}
+              {isLocalAIChat && localDemo === 'calories' && <CaloriesCard />}
+              {isLocalAIChat && localDemo === 'car' && <CarCard />}
               <View style={styles.speechSummaryBlock}>
                 <Text style={styles.speechSentenceLabel}>Status</Text>
                 <Text style={styles.speechSentenceText}>
@@ -2418,7 +2884,7 @@ function App(): React.JSX.Element {
             <Text style={styles.cloneHint}>
               In a quiet room, read this text aloud in your natural voice, at a steady distance from the phone:
             </Text>
-            <Text style={styles.cloneReadingText}>{VOICE_CLONE_READING_TEXT}</Text>
+            <Text style={styles.cloneReadingText}>{voiceCloneReadingText(appLanguageRef.current)}</Text>
             <View style={styles.cloneRecordRow}>
               <Text style={styles.cloneRecordClock}>{recordClock}</Text>
               <View style={styles.cloneLevelTrack}>
@@ -2556,18 +3022,22 @@ function App(): React.JSX.Element {
           onPress={closeVoiceCloneScreen}>
           <Text style={styles.svButtonText}>Back to Voices</Text>
         </TouchableOpacity>
-        <Text style={styles.cloneFolderText}>Cloned voices folder: {CLONED_VOICES_PATH}</Text>
+        <Text style={styles.cloneFolderText}>Cloned voices folder: {clonedVoicesPath()}</Text>
       </View>,
       { keyboardShouldPersistTaps: 'handled', scrollRef: cloneScrollRef },
     );
   }
 
   if (showTTSModelPrompt) {
+    const emotionVoices = ttsVoiceOptions.filter((voice) => voiceAbilities[voice]);
+    // The v1 model's own voice: its own section, first (above the emotion voices).
+    const originalVoiceName = ORIGINAL_TTS_VOICES[appLanguageRef.current];
+    const originalVoice = originalVoiceName && ttsVoiceOptions.includes(originalVoiceName) ? originalVoiceName : null;
     return renderPromptScreen(
       <View style={styles.svPromptCard}>
             <Text style={styles.svPromptTitle}>Choose Your Voice</Text>
             <Text style={styles.svPromptSubtitle}>
-              Clone a new voice, select one of your cloned voices, or select a built-in voice before the demo starts.
+              Clone a new voice, or select a voice with emotions, a built-in voice, or one of your cloned voices before the demo starts.
             </Text>
             <TouchableOpacity
               style={[styles.svButton, styles.cloneWideButton, styles.cloneNewVoiceButton]}
@@ -2575,6 +3045,67 @@ function App(): React.JSX.Element {
               onPress={openVoiceCloneScreen}>
               <Text style={styles.svButtonText}>Clone a new Voice</Text>
             </TouchableOpacity>
+            {originalVoice ? (
+              <View style={styles.ttsOptionSection}>
+                <Text style={[styles.ttsOptionLabel, styles.ttsOptionLabelHighlight]}>Original Voice (fastest)</Text>
+                <View style={styles.ttsVoiceGrid}>
+                  <TouchableOpacity
+                    style={[
+                      styles.svButton,
+                      styles.ttsVoiceButton,
+                      ttsVoiceChoice === originalVoice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => setTtsVoiceChoice(originalVoice)}>
+                    <Text style={styles.svButtonText}>{originalVoice}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+            {emotionVoices.length > 0 ? (
+              <View style={styles.ttsOptionSection}>
+                <Text style={[styles.ttsOptionLabel, styles.ttsOptionLabelHighlight]}>Voices with Emotions & Styles in Free Text</Text>
+                <View style={styles.ttsVoiceGrid}>
+                  {emotionVoices.map((voice) => (
+                    <TouchableOpacity
+                      key={`emotion-${voice}`}
+                      style={[
+                        styles.svButton,
+                        styles.ttsVoiceButton,
+                        ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => setTtsVoiceChoice(voice)}>
+                      <Text style={styles.svButtonText}>{voice}</Text>
+                      <Text style={styles.styleVoiceBadge}>{voiceAbilities[voice].length} styles</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {renderStyleExamples(
+                  voiceAbilities[ttsVoiceChoice] ? ttsVoiceChoice : emotionVoices[0],
+                  (text) => void playStyleExample(voiceAbilities[ttsVoiceChoice] ? ttsVoiceChoice : emotionVoices[0], text),
+                  'Tap an example to hear it',
+                )}
+              </View>
+            ) : null}
+            <View style={styles.ttsOptionSection}>
+              <Text style={styles.ttsOptionLabel}>{emotionVoices.length > 0 ? 'Other Built-in Voices' : 'Built-in Voices'}</Text>
+              <View style={styles.ttsVoiceGrid}>
+                {ttsVoiceOptions.filter((voice) => !voiceAbilities[voice] && voice !== originalVoice).map((voice) => (
+                  <TouchableOpacity
+                    key={voice}
+                    style={[
+                      styles.svButton,
+                      styles.ttsVoiceButton,
+                      ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => setTtsVoiceChoice(voice)}>
+                    <Text style={styles.svButtonText}>{voice}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
             <View style={styles.ttsOptionSection}>
               <Text style={styles.ttsOptionLabel}>Cloned Voices</Text>
               {clonedVoices.length > 0 ? (
@@ -2605,24 +3136,6 @@ function App(): React.JSX.Element {
                 </TouchableOpacity>
               ) : null}
             </View>
-            <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>Built-in Voices</Text>
-              <View style={styles.ttsVoiceGrid}>
-                {TTS_VOICE_OPTIONS.map((voice) => (
-                  <TouchableOpacity
-                    key={voice}
-                    style={[
-                      styles.svButton,
-                      styles.ttsVoiceButton,
-                      ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => setTtsVoiceChoice(voice)}>
-                    <Text style={styles.svButtonText}>{voice}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
             <View style={styles.svButtonRow}>
               <TouchableOpacity
                 style={[styles.svButton, styles.ttsContinueButton]}
@@ -2647,18 +3160,20 @@ function App(): React.JSX.Element {
             <View style={styles.appModeStack}>
               {(
                 [
-                  { key: 'local_ai_chat', label: 'Local AI Chat',        desc: 'STT → on-device LLM → TTS' },
-                  { key: 'full_ai_chat',  label: 'Full AI Chat',         desc: 'STT → Gemini → TTS' },
-                  { key: 'combined',      label: 'Combined STT + TTS',   desc: 'Speak → hear it back' },
-                  { key: 'stt_only',      label: 'STT Only',             desc: 'Show transcript, no playback' },
-                  { key: 'type_to_tts',   label: 'Type to TTS',          desc: 'Type text → hear it spoken' },
+                  { key: 'local_ai_chat', demo: 'car', label: 'Local AI · Car demo', desc: 'Automotive Agent: simulated VW car, on-device' },
+                  { key: 'local_ai_chat', demo: 'calories', label: 'Local AI · Calories demo', desc: 'Personal Agent: calories and memory, on-device' },
+                  { key: 'full_ai_chat',  demo: undefined, label: 'Full AI Chat',         desc: 'STT → Gemini → TTS' },
+                  { key: 'combined',      demo: undefined, label: 'Combined STT + TTS',   desc: 'Speak → hear it back' },
+                  { key: 'stt_only',      demo: undefined, label: 'STT Only',             desc: 'Show transcript, no playback' },
+                  { key: 'type_to_tts',   demo: undefined, label: 'Type to TTS',          desc: 'Type text → hear it spoken' },
                 ] as const
-              ).map(({ key, label, desc }) => (
+              ).map(({ key, demo, label, desc }) => (
                 <TouchableOpacity
-                  key={key}
-                  style={[styles.appModeButton, appModeChoice === key ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle]}
+                  key={demo ? `${key}-${demo}` : key}
+                  style={[styles.appModeButton, appModeChoice === key && (!demo || localDemo === demo) ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle]}
                   activeOpacity={0.7}
                   onPress={async () => {
+                    if (demo) await switchLocalDemo(demo, false);   // the mode's warm-up then loads that demo's pack and model
                     setAppModeChoice(key);
                     if (appModeChoiceResolverRef.current) {
                       appModeChoiceResolverRef.current(key);
@@ -2781,6 +3296,7 @@ function App(): React.JSX.Element {
                   </View>
                 </InputAccessoryView>
               )}
+              {renderStyleExamples(ttsVoiceChoice, setTtsInputText, 'Tap an example to put it in the text box')}
                 <View style={styles.ttsTestActionRow}>
                   <TouchableOpacity
                     style={[
@@ -3457,6 +3973,56 @@ const styles = StyleSheet.create({
   speechSentenceCardTTSIOS: {
     marginTop: -80,
   },
+  loadingStages: {
+    width: '100%',
+    marginTop: 22,
+    gap: 16,
+  },
+  loadingStageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  loadingStageDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingStageDone: { backgroundColor: '#2e9e5b' },
+  loadingStageActive: { backgroundColor: '#3b82f6' },
+  loadingStagePending: { backgroundColor: 'rgba(255, 255, 255, 0.15)' },
+  loadingStageDotText: { color: '#ffffff', fontWeight: '700' },
+  loadingStageInfo: { flex: 1 },
+  loadingStageMuted: { opacity: 0.5 },
+  loadingError: { color: '#ff8a8a', marginTop: 16 },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+  },
+  progressFill: { height: 8, backgroundColor: '#3b82f6' },
+  chatModelFooter: {
+    width: '100%',
+    marginTop: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  localDemoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  localDemoButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   localModelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3682,6 +4248,51 @@ const styles = StyleSheet.create({
     width: '47%',
     paddingHorizontal: 8,
   },
+  styleExamplesBox: {
+    width: '100%',
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 8,
+  },
+  styleExamplesHeader: {
+    width: '100%',
+  },
+  styleExamplesTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  styleExamplesSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  styleExampleButton: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  styleExampleLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  styleExampleText: {
+    marginTop: 3,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  styleVoiceBadge: {
+    marginTop: 2,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
   ttsVoiceGrid: {
     width: '100%',
     flexDirection: 'row',
@@ -3712,6 +4323,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  ttsOptionLabelHighlight: {
+    alignSelf: 'center',
+    fontSize: 15,
+    color: '#FFD60A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 214, 10, 0.6)',
+    backgroundColor: 'rgba(255, 214, 10, 0.12)',
+    textAlign: 'center',
+    overflow: 'hidden',
   },
   ttsOptionButtonSelected: {
     backgroundColor: '#34C759',

@@ -35,6 +35,8 @@ export const GEMINI_SYSTEM_PROMPT =
   'You are a helpful voice assistant inside a React Native demo app. Reply conversationally, keep answers concise for spoken playback, and avoid markdown. For time-sensitive facts like current leaders, dates, news, prices, or recent events, answer cautiously and say when you may be unsure rather than asserting a stale fact.';
 export const GEMINI_MAX_OUTPUT_TOKENS = 512;
 export const GEMINI_THINKING_BUDGET = 256;
+/** Gemini's own sampling: independent of the local model's (LocalLLMModelConfig.temperature). */
+export const GEMINI_TEMPERATURE = 0.7;
 export const AI_CHAT_MIN_REQUEST_GAP_MS = 4000;
 export const AI_CHAT_RATE_LIMIT_BACKOFF_MS = 30000;
 export const GEMINI_ENABLE_STREAMING = false;
@@ -70,19 +72,21 @@ export function normalizeTextForSpeech(text: string): string {
     .trim();
 }
 
-function buildGeminiRequestBody(history: GeminiChatMessage[]) {
+/** `systemExtra` follows the system prompt (e.g. the remote assistant's role and context, src/aichat/remote.ts). */
+function buildGeminiRequestBody(history: GeminiChatMessage[], systemExtra = '', useSearch = true) {
+  const system = [GEMINI_SYSTEM_PROMPT, systemExtra, llmReplyInstruction(getTTSLanguage())]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' ');
   return {
     system_instruction: {
-      parts: [{ text: `${GEMINI_SYSTEM_PROMPT} ${llmReplyInstruction(getTTSLanguage())}`.trim() }],
+      parts: [{ text: system }],
     },
     contents: history,
-    tools: [
-      {
-        google_search: {},
-      },
-    ],
+    // Google Search grounding (its quota is separate from the model's).
+    ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
-      temperature: 0.7,
+      temperature: GEMINI_TEMPERATURE,
       maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
       thinkingConfig: {
         thinkingBudget: GEMINI_THINKING_BUDGET,
@@ -109,6 +113,12 @@ export function splitCompletedSentences(text: string): { completed: string[]; re
 
   for (let index = 0; index < text.length; index += 1) {
     if (!/[.!?]/.test(text[index])) continue;
+    // A period ends a sentence only before a space (or a closing quote): not inside "DaVoice.io", "12.5" or "e.g".
+    // At the end of the text so far it may still be followed by more of the word: wait for the next piece.
+    if (text[index] === '.') {
+      const next = text[index + 1];
+      if (next === undefined || !/[\s"')\]]/.test(next)) continue;
+    }
 
     let boundary = index + 1;
     while (boundary < text.length && /["')\]]/.test(text[boundary])) {
@@ -160,6 +170,8 @@ export function stripWakeWordPrefix(text: string, wakeWord: string): string {
 export async function generateGeminiReply(
   history: GeminiChatMessage[],
   meta: GeminiRequestLogMeta,
+  systemExtra = '',
+  useSearch = true,
 ): Promise<string> {
   const transcriptPreview =
     meta.userText.length > 120 ? `${meta.userText.slice(0, 120)}...` : meta.userText;
@@ -179,7 +191,7 @@ export async function generateGeminiReply(
     JSON.stringify(history, null, 2),
   );
 
-  const requestBody = buildGeminiRequestBody(history);
+  const requestBody = buildGeminiRequestBody(history, systemExtra, useSearch);
 
   console.log(
     `[AIChat] Gemini request #${meta.requestId} request body`,
@@ -487,7 +499,8 @@ export async function speakNextAIChatSentence({
   // Hand every complete sentence to the speech library right away, without
   // waiting for the previous one to finish: the library queues them.
   while (aiChatSpeechQueueRef.current.length > 0) {
-    const sentence: string = aiChatSpeechQueueRef.current.shift();
+    const raw: string = aiChatSpeechQueueRef.current.shift();
+    const sentence: string = sentenceRewriter ? sentenceRewriter(raw) : raw;
     const text = normalizeTextForSpeech(sentence);
     if (!text) continue;
     aiChatSpeechPendingRef.current += 1;
@@ -508,6 +521,12 @@ export async function speakNextAIChatSentence({
     });
   }
   await finishIfAllSpoken();
+}
+
+/** Rewrites a reply sentence before it is spoken (null: as is). Set by the app (2026-11-10: the car demo's bare "Done."). */
+let sentenceRewriter: ((sentence: string) => string) | null = null;
+export function setAIChatSentenceRewriter(rewrite: ((sentence: string) => string) | null): void {
+  sentenceRewriter = rewrite;
 }
 
 export async function enqueueAIChatSpeechFromDelta({

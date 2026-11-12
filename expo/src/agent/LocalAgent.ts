@@ -1,8 +1,12 @@
+import { Alert } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Agent } from 'react-native-davoice-llm';
-import type { AgentConfig, AgentEvent } from 'react-native-davoice-llm';
+import type { AgentApprovalRequest, AgentConfig, AgentEvent, AgentRemoteRequest } from 'react-native-davoice-llm';
 
-import { agentPackFor } from './AgentPack';
+import { agentPackFor, automotiveAgentFor } from './AgentPack';
+import { currentLocalDemo } from '../local_llm/demo';
+import { ownerMayAct } from '../speaker_verification/currentSpeaker';
+import { answerRemoteRequest } from '../aichat/remote';
 import { llmReplyInstruction } from '../appflow';
 import { getTTSLanguage } from '../tts';
 // Local AI Chat's web search engine and API keys, from the git-ignored
@@ -28,17 +32,21 @@ function agentSettings(): AgentConfig {
   const usdaApiKey = config.USDA_API_KEY?.trim();
   const language = getTTSLanguage();
   const pack = agentPackFor(language);
+  // The car demo (src/local_llm/demo.ts): the automotive pack, no calorie skill, its own database.
+  const car = currentLocalDemo() === 'car';
+  const agent = car ? automotiveAgentFor(language) : pack.agent;
   // The reply language (from the language screen) ends the persona, so it is
   // part of the cached system prompt and the same in every turn and prefill.
-  const systemPrompt = `${pack.agent.persona.systemPrompt} ${llmReplyInstruction(language)}`.trim();
+  const systemPrompt = `${agent.persona.systemPrompt} ${llmReplyInstruction(language)}`.trim();
+  const dbName = `${language === 'en' ? 'davoice_agent' : `davoice_agent_${language.replace('-', '_').toLowerCase()}`}${car ? '_car' : ''}`;
   return {
     pack: {
-      agent: { ...pack.agent, persona: { ...pack.agent.persona, systemPrompt } },
-      skills: [{ skill: pack.caloriesSkill, data: { 'foods.json': pack.caloriesFoods } }],
+      agent: { ...agent, persona: { ...agent.persona, systemPrompt } },
+      skills: car ? [] : [{ skill: pack.caloriesSkill, data: { 'foods.json': pack.caloriesFoods } }],
     },
-    // One database per language: it holds the food list (seeded from the
+    // One database per language (and demo): it holds the food list (seeded from the
     // pack's foods.json), the calorie log, memories and what the router learned.
-    databasePath: `${RNFS.DocumentDirectoryPath}/${language === 'en' ? 'davoice_agent' : `davoice_agent_${language.replace('-', '_').toLowerCase()}`}.db`,
+    databasePath: `${RNFS.DocumentDirectoryPath}/${dbName}.db`,
     // The whole chat (user, model outputs, tools, replies), readable off the
     // phone even when the Xcode console drops lines.
     chatLogPath: `${RNFS.DocumentDirectoryPath}/davoice_chat.log`,
@@ -86,11 +94,51 @@ const listeners = new Set<(event: AgentEvent) => void>();
 let agentPromise: Promise<Agent> | null = null;
 
 /** The app's one agent, created on first use (after the language screen). */
+/** Permission scopes this app grants to tools that declare "authorization" (e.g. "payments", "door_locks").
+ * Everything else is refused: the core never runs such a tool without a yes. */
+const AUTHORIZED_TOOL_SCOPES = new Set<string>([]);
+
+function isToolAuthorized(request: AgentApprovalRequest): boolean {
+  // Doors (unlock_car, open_door): only the enrolled owner's voice, when speaker verification is on.
+  if (request.scope === 'door_locks') {
+    const owner = ownerMayAct();
+    console.log(`[DavoiceAgent] authorize ${request.name} (scope "door_locks"): ${owner.allowed ? 'yes' : 'no'} - ${owner.reason}`);
+    return owner.allowed;
+  }
+  const ok = AUTHORIZED_TOOL_SCOPES.has(request.scope);
+  console.log(`[DavoiceAgent] authorize ${request.name} (scope "${request.scope}"): ${ok ? 'yes' : 'no'}`);
+  return ok;
+}
+
+/** Tools that declare "confirmation": a plain dialog. Dismissing it is a no. */
+function askToConfirm(request: AgentApprovalRequest): Promise<boolean> {
+  const args = Object.entries(request.arguments ?? {}).map(([k, v]) => `${k}: ${String(v)}`).join('\n');
+  return new Promise((resolve) => {
+    Alert.alert(
+      request.message || `Run "${request.name}"?`,
+      [request.description, args].filter(Boolean).join('\n\n'),
+      [
+        { text: 'No', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Yes', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
+
 export function getLocalAgent(): Promise<Agent> {
   agentPromise ??= Agent.create(agentSettings(), {
     onEvent: (event) => {
       if (event.type === 'log') console.log(`[DavoiceAgent] ${event.level}: ${event.message}`);
       for (const listener of [...listeners]) listener(event);
+    },
+    // The remote assistant (Gemini) for models that hand over to it (see
+    // LocalLLMModelConfig.remoteAssistant).
+    onRequest: async (request) => {
+      if (request.type === 'remote') return answerRemoteRequest(request as AgentRemoteRequest);
+      if (request.type === 'authorizeTool') return { authorized: isToolAuthorized(request as AgentApprovalRequest) };
+      if (request.type === 'confirmTool') return { confirmed: await askToConfirm(request as AgentApprovalRequest) };
+      throw new Error(`The app does not answer "${request.type}" requests.`);
     },
   }).then((agent) => {
     void setUpRouterEmbeddings(agent); // in the background: turns work meanwhile
@@ -100,6 +148,18 @@ export function getLocalAgent(): Promise<Agent> {
     throw error;
   });
   return agentPromise;
+}
+
+/** Closes the agent so the next use creates it with the current demo's pack (a demo switch). */
+export async function resetLocalAgent(): Promise<void> {
+  const pending = agentPromise;
+  agentPromise = null;
+  if (!pending) return;
+  try {
+    await (await pending).close();
+  } catch (error) {
+    console.log('[LocalAgent] close on demo switch failed:', String(error));
+  }
 }
 
 /** Every agent event (e.g. the calorie log's `skill` changes); returns an

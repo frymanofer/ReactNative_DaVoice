@@ -63,6 +63,45 @@ export interface LocalLLMModelConfig {
   sizeBytes?: number;
   /** When set, a download whose SHA-256 differs is deleted and reported as failed. */
   sha256?: string;
+  /** Hands what it can't do well to the remote assistant (Gemini, src/aichat/remote.ts):
+   * everything but the tool actions (agent.json "remote"). Offline, it answers itself. */
+  remoteAssistant?: boolean;
+  /** false: saved facts about the user are not added to every request whose words match them ("my car is red" was
+   * attached to every car command: ~35 extra tokens per turn and the 0.6B model sometimes answered with the fact).
+   * The profile (name) and "what do you remember about me" still work. Default: on. */
+  relevantMemory?: boolean;
+  /** False: no intent router; the model itself decides every turn (which tool, a question, the
+   * remote assistant or a reply), as the fine-tuned DaVoice Agent is trained to. Default true. */
+  usesRouter?: boolean;
+  /** The model's own information tools: web_search (the app's web search engine,
+   * local.config.ts WEB_SEARCH_ENGINE) and get_time (the phone's clock). For a model trained
+   * to call them (the DaVoice Agent, which decides every turn itself). Default false. */
+  modelTools?: boolean;
+  /** How the local model picks tokens for agent turns (agent configure "sampling"). 0 = greedy:
+   * reproducible tool choice and arguments. Unset = the engine's default (0.7). Gemini's sampling is separate
+   * (GEMINI_TEMPERATURE in src/aichat/index.ts). */
+  temperature?: number;
+  /** The car tools' descriptions this model sees (src/car/carTools.ts): 'v1' (default) = the wording ft7c was trained on,
+   * 'h2' = the same tools without example values. A model must get the wording it was trained / benchmarked with. */
+  toolWording?: 'v1' | 'h2' | 'h3' | 'h3d';
+  /** The core's call guards (agent configure "guards": polarity, direction, absRel, zone, capability, numberGround, opposite):
+   * 'off' (default), 'shadow' = recorded in the chat log only (the call runs as the model made it), 'correct' = a wrong call is
+   * fixed when the fix is unambiguous, otherwise blocked. Every guard decision is a "guard ..." line in the chat log. */
+  callGuards?: 'off' | 'shadow' | 'correct';
+  /** Agent configure "historyAsRun" (2026-11-11): a guard-corrected call stays in the history as it ran, and the follow-up guard
+   * ("não, o outro de trás" keeps the previous action) is on with callGuards 'correct'. Default false. */
+  historyAsRun?: boolean;
+  /** Agent configure "guidedToolCalls": the certain parts of a JSON tool call are fed in one batch (same calls, fewer decode
+   * steps; S20 warm call round 2.2 -> 1.9 s). Default false. */
+  guidedToolCalls?: boolean;
+  /** Agent configure "promptOrder": 'trained' (default) | 'cache' (date after the tools: a new day reuses the saved prompt
+   * state). Only for a model validated in that order. */
+  promptOrder?: 'trained' | 'cache';
+  /** Pre-warmed KV states (2026-11-11, user: the first warm-up is the biggest adoption drop): the system prompt already processed
+   * offline with this exact model file, pack, tools, settings and the app language's reply instruction, so the first start needs no
+   * 30-40 s prompt processing. Keyed by app language; downloaded together with the model (sha256 checked). A language without one
+   * warms up on the phone as before. Only valid with promptOrder 'cache' (the date sits after the tools). */
+  prebuiltStates?: Partial<Record<string, { url: string; sha256: string; sizeBytes: number }>>;
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }
