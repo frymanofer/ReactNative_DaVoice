@@ -8,6 +8,11 @@
 //
 //   node scripts/generate-language-packs.js            regenerate (fails on a bad config)
 //   node scripts/generate-language-packs.js --rehash   also refresh bytes + sha256 from assets/models/
+//
+// The same script runs in the Expo app (expo/scripts/, keep the two files identical). Its JSON sets "nativeModelsDir"
+// (assets/models/local): Expo's config plugin (plugins/withDaVoiceNativeAssets.js) copies that folder into the native app,
+// so a bundled TTS model is referenced by its file name there instead of a require() (Metro would ship it a second time).
+// Voice-cloning embedders are always require()d from assets/models/.
 
 const fs = require('fs');
 const path = require('path');
@@ -31,6 +36,9 @@ function generate({ rehash = false, quiet = false } = {}) {
   const languages = config.languages || {};
   const bundled = config.bundled || [];
   const baseUrl = String(config.baseUrl || '').replace(/\/+$/, '');
+  const nativeModelsDir = config.nativeModelsDir ? path.join(ROOT, config.nativeModelsDir) : null;
+  // Where a bundled file must be: the model in nativeModelsDir (Expo) or assets/models/, the embedder in assets/models/.
+  const bundledDir = (kind) => (kind === 'model' && nativeModelsDir ? nativeModelsDir : MODELS_DIR);
 
   for (const id of Object.keys(languages)) {
     if (!KNOWN.includes(id)) errors.push(`unknown language "${id}" (known: ${KNOWN.join(', ')})`);
@@ -40,7 +48,7 @@ function generate({ rehash = false, quiet = false } = {}) {
         errors.push(`${id}.${kind}: missing "file"`);
         continue;
       }
-      const local = path.join(MODELS_DIR, f.file);
+      const local = path.join(bundledDir(kind), f.file);
       if (rehash) {
         if (!fs.existsSync(local)) errors.push(`${id}.${kind}: --rehash needs ${local}`);
         else {
@@ -60,7 +68,7 @@ function generate({ rehash = false, quiet = false } = {}) {
     for (const kind of KINDS) {
       const f = languages[id][kind];
       if (!f || !f.file) continue;
-      const local = path.join(MODELS_DIR, f.file);
+      const local = path.join(bundledDir(kind), f.file);
       if (!fs.existsSync(local)) errors.push(`bundled ${id}.${kind}: ${local} not found`);
       else if (fs.statSync(local).size !== f.bytes) {
         errors.push(`bundled ${id}.${kind}: ${f.file} is ${fs.statSync(local).size} bytes, config says ${f.bytes} (run with --rehash?)`);
@@ -98,12 +106,17 @@ function generate({ rehash = false, quiet = false } = {}) {
   }
   lines.push('};');
   lines.push('');
-  lines.push('/** The bundled files (static require()s, so Metro ships exactly these). */');
+  lines.push(nativeModelsDir
+    ? `/** The bundled files: models by file name (in the native app, from ${config.nativeModelsDir}), embedders by require(). */`
+    : '/** The bundled files (static require()s, so Metro ships exactly these). */');
   lines.push('export const BUNDLED_LANGUAGE_FILES: Partial<Record<AppLanguage, { model: any; embedder: any }>> = {');
   for (const id of bundled) {
     lines.push(`  ${q(id)}: {`);
     for (const kind of KINDS) {
-      lines.push(`    ${kind}: require('../../assets/models/${languages[id][kind].file}'),`);
+      const file = languages[id][kind].file;
+      lines.push(kind === 'model' && nativeModelsDir
+        ? `    ${kind}: ${q(file)},`
+        : `    ${kind}: require('../../assets/models/${file}'),`);
     }
     lines.push('  },');
   }

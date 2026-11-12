@@ -37,6 +37,9 @@ import { BUNDLED_LANGUAGE_FILES } from './languagePacks.generated';
 // Hebrew is in neither (hidden; its TTS v1 base voice is non-commercial, never ship or upload it): to bring
 // it back, add it to the JSON with model_v1_hebrew.dm + embedder_he.dm and remove `hidden` in src/appflow.ts.
 
+// pt-BR / pt-PT speaking speed (restored 2026-11-12: lost in the language-pack change, which made every non-English voice throw).
+const BRAZILIAN_SPEAKER_SPEED = 1.0;
+
 // The bundled file, else the downloaded language pack's file, else English (the app downloads the pack
 // before it selects the language, so the fallback means a hidden language like he, or a missing pack).
 function languageFile(kind: 'model' | 'embedder', language: AppLanguage): any {
