@@ -12,6 +12,7 @@ local.config.ts
 assets/models/*.dm
 # ...except the voice encoder voice cloning loads with require() (src/tts/index.ts)
 !assets/models/embedder_en.dm
+!assets/models/embedder_brv1.dm
 assets/models/*.onnx
 old/
 x

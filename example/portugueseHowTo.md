@@ -270,9 +270,14 @@ suba-os e atualize `sha256` e `sizeBytes`.
 - Antes de apagar um arquivo do R2, confirme que nenhum app ainda o lista (RN, Expo e
   Flutter). Uma instalação que já tem o arquivo continua usando.
 
-**Expo e Flutter** levam os mesmos arquivos de inglês e pt-BR (checksums iguais) e oferecem só
-esses dois idiomas, então não têm downloads de pacotes de idioma. Eles listam os mesmos modelos
-do aparelho e baixam os mesmos estados pré-aquecidos.
+**O Expo** funciona do mesmo jeito: tem o seu próprio `expo/language_packs.json` (os mesmos
+arquivos e a mesma pasta no R2, `bundled` = inglês + pt-BR por padrão) e o mesmo gerador. A única
+diferença: um modelo de TTS que vai dentro do app precisa estar em `expo/assets/models/local/`,
+porque o plugin de configuração do Expo (`plugins/withDaVoiceNativeAssets.js`) copia essa pasta
+para o app nativo e o modelo é carregado pelo nome do arquivo (`"nativeModelsDir"` no JSON).
+**O Flutter** leva os mesmos arquivos de inglês e pt-BR (checksums iguais) e oferece só esses
+dois idiomas. Os três listam os mesmos modelos do aparelho e baixam os mesmos estados
+pré-aquecidos.
 
 ## 2. As demos de IA local: o que esperar e como testar
 

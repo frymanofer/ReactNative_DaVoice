@@ -272,9 +272,13 @@ prompt settings it was made with: after changing any of them, make new states on
 - Before deleting a file from R2, make sure no app lists it any more (RN, Expo and Flutter).
   An install that already has a file keeps using it.
 
-**Expo and Flutter** ship the same English and pt-BR files (identical checksums) and offer
-only those two languages, so they have no language-pack downloads. They list the same
-on-device models and download the same pre-warmed states.
+**Expo** works the same way: its own `expo/language_packs.json` (same files and R2 folder,
+`bundled` = English + pt-BR by default) and the same generator. The one difference: a built-in
+TTS model must be in `expo/assets/models/local/`, because Expo's config plugin
+(`plugins/withDaVoiceNativeAssets.js`) copies that folder into the native app and the model is
+loaded by its file name (`"nativeModelsDir"` in the JSON). **Flutter** ships the same English
+and pt-BR files (identical checksums) and offers only those two languages. All three list the
+same on-device models and download the same pre-warmed states.
 
 ## 2. The local AI demos: what to expect and how to test them
 
