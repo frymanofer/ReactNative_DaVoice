@@ -23,6 +23,9 @@ import { getCarState, recordCarAction, updateCar } from './CarState';
 import type { CarState, Level, Seat, WindowPosition } from './CarState';
 // h3 wording (2026-11-10): h2 + window / door positions + set_dual_zone_temperature (Davoice_LLM_Training/tools/make_h3_schemas.py).
 import carToolsH3Json from './carToolDefinitions.h3.json';
+// h3d wording (2026-11-11 night): h3 with corrected descriptions (Davoice_LLM_Training/tools/h3d.py: eta vs range, sunroof open/tilt, airflow,
+// route avoid, places, radio frequency). Same tools / arguments / handlers; the Automotive Agent r5v2d+ was trained with it.
+import carToolsH3dJson from './carToolDefinitions.h3d.json';
 import { adj, be, name, placeName, resolve } from './positions';
 import type { Lang, Name, Obj, Pos } from './positions';
 
@@ -497,18 +500,19 @@ function toTool(t: any): ToolDefinition {
 const ALL = (carToolsJson.tools as any[]).map(toTool);
 const ALL_H2 = (carToolsH2Json.tools as any[]).map(toTool);
 const ALL_H3 = (carToolsH3Json.tools as any[]).map(toTool);
+const ALL_H3D = (carToolsH3dJson.tools as any[]).map(toTool);
 
 /** Which tool descriptions the model sees: 'v1' = the wording ft7c was trained on (carToolDefinitions.json), 'h2' = the same tools
  * without example values (carToolDefinitions.h2.json). A model must get the wording it was trained / benchmarked with
  * (LocalLLMModelConfig.toolWording). */
-export type CarToolWording = 'v1' | 'h2' | 'h3';
+export type CarToolWording = 'v1' | 'h2' | 'h3' | 'h3d';
 
 /** The car tools for Agent.setTools: the VW Brazil demo's (constants.ts LOCAL_LLM_CAR_TOOLS), or the whole catalog. */
 export function carTools(profile: 'vw_demo' | 'all', wording: CarToolWording = 'v1'): ToolDefinition[] {
-  const all = wording === 'h3' ? ALL_H3 : wording === 'h2' ? ALL_H2 : ALL;
+  const all = wording === 'h3d' ? ALL_H3D : wording === 'h3' ? ALL_H3 : wording === 'h2' ? ALL_H2 : ALL;
   if (profile === 'all') return all;
   // each wording's own profile: h3 adds set_dual_zone_temperature; v1 (ft7c, the released fallback) is unchanged
-  const keep = new Set(((wording === 'h3' ? carToolsH3Json : wording === 'h2' ? carToolsH2Json : carToolsJson) as any).profiles.vw_demo as string[]);
+  const keep = new Set(((wording === 'h3d' ? carToolsH3dJson : wording === 'h3' ? carToolsH3Json : wording === 'h2' ? carToolsH2Json : carToolsJson) as any).profiles.vw_demo as string[]);
   return all.filter((t) => keep.has(t.name));
 }
 

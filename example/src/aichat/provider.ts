@@ -17,7 +17,8 @@ import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
 import type { Agent, AgentEvent, AgentHistoryMessage, ToolDefinition, ToolTurnMessage, TurnResult } from 'react-native-davoice-llm';
 import { cancel as cancelGeneration, generateStream, loadState, saveState } from 'react-native-davoice-llm';
 import RNFS from 'react-native-fs';
-import { kvStatePath, stablePromptKey } from '../local_llm/ModelManager';
+import { downloadPrebuiltState, kvStatePath, stablePromptKey } from '../local_llm/ModelManager';
+import { getTTSLanguage } from '../tts';
 import { getLocalAgent } from '../agent/LocalAgent';
 import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
 
@@ -188,7 +189,17 @@ export class LocalLLMProvider implements LLMProvider {
     onWarming?: () => void,
   ): Promise<LocalLLMModelConfig> {
     const model = await getSelectedModel();
-    await ensureModelLoaded(model, this.licenseKey, undefined, onDownloadProgress);
+    // The pre-warmed state of the app's language (model.prebuiltStates) downloads next to the model: one progress bar over both files.
+    const language = getTTSLanguage();
+    const prebuilt = model.prebuiltStates?.[language];
+    const modelBytes = model.sizeBytes ?? 1;
+    const stateBytes = prebuilt?.sizeBytes ?? 0;
+    let modelPart = 0;
+    let statePart = 0;
+    const report = () => onDownloadProgress?.((modelPart * modelBytes + statePart * stateBytes) / (modelBytes + stateBytes));
+    const prebuiltDownload = downloadPrebuiltState(model, language, (f) => { statePart = f; report(); });
+    await ensureModelLoaded(model, this.licenseKey, undefined, (f) => { modelPart = f; report(); });
+    const prebuiltPath = await prebuiltDownload;
     // The system prompt processed at an earlier start (saved below): restored in about a second instead of
     // processing ~3k tokens again (~40 s on the S20's CPU). Only once per load; a broken file is deleted.
     // The prompt first (no engine work): its system part picks the saved state (language, tools, wording; see stablePromptKey).
@@ -198,20 +209,24 @@ export class LocalLLMProvider implements LLMProvider {
     try {
       const warmDate = currentDateText();
       warmPrompt = await (await this.agentFor(model)).call<string>('prompt', { text: 'Hello', history: toAgentHistory(history), date: warmDate });
-      statePath = kvStatePath(model, stablePromptKey(warmPrompt, warmDate));
+      statePath = kvStatePath(model, `${language}-${stablePromptKey(warmPrompt, warmDate)}`);   // language in the name: see downloadPrebuiltState
     } catch (error) {
       console.log('[LocalLLM] warm-up prompt not built early (single state file):', error);
     }
     const stateExists = await RNFS.exists(statePath).catch(() => false);
+    // No state of its own yet: the pre-warmed one (same prompt up to the date line in the cache prompt order).
+    const restorePath = stateExists ? statePath : prebuiltPath;
+    let restoredPrebuilt = false;
     const load = `${model.id}#${nativeLoadCount()}`;
-    if (this.stateRestoredFor !== load && stateExists) {
+    if (this.stateRestoredFor !== load && restorePath) {
       const t0 = Date.now();
       try {
-        const restored = await loadState(statePath);
-        console.log(`[LocalLLM] KV state restored: ${restored} tokens in ${Date.now() - t0} ms`);
+        const restored = await loadState(restorePath);
+        restoredPrebuilt = !stateExists;
+        console.log(`[LocalLLM] KV state restored${restoredPrebuilt ? ' (pre-warmed)' : ''}: ${restored} tokens in ${Date.now() - t0} ms`);
       } catch (error) {
         console.log('[LocalLLM] KV state not usable, deleted:', error);
-        await RNFS.unlink(statePath).catch(() => undefined);
+        await RNFS.unlink(restorePath).catch(() => undefined);
       }
     }
     this.stateRestoredFor = load;
@@ -240,7 +255,8 @@ export class LocalLLMProvider implements LLMProvider {
         console.log(`[LocalLLM] warm-up answered (${tokens} tokens) in ${warmMs} ms`);
         // Save the processed prompt for the next start: when there is no saved state yet, or the prompt changed enough
         // that the warm-up had to do real work (new tools, persona, language). Not every start: the file is ~380 MB.
-        if (!stateExists || warmMs > 5000) {
+        // A pre-warmed state that fit (a fast warm-up) is not copied: it stays the state of this prompt.
+        if ((!stateExists && !(restoredPrebuilt && warmMs <= 5000)) || warmMs > 5000) {
           const t0 = Date.now();
           await saveState(statePath)
             .then((n) => console.log(`[LocalLLM] KV state saved: ${n} tokens in ${Date.now() - t0} ms`))

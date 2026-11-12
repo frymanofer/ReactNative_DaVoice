@@ -96,7 +96,12 @@ export async function getSelectedModel(): Promise<LocalLLMModelConfig> {
   const demo = r.demo ?? 'car';
   // each demo has its own model (its own pick, else the demo's default model)
   const id = r.selectedByDemo?.[demo] ?? LOCAL_LLM_DEMO_DEFAULT_MODEL[demo] ?? r.selectedModelId;
-  return (await getModel(id)) ?? BUILTIN_LOCAL_LLM_MODELS.find((m) => m.id === LOCAL_LLM_DEFAULT_MODEL)!;
+  // A model that is no longer listed (e.g. a removed older version) -> the demo's own default, then the app default.
+  return (
+    (await getModel(id)) ??
+    (await getModel(LOCAL_LLM_DEMO_DEFAULT_MODEL[demo])) ??
+    BUILTIN_LOCAL_LLM_MODELS.find((m) => m.id === LOCAL_LLM_DEFAULT_MODEL)!
+  );
 }
 
 /** Selects a model for the current demo. */

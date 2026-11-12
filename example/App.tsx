@@ -115,6 +115,14 @@ import {
 import { getTTSVoiceConfig, playWakewordIntroSpeech, setTTSLanguage, SPEAKER } from './src/tts';
 import { loadVoiceAbilities, STYLE_TAG_HINT, voiceStyleExamples } from './src/tts/voiceStyles';
 import {
+  cancelLanguagePackDownload,
+  downloadLanguagePack,
+  isDownloadableLanguage,
+  isLanguagePackReady,
+  languagePackSizeBytes,
+  type LanguagePackProgress,
+} from './src/tts/languagePacks';
+import {
   attachKeywordListenerOnce,
   AudioPermissionComponent,
   captureWakewordDetection,
@@ -333,6 +341,58 @@ function App(): React.JSX.Element {
     setTtsVoiceChoice(defaultVoice);
     selectedTTSModelRef.current = getTTSVoiceConfig(defaultVoice, useTTS2Only.current).model;
     setAppLanguage(language);
+  }
+
+  // Language packs (2026-11-12): only English and Brazilian Portuguese are bundled. Choosing another
+  // language shows the download screen until its pack (TTS model + voice embedder) is on the device;
+  // only then is the language selected and the app starts (src/tts/languagePacks.ts).
+  const [languagePackDownload, setLanguagePackDownload] = useState<{
+    language: AppLanguage;
+    progress: LanguagePackProgress | null;
+    error: string | null;
+  } | null>(null);
+  const languagePackDownloadRef = useRef<AppLanguage | null>(null);
+  const [downloadedLanguagePacks, setDownloadedLanguagePacks] = useState<Partial<Record<AppLanguage, boolean>>>({});
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const ready: Partial<Record<AppLanguage, boolean>> = {};
+      for (const { id } of APP_LANGUAGES) {
+        if (isDownloadableLanguage(id)) ready[id] = await isLanguagePackReady(id).catch(() => false);
+      }
+      if (alive) setDownloadedLanguagePacks(ready);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  async function selectAppLanguage(language: AppLanguage) {
+    if (!isDownloadableLanguage(language) || (await isLanguagePackReady(language).catch(() => false))) {
+      chooseAppLanguage(language);
+      return;
+    }
+    startLanguagePackDownload(language);
+  }
+  function startLanguagePackDownload(language: AppLanguage) {
+    languagePackDownloadRef.current = language;
+    setLanguagePackDownload({ language, progress: null, error: null });
+    const update = (patch: { progress?: LanguagePackProgress; error?: string }) =>
+      setLanguagePackDownload((current) => (current && current.language === language ? { ...current, ...patch } : current));
+    downloadLanguagePack(language, (progress) => update({ progress }))
+      .then(() => {
+        if (languagePackDownloadRef.current !== language) return; // the user went back meanwhile
+        languagePackDownloadRef.current = null;
+        setDownloadedLanguagePacks((ready) => ({ ...ready, [language]: true }));
+        setLanguagePackDownload(null);
+        chooseAppLanguage(language);
+      })
+      .catch((e) => update({ error: String(e?.message ?? e) }));
+  }
+  function leaveLanguagePackDownload() {
+    const language = languagePackDownloadRef.current;
+    languagePackDownloadRef.current = null;
+    if (language) cancelLanguagePackDownload(language);
+    setLanguagePackDownload(null);
   }
 
   // permissions + appstate
@@ -2290,6 +2350,56 @@ function App(): React.JSX.Element {
     );
   };
 
+  // A language that isn't bundled: its download screen, until the language pack is on the device.
+  if (!appLanguage && languagePackDownload) {
+    const { language, progress, error } = languagePackDownload;
+    const label = APP_LANGUAGES.find((entry) => entry.id === language)?.label ?? language;
+    const total = progress?.bytesTotal || languagePackSizeBytes(language);
+    const done = Math.min(progress?.bytesDone ?? 0, total);
+    const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+    const mb = (bytes: number) => Math.round(bytes / 1e6);
+    const status = error
+      ? 'Download failed'
+      : progress?.stage === 'verify'
+        ? 'Checking the download…'
+        : progress
+          ? `Downloading… ${pct}%`
+          : 'Starting the download…';
+    return renderPromptScreen(
+      <View style={styles.svPromptCard}>
+        <Text style={styles.svPromptTitle}>Downloading language pack</Text>
+        <Text style={styles.svPromptSubtitle}>{label}</Text>
+        <Text style={styles.svPromptSubtitle}>
+          The voices for this language are downloaded once ({mb(total)} MB). The app starts when the download is complete.
+        </Text>
+        <View style={styles.ttsOptionSection}>
+          <Text style={styles.speechSentenceText}>{status}</Text>
+          <Text style={styles.speechSentenceLabel}>{`${mb(done)} / ${mb(total)} MB`}</Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${pct}%` }]} />
+          </View>
+          {error && <Text style={[styles.svPromptSubtitle, styles.loadingError]}>{error}</Text>}
+        </View>
+        <View style={styles.ttsTestActionRow}>
+          {error && (
+            <TouchableOpacity
+              style={[styles.ttsSpeakButton, styles.aiChatResetButton]}
+              activeOpacity={0.7}
+              onPress={() => startLanguagePackDownload(language)}>
+              <Text style={styles.ttsSpeakButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
+            activeOpacity={0.7}
+            onPress={leaveLanguagePackDownload}>
+            <Text style={styles.svButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>,
+    );
+  }
+
   // First of all: the language.
   if (!appLanguage) {
     return renderPromptScreen(
@@ -2304,8 +2414,13 @@ function App(): React.JSX.Element {
               key={language.id}
               style={[styles.svButton, styles.cloneWideButton, styles.ttsOptionButtonIdle]}
               activeOpacity={0.7}
-              onPress={() => chooseAppLanguage(language.id)}>
-              <Text style={styles.svButtonText}>{language.label}</Text>
+              onPress={() => selectAppLanguage(language.id)}>
+              <Text style={styles.svButtonText}>
+                {language.label}
+                {isDownloadableLanguage(language.id) && !downloadedLanguagePacks[language.id]
+                  ? `  ·  ⬇ ${Math.round(languagePackSizeBytes(language.id) / 1e6)} MB`
+                  : ''}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>

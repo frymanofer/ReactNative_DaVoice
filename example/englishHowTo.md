@@ -1,21 +1,22 @@
 # How-to: the DaVoice example app (React Native)
 
 > For: another Claude agent that will use, test or extract parts of this example app
-> (`example/`). Everything here was checked against the code (last update: 2026-11-11,
+> (`example/`). Everything here was checked against the code (last update: 2026-11-12,
 > `react-native-davoice-llm` 1.0.13). File paths are relative to `example/`. A Brazilian
 > Portuguese version is in `portugueseHowTo.md`.
 
 > **Status: test models, still in training.** The car demo's on-device model ("DaVoice
-> Automotive Agent 0.6B", checkpoint `ft7f2_it900`) is **a test model, not a finished
-> product**:
-> - on a Galaxy S20, with the app's car tools, it gets about **78% of car commands exactly
->   right** (tool and arguments), in Brazilian Portuguese as well;
-> - on our newer, harder held-out test set it gets about **59%** of Brazilian Portuguese
->   commands exactly right.
+> Automotive Agent 0.6B", checkpoint `r4b_it100`) is **a test model, not a finished
+> product**. On our frozen automotive test set, with the same core and settings as the app
+> (measured on a Mac; the Galaxy S20 test is pending):
+> - it gets about **82% of Brazilian Portuguese commands exactly right** (tool and arguments;
+>   the earlier `ft7f2_it900`: 68%), and picks the right tool about **90%** of the time;
+> - in our safety tests it ran **no opposite action** ("open" for "close") and **no unsupported
+>   action**.
 >
-> It sometimes confuses a window with a door, declines a command it could do, or (rarely) runs
-> a wrong action. That is why every car action is **simulated** and checked by the app
-> (guards, see 2.3). A dedicated Automotive Agent is being trained (Brazilian Portuguese
+> It still sometimes picks a wrong value or a related tool (range vs. arrival time, sunroof
+> open vs. tilt), or asks when it could act. That is why every car action is **simulated**
+> and checked by the app (guards, see 2.3). A dedicated Automotive Agent is being trained (Brazilian Portuguese
 > first); new checkpoints replace this one only after they pass the safety tests. Treat the
 > results as a preview of the voice pipeline (wake word, speaker verification, STT/TTS,
 > on-device agent), not as final accuracy.
@@ -37,7 +38,9 @@ Packages used (`package.json`):
 | `react-native-wakeword` | wake word + speaker verification (onboarding and verification) |
 | `react-native-davoice` | STT + TTS (`Speech`), voice cloning, speaker filter on STT |
 | `react-native-davoice-llm` (1.0.13) | on-device LLM, `Agent` (a whole assistant turn), tools, call guards |
-| `react-native-fs` | files: voice signature, downloaded models, saved prompt states, the agent's database |
+| `react-native-fs` | files: voice signature, downloaded models and language packs, saved prompt states, the agent's database |
+
+What is built into the app and what is downloaded (and how to change it): see 1.5.
 
 ---
 
@@ -55,7 +58,9 @@ npx react-native run-android     # or: npx react-native run-ios
 - In a *debug* build the JavaScript comes from Metro (`npx react-native start`). On Android
   with the phone on USB: `adb reverse tcp:8081 tcp:8081`.
 - **Android release build:** `cd android && ./gradlew :app:assembleRelease`.
-  - `android/gradle.properties` gives Gradle 8 GB, which packaging the ~1.5 GB APK needs.
+  - `android/gradle.properties` gives Gradle 8 GB for packaging the APK.
+  - Only English and Brazilian Portuguese voices are inside the APK; the other languages are
+    downloaded when chosen (about 1.4 GB less in the APK, see 1.5).
   - `android/app/build.gradle` rebuilds the JS bundle when only the agent packs (`agent/`,
     `agent_automotive/`) or the tool JSON in `src/` change.
 - JS logs on Android: `adb logcat | grep ReactNativeJS`.
@@ -65,21 +70,25 @@ npx react-native run-android     # or: npx react-native run-ios
 ### 1.2 Startup flow
 
 1. **Language.** The first screen asks for the language: English, Português do Brasil,
-   Português de Portugal, German, Spanish, French, Italian or Dutch.
+   Português de Portugal, German, Greek, Spanish, French, Italian, Dutch, Danish or Swedish.
+   - **English and Brazilian Portuguese are built into the app.** Any other language is
+     downloaded the first time it is chosen: its button shows "⬇ N MB", and choosing it opens
+     the **Downloading language pack** screen (progress, MB, Retry, Back). The app continues
+     only when the download is complete. Details and configuration: 1.5.
    - Hebrew is supported in the code but hidden from this screen (`hidden: true` in
-     `APP_LANGUAGES`). Its TTS files are not bundled: to bring it back, restore the two
-     `require()`s marked in `src/tts/index.ts` and remove `hidden`.
+     `APP_LANGUAGES`), and it is neither built in nor downloadable (its voice is for
+     non-commercial use only).
    - The choice sets:
-     - the TTS model (e.g. `assets/models/model_ex2_rich_kate.dm` for English,
-       `model_ex2_portuguese_brv1.dm` for pt-BR);
-     - the voice-cloning encoder (`assets/models/embedder_*.dm`);
+     - the TTS model (e.g. `model_ex2_rich_kate.dm` for English,
+       `model_ex2_portuguese_brv1.dm` for pt-BR; built in or downloaded, see 1.5);
+     - the voice-cloning encoder (`embedder_*.dm`, which goes with its model);
      - the STT locale (`en-US`, `pt-BR`, ...);
      - the language the LLM replies in;
      - the agent pack's language (`agent/` or `agent/pt-BR/`, and the same under
        `agent_automotive/`).
 
-   Configuration: `APP_LANGUAGES` in `src/appflow.ts` and the model maps in
-   `src/tts/index.ts`.
+   Configuration: `APP_LANGUAGES` in `src/appflow.ts` (the languages offered) and
+   `language_packs.json` (the files of each language, built in or downloaded; see 1.5).
 2. **Microphone permission.** Accept.
 3. **Loading.** The app loads the wake word and STT/TTS. On Android "Preparing voice
    demo..." can show for a few seconds.
@@ -195,6 +204,78 @@ Say "Hey Coach", wait for the app to listen, then say a command.
 
 ---
 
+### 1.5 What ships in the app and what is downloaded
+
+Only what every user needs is inside the app. The large files are downloaded the first time
+they are needed (never at install) from DaVoice's Cloudflare R2
+(`https://pub-27f94b1602c647ab95a601086cf52820.r2.dev`), and each one is checked by sha256.
+
+| What | Where | When |
+|---|---|---|
+| Wake word (`hey_coach_model_28_22012026b.dm`), speaker verification (`sv.dm`) | in the app | always |
+| TTS model + voice-cloning encoder for **English** and **Brazilian Portuguese** (about 167 MB per language) | in the app (default, set in `language_packs.json`) | always |
+| Agent packs (`agent/`, `agent_automotive/`), car tools JSON, narration | in the app | always |
+| TTS model + encoder of every other language (pt-PT, de, es, fr, it, nl, da, sv, el; 136–168 MB each) | R2 `language-packs/<file>` → phone `Documents/language_packs/<language>/` | the first time the language is chosen |
+| On-device models (GGUF, 382 MB each): Automotive Agent `auto5_r4b_it100`, Personal Agent `ft7f2_it900` | R2 `agent-llm/<file>` → phone `Documents/local_llm/models/` | the first time the demo opens |
+| Pre-warmed state of the Automotive Agent, English or pt-BR (about 400 MB) | R2 `agent-llm/prewarm/<file>` → next to the model | with the model, for the app's language |
+
+**Configuration of the language files: `language_packs.json`** (in `example/`):
+
+```json
+{
+  "baseUrl": "https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/language-packs",
+  "bundled": ["en", "pt-BR"],
+  "languages": {
+    "fr": {
+      "model":    { "file": "model_ex2_french.dm", "bytes": 144455696, "sha256": "7c8044b4…" },
+      "embedder": { "file": "embedder_fr.dm",      "bytes": 22320622,  "sha256": "31d7787d…" }
+    }
+  }
+}
+```
+
+- `bundled`: the languages built into the app. Every other language in `languages` is
+  downloaded from `baseUrl/<file>`.
+  - To build a language in, add its id to `bundled`. Its two files must be in
+    `assets/models/`. Each one adds about 136–168 MB to the app.
+  - To make a language a download, remove it from `bundled`. Its files must be on R2 under
+    `language-packs/` with the same names.
+- Nothing else needs editing. Metro only ships files that appear in a static `require()`, so
+  the app can't read the JSON at runtime. Instead, `metro.config.js` runs
+  `scripts/generate-language-packs.js` on every bundle (dev server, Android release, iOS). It
+  writes `src/tts/languagePacks.generated.ts` with the `require()`s of the bundled files and
+  the file table of all languages.
+  - A wrong config (unknown language, missing file, wrong size) stops the build with a
+    message.
+  - Run it by hand: `node scripts/generate-language-packs.js`.
+  - After replacing a file in `assets/models/`, run it with `--rehash` (it updates `bytes`
+    and `sha256`), then upload the new file to R2 with the same name.
+- Code:
+  - `src/tts/languagePacks.ts`: download (to a temporary file, then sha256, then moved into
+    place), free-space check, cancel, and a check on start (file present with the right size);
+  - `src/tts/index.ts`: `languageFile()` picks the built-in file, else the downloaded one;
+  - `App.tsx`: `selectAppLanguage` and the download screen.
+- The speech library takes a downloaded file's absolute path the same way as a built-in
+  asset (Android and iOS).
+
+**The on-device models and pre-warmed states** are listed in `src/local_llm/constants.ts`
+(`url`, `sizeBytes`, `sha256`, and `prebuiltStates` per language). The demo's loading screen
+downloads the model and the pre-warmed state of the app's language together, with one
+progress bar (2.1). A pre-warmed state only fits the exact model file, agent pack, tools and
+prompt settings it was made with: after changing any of them, make new states on a phone
+(the app saves one after its first warm-up), upload them, and update their `sha256` and
+`sizeBytes`.
+
+**Hosting rules:**
+- Upload first, then check every public URL (HTTP 200, the download's sha256), and only then
+  put a URL into the app. Never guess a URL.
+- Before deleting a file from R2, make sure no app lists it any more (RN, Expo and Flutter).
+  An install that already has a file keeps using it.
+
+**Expo and Flutter** ship the same English and pt-BR files (identical checksums) and offer
+only those two languages, so they have no language-pack downloads. They list the same
+on-device models and download the same pre-warmed states.
+
 ## 2. The local AI demos: what to expect and how to test them
 
 ### 2.1 The two demos, their models and the loading screen
@@ -209,21 +290,24 @@ Say "Hey Coach", wait for the app to listen, then say a command.
 
 - **Implementation:** `src/local_llm/demo.ts` holds the current demo, and
   `LOCAL_LLM_DEMO_DEFAULT_MODEL` in `src/local_llm/constants.ts` sets each demo's model.
-  - Car demo: **DaVoice Automotive Agent 0.6B (r4b)**, `LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`
-    (checkpoint `r4b_it100`, about 380 MB, downloaded once and checked by sha256).
-  - Calories demo: the Personal Agent, still `ft7f2_it900`.
+  - Car demo: **DaVoice Automotive Agent 0.6B**, `LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`
+    (checkpoint `r4b_it100`, about 380 MB, downloaded once and checked by sha256), with its
+    pre-warmed state for English or Brazilian Portuguese (about 400 MB, downloaded with the
+    model), so the first start skips the warm-up.
+  - Calories demo: the Personal Agent, `ft7f2_it900`.
+  - The RN example, the Expo app and the Flutter example list the same models.
 - **Other models:** each demo remembers its own pick from **Change** (model picker,
-  `src/local_llm/ModelPicker.tsx`). The picker also lists ft7e (the production default,
-  `LOCAL_LLM_DEFAULT_MODEL`), ft7c (fallback), the experimental it900 entry, the older
-  Automotive Agent `ft7f2_it900`, the experimental C3 and A checkpoints (backups: not hosted,
-  only when the file is copied into the models folder), and larger general models (Qwen2.5
-  1.5B/3B, Gemma 3n). The larger ones are slower.
+  `src/local_llm/ModelPicker.tsx`). The picker also lists the experimental C3 and A
+  checkpoints (backups: not hosted, only when the file is copied into the models folder) and
+  larger general models (Qwen2.5 1.5B/3B, Gemma 3n). The larger ones are slower.
+  - The older ft7c, ft7e and ft7f2 Automotive entries were removed. A phone that had one
+    picked falls back to its demo's model.
   - Only one model is in memory at a time: picking another one replaces it.
   - A demo's earlier pick wins over a new default: on a phone where another model was picked
-    in the car demo, pick r4b in **Change** (or clear the app's data).
+    in the car demo, pick the Automotive Agent in **Change** (or clear the app's data).
 - **Loading screen:** after you pick a demo, the app shows its own loading screen with
   three steps until the model is ready:
-  1. Download (progress bar);
+  1. Download (progress bar; the model and, if it has one, its pre-warmed state, 1.5);
   2. Load into memory;
   3. Warm up.
 
@@ -236,17 +320,22 @@ Say "Hey Coach", wait for the app to listen, then say a command.
   - Reset Chat and Back.
 - **Warm-up and the saved state:** the warm-up processes the system prompt (persona +
   tools: about 3,100 tokens for the car demo and about 4,000 for calories).
-  - **The first time** for each demo and language it takes about **30–40 s** on a Galaxy
-    S20 (CPU). The app then **saves that processed prompt** (`*.kvstate` in the models
-    folder, about 435 MB) with `saveState` from `react-native-davoice-llm`.
+  - **Car demo, English or pt-BR: pre-warmed.** The Automotive Agent comes with this
+    processed prompt already made (downloaded with the model, 1.5), so even the first start
+    restores it. Measured on the S20: restore 0.23 s, first answer 0.34 s, instead of a
+    24.6 s warm-up. It works because the model uses `promptOrder: 'cache'` (the date comes
+    after the tools, so the saved prompt fits every day).
+  - **Otherwise, the first time** for each demo and language it takes about **30–40 s** on a
+    Galaxy S20 (CPU). The app then **saves that processed prompt** (`*.kvstate` in the
+    models folder, about 435 MB) with `saveState` from `react-native-davoice-llm`.
   - **Afterwards** the state is restored (`loadState`) in **under a second**, and "Ready"
     comes right away. Measured on the S20: restore 0.7–0.9 s, warm-up 0.5–0.6 s.
   - States are kept **per prompt** (demo, language, tools): the newest 2 per model file.
     Switching demos is fast after each demo's first warm-up.
-  - A new day still pays part of the warm-up, because the date sits near the top of the
-    prompt.
-  - Code: `warmUp` in `src/aichat/provider.ts`; `kvStatePath` and `stablePromptKey` in
-    `src/local_llm/ModelManager.ts`.
+  - With the trained prompt order (the Personal Agent), a new day still pays part of the
+    warm-up, because the date sits near the top of the prompt.
+  - Code: `warmUp` in `src/aichat/provider.ts`; `kvStatePath`, `stablePromptKey` and
+    `downloadPrebuiltState` in `src/local_llm/ModelManager.ts`.
 
 ### 2.2 How a turn works
 
@@ -381,7 +470,7 @@ Say "Hey Coach", wait for the app to listen, then say a command.
    - `h3` (`src/car/carToolDefinitions.h3.json`: positions + dual zone, generated by
      `Davoice_LLM_Training/tools/make_h3_schemas.py`);
    - `h2`;
-   - `v1` (the original wording, for the old ft7c).
+   - `v1` (the original wording of the first models).
 5. **Conversation log:**
    - debug build: `adb shell run-as com.exampleapp cat files/davoice_chat.log`;
    - release build: `adb logcat | grep DavoiceChat` (same content).
@@ -563,12 +652,16 @@ and use your own license. The `src/` modules were split out of `App.tsx` exactly
   - `src/stt/index.ts`: result handlers, merging partial/final text;
   - `src/tts/index.ts`: model per language, voices, speeds;
   - `src/tts/voiceClone.ts`: voice cloning.
-- **Assets** (`require` in JS, through Metro; `metro.config.js` already accepts `.dm`):
-  - TTS: `assets/models/model_ex2_rich_kate.dm` (English),
-    `model_ex2_portuguese_brv1.dm` (pt-BR, about 143 MB), one per language;
-  - voice cloning: `assets/models/embedder_en.dm`, `embedder_brv1.dm`, ...
-  - Every `require()` of a `.dm` file ships it in the app, even if that code never runs.
-    Remove the `require()` of a language you don't offer (that's how Hebrew is left out).
+- **Assets:** one TTS model and one voice-cloning encoder per language, built in or
+  downloaded (1.5):
+  - TTS: `model_ex2_rich_kate.dm` (English), `model_ex2_portuguese_brv1.dm` (pt-BR, about
+    143 MB), ...;
+  - voice cloning: `embedder_en.dm`, `embedder_brv1.dm`, ...
+  - Every `require()` of a `.dm` file ships it in the app, even if that code never runs. In
+    this example the `require()`s are generated from `language_packs.json`; don't add one by
+    hand.
+  - `Speech.initAll` and `createVoiceClone` take either a `require()` or a file path, so a
+    downloaded file works the same way (copy `src/tts/languagePacks.ts` for the download).
 - **Minimal API:**
   ```ts
   import Speech from 'react-native-davoice/speech';
@@ -648,7 +741,8 @@ and use your own license. The `src/` modules were split out of `App.tsx` exactly
   sha256 (the example already does). Fine-tuned models need the same `chatTemplate`
   (`qwen3`) and the entry's settings (`usesRouter: false`, `modelTools: true`,
   `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`; for the
-  Automotive Agent also `historyAsRun: true` and `guidedToolCalls: true`). `provider.ts` sends
+  Automotive Agent also `historyAsRun: true`, `guidedToolCalls: true` and `promptOrder:
+  'cache'`, plus its `prebuiltStates`). `provider.ts` sends
   them to `agent.configure` (`historyAsRun`, `guidedToolCalls`, `promptOrder`, and the
   `guards`, including `followUp`, and `dualZone` from 1.0.14).
 - **New tools:** a small model depends heavily on the description text. Keep descriptions
@@ -660,10 +754,13 @@ and use your own license. The `src/` modules were split out of `App.tsx` exactly
 
 ## Quick test checklist
 
-1. Install and run the app (1.1); choose a language.
+1. Install and run the app (1.1); choose a language. Also try a language that isn't built in
+   (e.g. French): the download screen must show progress, and the app continues only when
+   the download is complete (1.5). The second time, no download.
 2. Pick a voice; **create the voice signature** (5 sentences); say **"Hey Coach"**.
-3. Choose **Local AI · Car demo** → wait for the loading screen (about 30–40 s the first
-   time, about 1 s afterwards). General questions get the "set up a remote model" message
+3. Choose **Local AI · Car demo** → wait for the loading screen. The first time it downloads
+   the model and its pre-warmed state (about 780 MB), then is ready in about a second (the
+   calories demo: about 30–40 s the first time, about 1 s afterwards). General questions get the "set up a remote model" message
    (see 2.2).
 4. Try the commands in 1.4. Check the car card (tool and exact arguments) and that the
    spoken sentence matches what happened.

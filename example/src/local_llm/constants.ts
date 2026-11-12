@@ -9,21 +9,10 @@ export const LOCAL_LLM_E2B: ModelId = 'gemma-3n-e2b-it';
 export const LOCAL_LLM_E4B: ModelId = 'gemma-3n-e4b-it';
 export const LOCAL_LLM_QWEN25_1_5B: ModelId = 'qwen2.5-1.5b-instruct';
 export const LOCAL_LLM_QWEN25_3B: ModelId = 'qwen2.5-3b-instruct';
-/** VW Brazil fallback model (2026-11-09): ft7c at step 750 (Qwen3-0.6B fine-tuned for the agent + automotive pt-BR). The default until
- * 2026-11-10, now the selectable fallback. (The ft3 / ft6 DaVoice Agent entries were removed 2026-11-09: their files were deleted from R2.) */
-export const LOCAL_LLM_DAVOICE_AGENT_VW_DEMO: ModelId = 'davoice-agent-qwen3-0.6b-vw-demo-ft7c-it750';
-/** VW demo model, THE DEFAULT since 2026-11-10 (user decision): ft7e at step 600 with the h2 tool wording and the call guards on
- * (frozen-binary benchmark: pt-BR VW 74/106 executed correctly vs ft7c 66/106, unsupported 16/16, opposite 0). ft7c stays in the
- * picker as the fallback. Car actions stay simulated. */
-export const LOCAL_LLM_DAVOICE_AGENT_VW_FT7E: ModelId = 'davoice-agent-qwen3-0.6b-vw-demo-ft7e-it600';
-/** EXPERIMENTAL (2026-11-10, user: selectable, clearly marked, NOT the default, NOT safety-qualified): ft7f2 at step 900. Better VW pt-BR
- * and multi-turn than ft7e on the S20 (103/132 vs 81/132) but it fails the safety gate on the full car catalog (opposite 1 vs 0, incorrect
- * 53 vs limit 51). Car actions stay simulated. */
-export const LOCAL_LLM_DAVOICE_AGENT_VW_FT7F2_EXP: ModelId = 'davoice-agent-qwen3-0.6b-vw-ft7f2-it900-experimental';
-/** The two demo models (2026-11-10, two-model strategy). Today both are ft7f2_it900 (one shared file): the best automotive checkpoint on
- * the S20 and the provisional Personal Agent baseline (user decision). Each gets its own replacement as its training finishes. */
+/** The latest models (2026-11-12, user: every app uses the latest): the Personal Agent (ft7f2_it900) for the calories demo and the
+ * Automotive Agent r4b_it100 (below) for the car demo. The older ft7c / ft7e VW demo entries and the ft7f2 Automotive entry were removed
+ * (their R2 files can go); a phone that had one selected falls back to its demo's default (ModelRegistry.getSelectedModel). */
 export const LOCAL_LLM_DAVOICE_PERSONAL: ModelId = 'davoice-personal-agent-0.6b';
-export const LOCAL_LLM_DAVOICE_AUTOMOTIVE: ModelId = 'davoice-automotive-agent-0.6b';
 /** EXPERIMENTAL Automotive Agent candidates (2026-11-11, user: C3 preferred, A fallback; both experimental until the full in-app test,
  * NOT defaults). Same h3 tools, guards correcting + the follow-up guard (historyAsRun), guided tool calls. Not hosted: the files are
  * sideloaded into the models folder for the test (an existing file is never downloaded). Car actions stay simulated. */
@@ -59,26 +48,10 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     isCustom: false,
   },
   {
-    // The car demo's model: the simulated VW car's tools (h3: positions + dual zone), guards correcting / blocking.
-    id: LOCAL_LLM_DAVOICE_AUTOMOTIVE,
-    displayName: 'DaVoice Automotive Agent 0.6B',
-    ...FT7F2_IT900_FILE,
-    contextSize: 8192,
-    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
-    remoteAssistant: true,
-    usesRouter: false,
-    modelTools: true,
-    temperature: 0,
-    relevantMemory: false,
-    toolWording: 'h3',
-    callGuards: 'correct',
-    isCustom: false,
-  },
-  {
     // Automotive Agent r4b_it100: the car demo's model (see LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B). C3 below is a backup, explicit pick only.
     // URL uploaded by the user; verified 2026-11-11: HTTP 200, 381,565,920 bytes, sha256 of the download = the training artifact's.
     id: LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B,
-    displayName: 'DaVoice Automotive Agent 0.6B (r4b)',
+    displayName: 'DaVoice Automotive Agent 0.6B',
     filename: 'davoice-automotive-qwen3-0.6b-r4b-it100-q4_0.gguf',
     url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/auto5_r4b_it100-q4_0.gguf',
     sizeBytes: 381_565_920,
@@ -94,6 +67,14 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     callGuards: 'correct',
     historyAsRun: true,
     guidedToolCalls: true,
+    // date after the tools: a saved / pre-warmed state stays valid on every day (g7: acceptance 79.5 vs 82.0 in the trained order; 0 opposite / unsupported)
+    promptOrder: 'cache',
+    // Pre-warmed states (made 2026-11-11 on the S20 by this app: r4b + cache order + agent_automotive pack + h3 vw_demo tools).
+    // url: the user's R2 upload (verified 2026-11-12: HTTP 200, size + sha256 of the download match). Regenerate whenever the model, pack, tools or core prompt text change.
+    prebuiltStates: {
+      en: { url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/prewarm/r4b_it100_prewarm_en.kvstate', sha256: '90685bef9146b3a796b94d5ce5534b91002882cc4abe49400f1157ab7c35f3ef', sizeBytes: 398_482_405 },
+      'pt-BR': { url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/prewarm/r4b_it100_prewarm_pt-BR.kvstate', sha256: '68502883de5e13438dfb116d68be2595d2c97fa6843f75955582be3e85f9990a', sizeBytes: 401_464_709 },
+    },
     isCustom: false,
   },
   {
@@ -136,70 +117,6 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     callGuards: 'correct',
     historyAsRun: true,
     guidedToolCalls: true,
-    isCustom: false,
-  },
-  {
-    // ft7e_it600 (ft7c + h1-worded automotive round + general replay): the default, see LOCAL_LLM_DAVOICE_AGENT_VW_FT7E.
-    id: LOCAL_LLM_DAVOICE_AGENT_VW_FT7E,
-    displayName: 'DaVoice Agent 0.6B (VW demo ft7e)',
-    filename: 'davoice-agent-qwen3-0.6b-vw-demo-ft7e-it600-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft7e_it600-q4_0.gguf',
-    contextSize: 8192,
-    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
-    sizeBytes: 381_565_920,
-    sha256: 'e9378c83492dcf933ba0f73b1d1acf4d96a58a5a1508d83443cabc607ec4e443',
-    remoteAssistant: true,
-    usesRouter: false,
-    modelTools: true,
-    temperature: 0,
-    relevantMemory: false,
-    // h3 (2026-11-10): the benchmarked h2 wording + window / door positions + set_dual_zone_temperature; call guards correcting / blocking.
-    toolWording: 'h3',
-    callGuards: 'correct',
-    isCustom: false,
-  },
-  {
-    // ft7f2_it900: EXPERIMENTAL, see LOCAL_LLM_DAVOICE_AGENT_VW_FT7F2_EXP. Same setup as ft7e for a fair comparison.
-    id: LOCAL_LLM_DAVOICE_AGENT_VW_FT7F2_EXP,
-    displayName: 'DaVoice Agent 0.6B (VW ft7f2 it900, EXPERIMENTAL)',
-    filename: 'davoice-agent-qwen3-0.6b-vw-ft7f2-it900-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft7f2_it900-q4_0.gguf',
-    contextSize: 8192,
-    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
-    sizeBytes: 381_565_920,
-    sha256: '2826a24b9391a40c2933370a15deb342d530ddee904687c649a898738bdbcf6b',
-    remoteAssistant: true,
-    usesRouter: false,
-    modelTools: true,
-    temperature: 0,
-    relevantMemory: false,
-    toolWording: 'h3',
-    callGuards: 'correct',
-    isCustom: false,
-  },
-  {
-    // ft7c_it750 (universal Qwen3-0.6B + VW automotive): decides every turn itself (tools: car, calories, memory, web search;
-    // asks for a missing value; declines what it can't do) and hands knowledge / small talk to layer 2 (LOCAL_LLM_LAYER2).
-    // Car actions stay simulated (src/car). Hosted on DaVoice's Cloudflare R2 (sha256 checked on download).
-    id: LOCAL_LLM_DAVOICE_AGENT_VW_DEMO,
-    displayName: 'DaVoice Agent 0.6B (VW demo ft7c fallback)',
-    filename: 'davoice-agent-qwen3-0.6b-vw-demo-ft7c-it750-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/ft7c_it750-q4_0.gguf',
-    contextSize: 8192,
-    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
-    sizeBytes: 381_565_920,
-    sha256: '136a03cd21ce1d4a8f943c1c5ab39006fece4ede3c1d8509b760de7c88e49111',
-    remoteAssistant: true,
-    // Trained to decide every turn itself: no intent router.
-    usesRouter: false,
-    // Trained to call web_search for current facts and get_time for the time.
-    modelTools: true,
-    temperature: 0,
-    // Car commands: no saved facts attached (see LocalLLMModelConfig.relevantMemory).
-    relevantMemory: false,
-    // The wording ft7c was trained on; guards only logged (behaviour unchanged: the fallback stays as released).
-    toolWording: 'v1',
-    callGuards: 'shadow',
     isCustom: false,
   },
   {
@@ -256,15 +173,14 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
   },
 ];
 
-// The VW demo DaVoice Agent ft7e (382 MB; 2026-11-10, was ft7c): smallest and fastest, the tool actions on the phone, layer 2 for the rest. The others stay in
-// the picker as backups (they answer everything on the phone). Changing this switches every install to the new default once (see
-// ModelRegistry.ts); the user can pick another model afterwards.
-export const LOCAL_LLM_DEFAULT_MODEL: ModelId = LOCAL_LLM_DAVOICE_AGENT_VW_FT7E;
+// The default outside the demos' own defaults (2026-11-12: the Personal Agent; was ft7e, removed). Changing this switches every install to
+// the new default once (see ModelRegistry.ts); the user can pick another model afterwards.
+export const LOCAL_LLM_DEFAULT_MODEL: ModelId = LOCAL_LLM_DAVOICE_PERSONAL;
 
 /** Each Local AI Chat demo's model until the user picks another one in that demo (src/local_llm/demo.ts). */
 export const LOCAL_LLM_DEMO_DEFAULT_MODEL: Record<'calories' | 'car', ModelId> = {
   calories: LOCAL_LLM_DAVOICE_PERSONAL,
-  car: LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B,   // 2026-11-11 evening (user): r4b_it100; was LOCAL_LLM_DAVOICE_AUTOMOTIVE (ft7f2_it900)
+  car: LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B,   // 2026-11-11 evening (user): r4b_it100; was the ft7f2_it900 Automotive entry (removed 2026-11-12)
 };
 
 /** The default before the registry recorded it (files written until 2026-11-05). */

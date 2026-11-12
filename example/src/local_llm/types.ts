@@ -83,7 +83,7 @@ export interface LocalLLMModelConfig {
   temperature?: number;
   /** The car tools' descriptions this model sees (src/car/carTools.ts): 'v1' (default) = the wording ft7c was trained on,
    * 'h2' = the same tools without example values. A model must get the wording it was trained / benchmarked with. */
-  toolWording?: 'v1' | 'h2' | 'h3';
+  toolWording?: 'v1' | 'h2' | 'h3' | 'h3d';
   /** The core's call guards (agent configure "guards": polarity, direction, absRel, zone, capability, numberGround, opposite):
    * 'off' (default), 'shadow' = recorded in the chat log only (the call runs as the model made it), 'correct' = a wrong call is
    * fixed when the fix is unambiguous, otherwise blocked. Every guard decision is a "guard ..." line in the chat log. */
@@ -97,6 +97,11 @@ export interface LocalLLMModelConfig {
   /** Agent configure "promptOrder": 'trained' (default) | 'cache' (date after the tools: a new day reuses the saved prompt
    * state). Only for a model validated in that order. */
   promptOrder?: 'trained' | 'cache';
+  /** Pre-warmed KV states (2026-11-11, user: the first warm-up is the biggest adoption drop): the system prompt already processed
+   * offline with this exact model file, pack, tools, settings and the app language's reply instruction, so the first start needs no
+   * 30-40 s prompt processing. Keyed by app language; downloaded together with the model (sha256 checked). A language without one
+   * warms up on the phone as before. Only valid with promptOrder 'cache' (the date sits after the tools). */
+  prebuiltStates?: Partial<Record<string, { url: string; sha256: string; sizeBytes: number }>>;
   /** False for the app's built-in entries; user-added models can be removed. */
   isCustom: boolean;
 }

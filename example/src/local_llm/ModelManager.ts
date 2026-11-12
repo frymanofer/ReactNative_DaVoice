@@ -148,6 +148,67 @@ export function kvStatePath(model: LocalLLMModelConfig, promptKey?: string): str
   return `${modelsDir()}/${kvStatePrefix(model)}${promptKey ? `${promptKey}.` : ''}kvstate`;
 }
 
+/** Where the pre-warmed state for `language` (LocalLLMModelConfig.prebuiltStates) is stored: the same prefix as the model's own saved
+ * states, so the newest-2-per-model cleanup treats it as one of them. */
+export function prebuiltStatePath(model: LocalLLMModelConfig, language: string): string {
+  return `${modelsDir()}/${kvStatePrefix(model)}prebuilt-${language}.kvstate`;
+}
+
+const inFlightStateDownloads = new Map<string, Promise<string | null>>();
+
+/**
+ * Downloads the pre-warmed state of `language` for `model` if the model has one and it isn't on disk yet (sha256 checked; a failure only
+ * logs: the phone then warms up itself). Resolves to the file's path, or null when there is none.
+ */
+export function downloadPrebuiltState(
+  model: LocalLLMModelConfig,
+  language: string,
+  onProgress?: (fractionComplete: number) => void,
+): Promise<string | null> {
+  const entry = model.prebuiltStates?.[language];
+  if (!entry) return Promise.resolve(null);
+  const dest = prebuiltStatePath(model, language);
+  const running = inFlightStateDownloads.get(dest);
+  if (running) return running;
+  const job = (async () => {
+    if (await RNFS.exists(dest)) return dest;
+    if (!entry.url) return null;   // not hosted yet (a copied-in file above is still used)
+    if (!(await RNFS.exists(modelsDir()))) await RNFS.mkdir(modelsDir());
+    // The phone already saved its own state for this language (states are named "<lang>-<prompt hash>"): no 400 MB download.
+    const own = `${kvStatePrefix(model)}${language}-`;
+    if ((await RNFS.readDir(modelsDir())).some((e) => e.name.startsWith(own) && e.name.endsWith('.kvstate'))) return null;
+    const tmp = `${dest}.download`;
+    const { promise } = RNFS.downloadFile({
+      fromUrl: entry.url,
+      toFile: tmp,
+      begin: () => {},   // iOS needs a begin handler for progress (see downloadModelOnce)
+      progress: onProgress ? (res) => { if (res.contentLength > 0) onProgress(res.bytesWritten / res.contentLength); } : undefined,
+      progressInterval: 100,
+    });
+    const result = await promise;
+    if (result.statusCode !== 200) {
+      await RNFS.unlink(tmp).catch(() => undefined);
+      throw new Error(`pre-warmed state download failed: HTTP ${result.statusCode}`);
+    }
+    const hash = (await RNFS.hash(tmp, 'sha256')).toLowerCase();
+    if (hash !== entry.sha256.toLowerCase()) {
+      await RNFS.unlink(tmp).catch(() => undefined);
+      throw new Error('pre-warmed state download failed: checksum mismatch');
+    }
+    if (await RNFS.exists(dest)) await RNFS.unlink(tmp).catch(() => undefined);
+    else await RNFS.moveFile(tmp, dest);
+    onProgress?.(1);
+    return dest;
+  })()
+    .catch((error) => {
+      console.log('[LocalLLM] pre-warmed state not downloaded (the phone warms up itself):', error);
+      return null;
+    })
+    .finally(() => inFlightStateDownloads.delete(dest));
+  inFlightStateDownloads.set(dest, job);
+  return job;
+}
+
 /** File-name prefix shared by every saved state of this model (one per prompt: language, tools, wording). */
 function kvStatePrefix(model: LocalLLMModelConfig): string {
   const key = (model.sha256 ?? String(model.sizeBytes ?? 0)).slice(0, 12);

@@ -27,50 +27,26 @@ export const subtractMoonRocksSound = require('../../assets/bellServiceDeskPress
 
 import type { AppLanguage, BundledTTSVoice, TTSVoiceChoice } from '../appflow';
 import { narrationFor } from '../narration';
+import { languagePackFilePath } from './languagePacks';
+import { BUNDLED_LANGUAGE_FILES } from './languagePacks.generated';
 
-const ttsModels: Record<AppLanguage, any> = {
-  en: require('../../assets/models/model_ex2_rich_kate.dm'),
-  'pt-BR': require('../../assets/models/model_ex2_portuguese_brv1.dm'),
-  // Portugal Portuguese: its own model (folder portuguese_pt -> Portugal text rules).
-  'pt-PT': require('../../assets/models/model_ex2_portuguese_pt.dm'),
-  de: require('../../assets/models/model_ex2_german.dm'),
-  es: require('../../assets/models/model_ex2_spanish.dm'),
-  fr: require('../../assets/models/model_ex2_french.dm'),
-  it: require('../../assets/models/model_ex2_italian.dm'),
-  nl: require('../../assets/models/model_ex2_dutch.dm'),
-  // TTS v1 (Piper + voice converter). !!! DEV ONLY: its base Piper voice is non-commercial;
-  // rebuild with a licensed voice (TTS2/TTSv1/tools/build_hebrew.py --model) before shipping.
-  // NOT BUNDLED (2026-11-10: Hebrew hidden from the language screen; a require() here would ship the 125 MB file).
-  // To bring Hebrew back: restore `require('../../assets/models/model_v1_hebrew.dm')` and remove `hidden` in src/appflow.ts.
-  he: null,
-  // TTS v1 (Piper + voice converter), commercial-OK voices: TTS2/build_<language>/model_<language>.dm.
-  da: require('../../assets/models/model_v1_danish.dm'),
-  sv: require('../../assets/models/model_v1_swedish.dm'),
-  el: require('../../assets/models/model_v1_greek.dm'),
-};
-const BRAZILIAN_SPEAKER_SPEED = 1.0;
+// Which languages are built into the app (default English + Brazilian Portuguese) and which are downloaded
+// as language packs: language_packs.json -> languagePacks.generated.ts (BUNDLED_LANGUAGE_FILES holds the
+// require()s; see src/tts/languagePacks.ts). A language's voice-cloning embedder must match its model
+// (brv1 voices do not fit pt-PT, a v1 embedder (da/sv/el) fits only its own v1 model).
+// Hebrew is in neither (hidden; its TTS v1 base voice is non-commercial, never ship or upload it): to bring
+// it back, add it to the JSON with model_v1_hebrew.dm + embedder_he.dm and remove `hidden` in src/appflow.ts.
 
-// Voice encoder for Speech.createVoiceClone(audioPath, outputPath, getVoiceEmbedder()):
-// turns a recording (wav/mp3/m4a/...) into a <name>.emd voice for the language's
-// model; Speech.setExternalVoicesPath(folder) then makes it selectable.
-const voiceEmbedders: Record<AppLanguage, any> = {
-  en: require('../../assets/models/embedder_en.dm'),
-  'pt-BR': require('../../assets/models/embedder_brv1.dm'),
-  // Must match model_ex2_portuguese_pt.dm; brv1 voices do not fit it (and vice versa).
-  'pt-PT': require('../../assets/models/embedder_pt_pt.dm'),
-  de: require('../../assets/models/embedder_de.dm'),
-  es: require('../../assets/models/embedder_es.dm'),
-  fr: require('../../assets/models/embedder_fr.dm'),
-  it: require('../../assets/models/embedder_it.dm'),
-  nl: require('../../assets/models/embedder_nl.dm'),
-  // The v1 voice embedder: its voices fit only the v1 (Hebrew) model.
-  // NOT BUNDLED (see ttsModels.he): restore `require('../../assets/models/embedder_he.dm')` with it.
-  he: null,
-  // The v1 voice embedders (TTS2/build_<language>/embedder_<code>.dm): each fits only its own v1 model.
-  da: require('../../assets/models/embedder_da.dm'),
-  sv: require('../../assets/models/embedder_sv.dm'),
-  el: require('../../assets/models/embedder_el.dm'),
-};
+// The bundled file, else the downloaded language pack's file, else English (the app downloads the pack
+// before it selects the language, so the fallback means a hidden language like he, or a missing pack).
+function languageFile(kind: 'model' | 'embedder', language: AppLanguage): any {
+  const file = BUNDLED_LANGUAGE_FILES[language]?.[kind] ?? languagePackFilePath(language, kind);
+  if (file == null) {
+    console.warn(`[tts] no ${kind} for ${language} (not bundled, language pack not downloaded): using English`);
+    return BUNDLED_LANGUAGE_FILES.en?.[kind] ?? languagePackFilePath('en', kind);
+  }
+  return file;
+}
 
 // The app's language (the language screen sets it before the speech library loads).
 let ttsLanguage: AppLanguage = 'en';
@@ -81,11 +57,11 @@ export function getTTSLanguage(): AppLanguage {
   return ttsLanguage;
 }
 export function getVoiceEmbedder() {
-  return voiceEmbedders[ttsLanguage] ?? voiceEmbedders.en;   // a language whose files aren't bundled (he) falls back to English
+  return languageFile('embedder', ttsLanguage);
 }
 
 export function getTTSVoiceConfig(voice: TTSVoiceChoice, useTTS2Only: boolean) {
-  const model = ttsModels[ttsLanguage] ?? ttsModels.en;   // a language whose files aren't bundled (he) falls back to English
+  const model = languageFile('model', ttsLanguage);
   // Every voice, including a cloned voice, belongs to the selected language model.
   if (ttsLanguage !== 'en') {
     return { model, speed: ttsLanguage === 'pt-BR' || ttsLanguage === 'pt-PT' ? BRAZILIAN_SPEAKER_SPEED : CLONED_VOICE_SPEED, usesTTS2: true };
