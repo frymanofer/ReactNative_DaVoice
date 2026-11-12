@@ -38,13 +38,13 @@
     "pt-PT": {
       "model": {
         "file": "model_ex2_portuguese_pt.dm",
-        "bytes": 144209936,
-        "sha256": "16e1efa6e4c38886408ba86d5899b31f39210177f96d3180cb41edf0d95a6dae"
+        "bytes": 143278096,
+        "sha256": "b7f02ee5491386ce5d6452c985aa30869eb08ed4c1d5de12a03fdd3ab8ebb79c"
       },
       "embedder": {
         "file": "embedder_pt_pt.dm",
-        "bytes": 22182533,
-        "sha256": "40ba819bfeea8798d7da1eab0b524906dd72354d8c1b017d6b9fddaad4b9c6de"
+        "bytes": 22915184,
+        "sha256": "a7fe390bca79e6a5740798367a09b29dec4b98719ca2146bdf9070882ee51f3d"
       }
     },
     "de": {

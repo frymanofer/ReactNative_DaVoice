@@ -21,8 +21,8 @@ export const LANGUAGE_FILES: Partial<Record<AppLanguage, LanguagePackFiles>> = {
     embedder: { filename: "embedder_brv1.dm", sizeBytes: 22915184, sha256: "a7fe390bca79e6a5740798367a09b29dec4b98719ca2146bdf9070882ee51f3d" },
   },
   "pt-PT": {
-    model: { filename: "model_ex2_portuguese_pt.dm", sizeBytes: 144209936, sha256: "16e1efa6e4c38886408ba86d5899b31f39210177f96d3180cb41edf0d95a6dae" },
-    embedder: { filename: "embedder_pt_pt.dm", sizeBytes: 22182533, sha256: "40ba819bfeea8798d7da1eab0b524906dd72354d8c1b017d6b9fddaad4b9c6de" },
+    model: { filename: "model_ex2_portuguese_pt.dm", sizeBytes: 143278096, sha256: "b7f02ee5491386ce5d6452c985aa30869eb08ed4c1d5de12a03fdd3ab8ebb79c" },
+    embedder: { filename: "embedder_pt_pt.dm", sizeBytes: 22915184, sha256: "a7fe390bca79e6a5740798367a09b29dec4b98719ca2146bdf9070882ee51f3d" },
   },
   "de": {
     model: { filename: "model_ex2_german.dm", sizeBytes: 143933456, sha256: "ff6bac2d149b8c57cffa4fec1a10f5cf7a6d462d70616546fbe5f3dcadf59eb5" },
