@@ -213,19 +213,25 @@ See [example/README.md](./example/README.md) for setup and demo notes.
 
 If you enable Gemini-backed AI chat in the example app, do not commit a real `GEMINI_API_KEY` into this public repository. For the demo, prefer a local git-ignored config file over a hard-coded key. For production, prefer a backend proxy or short-lived token flow instead of shipping a permanent key in the mobile client.
 
+The voice and wake-word models (`*.dm`, `*.onnx`) are stored with [Git LFS](https://git-lfs.com). Install Git LFS before cloning, or run `git lfs pull` after cloning; without it the model files are small pointer files and the app cannot load them.
+
 In short:
 
 ```bash
+git lfs install          # once per machine
+git clone https://github.com/frymanofer/ReactNative_DaVoice.git
+cd ReactNative_DaVoice
+git lfs pull             # the real model files
 cd example
-yarn
+npm install
 npx react-native run-android
 ```
 
-For iOS:
+For iOS (after the same clone and `git lfs pull`):
 
 ```bash
 cd example
-yarn
+npm install
 cd ios && pod install
 cd ..
 npx react-native run-ios

@@ -145,3 +145,11 @@ test('a fan level outside 1-7 goes to the nearest end and says so (2026-11-10 ro
   expect(say('set_fan_speed', { level: 0 })).toBe('The lowest fan level is 1, so I set it to level 1.');
   expect(say('set_fan_speed', { level: 4 })).toBe('I set the fan to level 4.');
 });
+
+test('airflow sentences use the article in pt-BR ("para os pés"; 2026-11-12 S20)', () => {
+  mockLang = 'pt-BR';
+  expect(say('set_airflow', { mode: 'feet' })).toBe('O ar agora vai para os pés.');
+  expect(say('set_airflow', { mode: 'feet' })).toBe('O ar já vai para os pés.');
+  expect(say('set_airflow', { mode: 'face_and_feet' })).toBe('O ar agora vai para o rosto e os pés.');
+  expect(say('set_airflow', { mode: 'windshield' })).toBe('O ar agora vai para o para-brisa.');
+});

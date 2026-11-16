@@ -1,22 +1,23 @@
 # Guia em português: app de exemplo DaVoice (React Native)
 
 > Para: outro agente Claude que vai usar, testar ou extrair partes deste app de exemplo
-> (`example/`). Tudo aqui foi conferido no código (última atualização: 12/11/2026,
-> `react-native-davoice-llm` 1.0.13). Os caminhos de arquivos são relativos à pasta
+> (`example/`). Tudo aqui foi conferido no código (última atualização: 13/11/2026,
+> `react-native-davoice-llm` 1.0.14 = núcleo g29, que inclui os recursos marcados como "núcleo de
+> desenvolvimento g29" em 2.3; os resultados de teste abaixo foram medidos com o núcleo g28). Os caminhos de arquivos são relativos à pasta
 > `example/`. A versão em inglês está em `englishHowTo.md`.
 
 > **Status: modelos de teste, ainda em treinamento.** O modelo da demo do carro, que roda no
-> aparelho ("DaVoice Automotive Agent 0.6B", checkpoint `r4b_it100`), é **um modelo de
-> teste, não um produto final**. No nosso conjunto de teste automotivo fixo, com o mesmo núcleo
-> e as mesmas configurações do app (medido num Mac; o teste no Galaxy S20 está pendente):
-> - acerta por completo (ferramenta e argumentos) cerca de **82% dos comandos em português do
->   Brasil** (o `ft7f2_it900` anterior: 68%) e escolhe a ferramenta certa cerca de **90%** das
->   vezes;
-> - nos testes de segurança não executou **nenhuma ação oposta** ("abrir" no lugar de "fechar")
->   e **nenhuma ação não suportada**.
+> aparelho ("DaVoice Automotive Agent 0.6B", checkpoint `r8d_it150`), é **um modelo de
+> teste, não um produto final**. Com o mesmo núcleo e as mesmas configurações do app (núcleo g28):
+> - no nosso conjunto de teste automotivo fixo acerta por completo (ferramenta e argumentos)
+>   **157 de 161 comandos em português do Brasil**, sem **nenhuma ação oposta** ("abrir" no
+>   lugar de "fechar") e sem **nenhuma ação não suportada**;
+> - num conjunto separado e lacrado de frases novas (rodado uma única vez) acertou **88 de 105**
+>   turnos e executou 7 ações erradas: a fala real é mais difícil que o conjunto fixo;
+> - no Galaxy S20 a ação fica pronta cerca de 2 s depois que o texto reconhecido chega ao modelo.
 >
-> Ainda às vezes escolhe um valor errado ou uma ferramenta parecida (autonomia vs. hora de
-> chegada, teto solar aberto vs. inclinado) ou pergunta quando poderia agir. Por isso todas
+> Ainda às vezes escolhe um valor errado ou uma ferramenta parecida, ou pergunta quando poderia
+> agir. Por isso todas
 > as ações do carro são **simuladas** e conferidas pelo app (guards, veja 2.3). Um Agente Automotivo dedicado está em treinamento (primeiro em
 > português do Brasil); novos checkpoints só substituem este depois de passar nos testes de
 > segurança. Considere os resultados uma prévia do pipeline de voz (wake word, verificação de
@@ -38,7 +39,7 @@ Pacotes usados (`package.json`):
 |---|---|
 | `react-native-wakeword` | palavra de ativação + verificação de locutor (onboarding e verificação) |
 | `react-native-davoice` | STT + TTS (`Speech`), clonagem de voz, filtro por locutor no STT |
-| `react-native-davoice-llm` (1.0.13) | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas, guards de chamada |
+| `react-native-davoice-llm` (1.0.14) | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas, guards de chamada |
 | `react-native-fs` | arquivos: assinatura de voz, modelos e pacotes de idioma baixados, estados de prompt salvos, banco do agente |
 
 O que vai dentro do app e o que é baixado (e como mudar isso): veja 1.5.
@@ -50,6 +51,8 @@ O que vai dentro do app e o que é baixado (e como mudar isso): veja 1.5.
 ### 1.1 Rodar o app
 
 ```bash
+git lfs install        # uma vez por máquina: os modelos (*.dm, *.onnx) ficam no Git LFS
+git lfs pull           # no repositório clonado: troca os arquivos ponteiro do LFS pelos modelos reais
 cd example
 npm install            # o projeto usa npm / package-lock.json
 cd ios && pod install && cd ..
@@ -213,7 +216,7 @@ vez que fazem falta (nunca na instalação), do Cloudflare R2 da DaVoice
 | Modelo de TTS + codificador de clonagem de **inglês** e **português do Brasil** (cerca de 167 MB por idioma) | dentro do app (padrão, definido em `language_packs.json`) | sempre |
 | Pacotes do agente (`agent/`, `agent_automotive/`), JSON das ferramentas do carro, narração | dentro do app | sempre |
 | Modelo de TTS + codificador de todos os outros idiomas (pt-PT, de, es, fr, it, nl, da, sv, el; 136–168 MB cada) | R2 `language-packs/<arquivo>` → aparelho `Documents/language_packs/<idioma>/` | na primeira vez que o idioma é escolhido |
-| Modelos no aparelho (GGUF, 382 MB cada): Agente Automotivo `auto5_r4b_it100`, Personal Agent `ft7f2_it900` | R2 `agent-llm/<arquivo>` → aparelho `Documents/local_llm/models/` | na primeira vez que a demo abre |
+| Modelos no aparelho (GGUF, 382 MB cada): Agente Automotivo `auto8_r8d_it150`, Personal Agent `ft7f2_it900` | R2 `agent-llm/<arquivo>` → aparelho `Documents/local_llm/models/` | na primeira vez que a demo abre |
 | Estado pré-aquecido do Agente Automotivo, inglês ou pt-BR (cerca de 400 MB) | R2 `agent-llm/prewarm/<arquivo>` → ao lado do modelo | junto com o modelo, no idioma do app |
 
 **Configuração dos arquivos de idioma: `language_packs.json`** (em `example/`):
@@ -264,6 +267,20 @@ ferramentas e as configurações de prompt exatos com que foi feito: depois de m
 um deles, gere estados novos num aparelho (o app salva um depois do primeiro aquecimento),
 suba-os e atualize `sha256` e `sizeBytes`.
 
+**Manifesto remoto de vozes** (desenvolvimento, 12/11/2026): apps instalados podem receber novos
+arquivos de voz sem atualizar o app.
+- Ao iniciar, o app busca `<baseUrl>/manifest.json` em segundo plano. Ele só é usado quando a
+  assinatura Ed25519 confere com a chave pública em `src/tts/languagePacks.ts` (a DaVoice guarda
+  a chave privada fora de qualquer repositório), o esquema é um que o app lê e toda entrada é
+  válida (nome do arquivo, tamanho, sha256). Qualquer outra coisa: a configuração embutida.
+- Ele só muda quais arquivos de voz um idioma baixado usa: nunca código, nunca o LLM do
+  aparelho, nunca um idioma que vem no app. Os arquivos continuam vindo da mesma pasta e são
+  conferidos por sha256.
+- Cada versão fica na sua própria pasta (`language_packs/<idioma>/<versão>/`) e só é usada
+  quando os dois arquivos estão completos; a última versão que carregou
+  (`markLanguagePackWorking`) é mantida, e uma versão nova que não carrega volta para a anterior
+  (`rollbackLanguagePack`).
+
 **Regras de hospedagem:**
 - Primeiro suba, depois confira cada URL pública (HTTP 200, sha256 do download) e só então
   coloque a URL no app. Nunca chute uma URL.
@@ -293,10 +310,14 @@ pré-aquecidos.
 
 - **Implementação:** `src/local_llm/demo.ts` guarda a demo atual, e
   `LOCAL_LLM_DEMO_DEFAULT_MODEL` em `src/local_llm/constants.ts` define o modelo de cada demo.
-  - Demo do carro: **DaVoice Automotive Agent 0.6B**, `LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`
-    (checkpoint `r4b_it100`, cerca de 380 MB, baixado uma vez e conferido por sha256), com o
-    seu estado pré-aquecido em inglês ou português do Brasil (cerca de 400 MB, baixado junto
-    com o modelo), para que o primeiro início pule o aquecimento.
+  - Demo do carro (desde 13/11/2026): **DaVoice Automotive Agent 0.6B**,
+    `LOCAL_LLM_DAVOICE_AUTOMOTIVE_R8D` (checkpoint `r8d_it150`, descrições de ferramentas h3d,
+    cerca de 380 MB, baixado uma vez e conferido por sha256), com o seu estado pré-aquecido em
+    inglês ou português do Brasil (cerca de 430 MB, baixado junto com o modelo), para que o
+    primeiro início pule o aquecimento. Os arquivos no R2 foram conferidos baixando-os e
+    comparando tamanho e sha256.
+  - Reserva: **r4b_it100** (`LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`, "(r4b, backup)" no seletor): só
+    é usado quando escolhido à mão. Não há troca automática para outro modelo.
   - Demo de calorias: o Personal Agent, `ft7f2_it900`.
   - O exemplo RN, o app Expo e o exemplo Flutter listam os mesmos modelos.
 - **Outros modelos:** cada demo lembra a sua escolha feita em **Change** (seletor de modelos,
@@ -406,16 +427,109 @@ pré-aquecidos.
     para um vidro, com um natural "Desculpe, acho que não entendi direito. Pode repetir?". Uma
     chamada bloqueada **nunca** vira outra ferramenta;
   - bloqueiam uma chamada cujos argumentos são de outra ferramenta;
+  - usam o valor que o usuário disse (`enumWords`, núcleo de desenvolvimento de 12/11/2026):
+    "joga o ar nos pés" → `feet`, "acha um estacionamento" → `parking`, "quanto tem de
+    combustível" → `fuel`, só quando as palavras nomeiam exatamente um valor daquele argumento
+    (dois ou nenhum: nada muda);
+  - leem um plural sem lugar como todos ("fecha os vidros", "Can you open my car windows?" →
+    `all`); qualquer palavra de lugar ("de trás", "do carona", "meu", "back") deixa a chamada
+    como está;
   - mantêm a ação numa correção que só muda o alvo: "fecha o vidro traseiro esquerdo" → "não,
     o outro de trás" fecha o traseiro direito (`followUp`; precisa de `historyAsRun: true` na
-    entrada do modelo, para o histórico mostrar cada chamada como ela rodou).
+    entrada do modelo, para o histórico mostrar cada chamada como ela rodou);
+  - mais, no núcleo de desenvolvimento de 13/11/2026:
+    - um valor que o usuário diz numa correção nunca é desfeito: "abre o teto solar" → "não, só
+      inclina" inclina;
+    - um lado só ("baixa três graus no lado do passageiro") → a ferramenta de duas zonas é a
+      ferramenta errada (a nova tentativa abaixo escolhe a de um lado);
+    - um número depois de "pra" / "to" é um alvo: "sobe a temperatura pra vinte" = 20, não +20
+      ("aumenta em dois" continua um passo);
+    - "abaixa os vidros" / "roll down the windows" abre; uma fresta precisa de "um pouco",
+      "uma fresta", "a little";
+    - valores ditos: "pedágio" → `tolls`, "pen drive" → `usb`, AM / FM, aquecimento x
+      ventilação do banco, "no 1" → `low` (lido da descrição do próprio argumento), "casa" →
+      `home`, "jantar" → `restaurant`;
+    - objetos ditos: um posto, um pen drive, o aquecimento do banco, "autonomia". Uma
+      ferramenta que não trata deles é a ferramenta errada.
+    - (mais tarde no mesmo dia, a partir de frases de teste no estilo da fala) um número que o
+      usuário não disse nunca roda ("onde eu ponho etanol" → duas zonas 19 / 18: bloqueado); um
+      número para uma ferramenta que não recebe número ("o ar do passageiro em 22" → direção do
+      ar), um passo numa ferramenta só de alvo ("dá mais dois graus" → 23 / 23) e um número de
+      rádio como temperatura ("noventa e três ponto três" → 93 °C) são a ferramenta errada;
+    - uma sensação pura ("tô suando", "tá um gelo aqui") não é chamada de teto solar / vidro; "a
+      trava" / "o trinco" é a trava; o desembaçador não é "desce os vidros"; para-brisa,
+      consumo, pneus, tanque, pedágio e "onde eu carrego / paro" precisam de uma ferramenta que
+      trate deles; o porta-luvas não é suportado; um objeto negado ("não quero a porta, quero o
+      vidro") não conta como dito;
+    - quanto abrir: "um pouquinho" / "um dedinho" / "a couple of inches" = fresta (teto solar:
+      inclinar), "de vez" / "all the way" = abrir; "bring / get / put / roll … down" abre,
+      "… up" fecha; o objeto antes do verbo ("os vidros do carro, baixa") também vale;
+    - "lado dela / her side" = passageiro ("meu lado" = motorista); "tira o embaçado" = liga o
+      desembaçador, "chega de desembaçador" = desliga; "liga o som de novo" = tira do mudo; um
+      valor de rádio fora da faixa (FM 87,5–108, AM 530–1710) vira o único número dito; "meu
+      serviço" = `work`; níveis do banco "fraquinho" / "médio" / "forte".
+
+    Esses são bloqueios de ferramenta *errada*, em que o modelo deve escolher de novo, então
+    usam a nova tentativa abaixo. O app nunca troca um bloqueio por outra ferramenta.
 
   Toda decisão de guard aparece no log (`guard ...`).
+- **Uma nova tentativa quando o modelo escolheu a ferramenta errada** (núcleo de desenvolvimento
+  de 12/11/2026; `guardRetry: true` na entrada do modelo). Quando um guard bloqueia uma chamada
+  por ser a *ferramenta* errada (uma ferramenta de porta para "fecha os vidros", a ferramenta de
+  duas zonas para um lado só), o mesmo modelo reconsidera **uma vez**, a partir do mesmo prompt
+  já processado, sem aquela ferramenta (nem as outras que não tratam o que o usuário nomeou). A
+  nova chamada passa por todos os guards de novo; a mesma ferramenta, nenhuma chamada ou outro
+  bloqueio → o usuário é perguntado, como antes. O app nunca troca uma ferramenta por outra.
+  - Corrigiu "fecha os vidros" depois de "abre os vidros" (o modelo chamava `close_doors` toda
+    vez): de 12 para 22 de 22 turnos no conjunto de regressão do celular, 40 / 40 num conjunto de
+    sequências de vidro / porta; no Galaxy S20 soma cerca de 1,5–2 s nos turnos em que acontece
+    (cerca de 3% dos turnos).
+  - Com o núcleo de 13/11/2026, o Automotive Agent r8d_it150 acerta 156 de 161 turnos do teste
+    de aceitação pt-BR (eram 149), com 12 ações erradas (eram 27) e nenhuma ação oposta ou não
+    suportada. No Galaxy S20 a ação fica pronta cerca de 1,7 s depois que o texto reconhecido
+    chega ao modelo (mediana; 2,2 s em 9 de cada 10 turnos), com pico de 1,8 GB de memória.
+  - Com o núcleo de desenvolvimento mais recente de 13/11/2026: 157 de 161 (10 ações erradas,
+    nenhuma oposta ou não suportada). Em frases novas no estilo da fala (com "ô", "aí", outras
+    ordens de palavras) que aquele teste não tem, as ações erradas caem de cerca de 28% para
+    cerca de 15% dos turnos (as certas sobem de cerca de 70% para 81%). O custo: a nova
+    tentativa acontece em cerca de 20% desses turnos, e um turno com nova tentativa leva cerca
+    de 3,6 s no S20 (2,0 s nos outros).
+  - Travar vs. abrir / fechar (núcleo de desenvolvimento g29): uma palavra de travar ("trava",
+    "tranca", "lock") numa ferramenta que só abre / fecha portas, ou uma palavra de abrir / fechar
+    numa ferramenta de trava, é um bloqueio de ferramenta errada (a nova tentativa acima).
+    "fecha o carro" / "abre o carro" continuam com as ferramentas de trava. "trava o carro" sem
+    porta nomeada trava o carro todo.
+- **Duas operações num pedido** (núcleo de desenvolvimento g29; `maxOperations: 2` na entrada do
+  modelo, enviado como `maxOperations` no configure do agente). "fecha os vidros e trava o carro"
+  executa as duas, uma depois da outra, na mesma sessão (mesmo modelo, mesmo prompt processado).
+  - O núcleo corta a frase em "e" / "and" / "depois" / "then" / "também" / vírgula só onde cada
+    parte é um comando claro ("fecha os vidros e as portas" → "fecha as portas" na segunda). Não
+    corta uma autocorreção ("abre... quer dizer, fecha"), nomes ("Zezé di Camargo e Luciano"),
+    números ("vinte e dois"), um lugar para duas coisas ("o vidro do motorista e o do
+    passageiro", "o motorista em 20 e o passageiro em 23"), um desejo ("queria um ventinho, ...")
+    ou uma primeira parte vaga ("esquenta um pouquinho, sobe dois graus").
+  - Cada operação é decidida pelo modelo com as próprias palavras e conferida por todos os
+    guards. A segunda vê a primeira no histórico e nunca executa de novo uma chamada que a
+    primeira já executou.
+  - As respostas são ditas uma depois da outra ("Fechei todos os vidros. Tranquei o carro."),
+    então um sucesso parcial é contado como aconteceu. Um terceiro pedido não é feito; o usuário
+    ouve "Não fiz o resto do pedido. Pode repetir?" (`prompts.notDoneRest` em `agent_automotive`).
+  - O `operationTurns` do resultado fica com a resposta no histórico
+    (`AIChatHistoryMessage.operationTurns`); o núcleo repete o pedido como as suas operações, e
+    o turno seguinte reaproveita o prompt processado.
+  - Custo no Galaxy S20: a segunda operação soma cerca de 3 s (cerca de 2 s de prompt + 1,2 s de
+    decodificação), em parte escondidos enquanto a primeira resposta é falada.
 - **Posições:** vidros, portas e travas aceitam `front_left`, `front_right`, `rear_left`,
   `rear_right`, `driver`, `passenger`, `front`, `rear`, `left`, `right` ou `all`.
   - `driver` / `passenger` são resolvidos pelo app a partir do lado do volante do carro
     (`CarState.vehicle.steering`, padrão esquerdo; `setSteering()` em `src/car/CarState.ts`),
     então nada supõe volante à esquerda.
+  - O lado do volante também vai para o núcleo (configure do agente `vehicle: { steering }`,
+    enviado de novo quando muda; núcleo de desenvolvimento g29). Um lado dito para um banco da
+    frente ("o banco da direita", "lado direito 22 graus") é o motorista ou o passageiro conforme
+    ele. Esquerda / direita ditas explicitamente mantêm o sentido físico: "o vidro do lado
+    direito" é `front_right`, também quando o modelo disse `passenger` num carro com volante à
+    direita. Sem essa configuração o núcleo não supõe nada.
   - Mover o vidro, abrir a porta e travar a porta são ferramentas separadas.
 - **Duas temperaturas de uma vez:** `set_dual_zone_temperature` (motorista + passageiro). O app
   confere cada valor e diz qual lado não conseguiu ajustar. O r4b foi treinado nela e acerta a
@@ -440,6 +554,11 @@ pré-aquecidos.
   freio de mão) devem ser **recusados**, não executados.
 
 ### 2.4 Como testar
+
+Só em builds de debug (`__DEV__`): **Continue without wake word (dev)** na tela da palavra de
+ativação inicia o app como se "Hey Coach" tivesse sido ouvido, e **Run test script (dev)** na
+tela do chat toca as linhas de `files/inapp_test.txt` (na pasta de arquivos do app; `#reset`
+começa uma conversa nova) como se fossem faladas. Nenhum dos dois existe numa build release.
 
 1. Escolha **Local AI · Car demo** (ou Calories). Espere a tela de carregamento terminar:
    cerca de 30–40 s na primeira vez, cerca de um segundo depois.
@@ -748,10 +867,11 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   (o exemplo já faz isso). Modelos ajustados precisam do mesmo `chatTemplate` (`qwen3`) e
   das configurações da entrada (`usesRouter: false`, `modelTools: true`,
   `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`; no
-  Agente Automotivo também `historyAsRun: true`, `guidedToolCalls: true` e `promptOrder:
-  'cache'`, além dos `prebuiltStates`). O `provider.ts` as
+  Agente Automotivo também `historyAsRun: true`, `guidedToolCalls: true`, `promptOrder:
+  'cache'` e `guardRetry: true`, além dos `prebuiltStates`). O `provider.ts` as
   envia para `agent.configure` (`historyAsRun`, `guidedToolCalls`, `promptOrder` e os
-  `guards`, incluindo `followUp`, e `dualZone` a partir do 1.0.14).
+  `guards`, incluindo `followUp`, `dualZone` a partir do 1.0.14, e `enumWords` e `guardRetry` com
+  o núcleo de 12/11/2026).
 - **Ferramentas novas:** um modelo pequeno depende muito do texto das descrições. Use
   descrições curtas e claras e diga explicitamente "absoluto vs. relativo" e qual lado é
   qual. Mantenha no app **o mesmo texto** com que o modelo foi treinado: o modelo da demo do

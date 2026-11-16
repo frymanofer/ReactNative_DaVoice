@@ -27,6 +27,7 @@ import carToolsH3Json from './carToolDefinitions.h3.json';
 // route avoid, places, radio frequency). Same tools / arguments / handlers; the Automotive Agent r5v2d+ was trained with it.
 import carToolsH3dJson from './carToolDefinitions.h3d.json';
 import { adj, be, name, placeName, resolve } from './positions';
+import { restoreCalls } from './undo';
 import type { Lang, Name, Obj, Pos } from './positions';
 
 type Args = Record<string, any>;
@@ -48,6 +49,8 @@ const PT_LEVEL: Record<string, string> = { off: 'desligado', low: 'baixo', mediu
 const PT_PLACE: Record<string, string> = { gas_station: 'posto de combustível', ev_charger: 'carregador', parking: 'estacionamento', restaurant: 'restaurante', coffee: 'café', rest_area: 'parada' };
 const PT_AVOID: Record<string, string> = { tolls: 'pedágios', traffic: 'trânsito', highways: 'rodovias', ferries: 'balsas' };
 const PT_AIR: Record<string, string> = { face: 'rosto', feet: 'pés', face_and_feet: 'rosto e pés', windshield: 'para-brisa' };
+// with the article, for the spoken sentence ("para os pés", not "para o pés"; 2026-11-12 S20)
+const PT_AIR_ART: Record<string, string> = { face: 'o rosto', feet: 'os pés', face_and_feet: 'o rosto e os pés', windshield: 'o para-brisa' };
 const words = (s: string) => s.replace(/_/g, ' ');
 const done = (summary: string, extra: Record<string, unknown> = {}, say?: string): Outcome => ({ summary, result: { status: `Done: ${summary}`, ...extra }, say });
 /** Nothing to do: the car is already in the requested state (said as such; nothing is claimed as done). */
@@ -231,10 +234,10 @@ const HANDLERS: Record<string, Handler> = {
       edge ? L(`${edge}, so I set it to level ${fan}.`, `${edge}, então coloquei no nível ${fan}.`) : L(`I set the fan to level ${fan}.`, `Coloquei a ventilação no nível ${fan}.`));
   },
   set_airflow: ({ mode }) => {
-    if (getCarState().airflow === String(mode)) return already(L('airflow unchanged', 'ar sem mudança'), L(`The air already goes to ${EN_AIR[mode] ?? words(String(mode))}.`, `O ar já vai para o ${PT_AIR[mode] ?? mode}.`));
+    if (getCarState().airflow === String(mode)) return already(L('airflow unchanged', 'ar sem mudança'), L(`The air already goes to ${EN_AIR[mode] ?? words(String(mode))}.`, `O ar já vai para ${PT_AIR_ART[mode] ?? mode}.`));
     updateCar((s) => ({ ...s, airflow: String(mode) }));
     return done(L(`air to ${words(String(mode))}`, `ar para ${PT_AIR[mode] ?? mode}`), {},
-      L(`The air now goes to ${EN_AIR[mode] ?? words(String(mode))}.`, `O ar agora vai para ${mode === 'windshield' ? 'o' : 'o'} ${PT_AIR[mode] ?? mode}.`));
+      L(`The air now goes to ${EN_AIR[mode] ?? words(String(mode))}.`, `O ar agora vai para ${PT_AIR_ART[mode] ?? mode}.`));
   },
   set_defrost: ({ target, on }) => {
     const want = on !== false;
@@ -458,21 +461,43 @@ const HANDLERS: Record<string, Handler> = {
   },
 };
 
+/** Whether car results carry their undo (core 2026-11-14, configure "undo"): set by the provider for models with `undo`. */
+let undoResults = false;
+/** Car tools that only read (nothing to undo, and their failure is not "the last action"). */
+const READ_ONLY_TOOLS = new Set(['get_vehicle_status', 'get_trip_eta', 'find_along_route']);
+export function setCarUndoResults(on: boolean): void {
+  undoResults = on;
+}
+
 function toTool(t: any): ToolDefinition {
   return {
     name: t.name,
     description: t.description,
     inputSchema: t.inputSchema,
     ...(t.execution ? { execution: t.execution } : {}),
-    handler: (rawArgs: Args) => {
+    handler: (rawArgs: Args, context?: Record<string, unknown>) => {
       const args = rawArgs ?? {};
       const run = HANDLERS[t.name];
+      // The agent runs a recorded restoring call ("desfaz"): same checks, a sentence that says it was undone, nothing recorded again.
+      const undoing = context?.undo === true;
       try {
         if (!run) throw new Refused(L("Sorry, this car doesn't have that function.", 'Desculpe, este carro não tem essa função.'));
         if (getCarState().driving && NOT_WHILE_DRIVING[t.name]?.(args)) {
           throw new Refused(L("I can't do that while the car is moving.", 'Não posso fazer isso com o carro em movimento.'));
         }
-        const { summary, result, say } = run(args);
+        // vehicle policy: an undo never unlocks the car while it moves
+        if (undoing && t.name === 'unlock_car' && getCarState().driving) {
+          throw new Refused(L("I can't unlock the doors while the car is moving.", 'Não posso destrancar as portas com o carro em movimento.'));
+        }
+        const before = getCarState();
+        const out = run(args);
+        const { summary } = out;
+        let { result, say } = out;
+        if (undoResults && !undoing) {
+          const undo = restoreCalls(before, getCarState());
+          if (undo !== undefined) result = { ...result, undo };
+        }
+        if (undoing && say) say = L(`Undone. ${say}`, `Desfeito. ${say}`);
         recordCarAction(t.name, args, summary);
         console.log(`[Car] ${t.name} ${JSON.stringify(args)} -> ${summary}`);
         // The app says what it did (2026-11-10: a sentence naming the action, not "Done") and the turn ends there: no second
@@ -489,7 +514,10 @@ function toTool(t: any): ToolDefinition {
           // Said by the app, turn ends: the model gets no chance to "fix" it with another action (2026-11-10 phone: a locked
           // door -> the model unlocked the car by itself). Nothing changed in the car.
           const text = cap(reason);
-          return toolReply({ ok: false, refused: reason }, /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`));
+          // undo (core g29zk): a state-changing call that did not go through is still the last action, so "desfaz" right after it says
+          // nothing was done instead of restoring an older action ({"ok": false} + "undo": false)
+          const failedUndo = undoResults && !undoing && !READ_ONLY_TOOLS.has(t.name) ? { undo: false } : {};
+          return toolReply({ ok: false, refused: reason, ...failedUndo }, /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`));
         }
         throw new Error(`Not done: ${reason}`);
       }
