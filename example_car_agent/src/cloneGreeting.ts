@@ -3,8 +3,8 @@ import type { AppLanguage } from './appflow';
 /** What a new cloned voice says when the user listens to it (the voice-clone screen). */
 const CLONE_GREETING: Record<AppLanguage, (voice: string) => string> = {
   en: (voice) => `Hello! I am ${voice}. This is my new cloned voice.`,
-  'pt-BR': (voice) => `Olá! Eu sou ${voice}. Esta é a minha nova voz clonada.`,
-  'pt-PT': (voice) => `Olá! Eu sou ${voice}. Esta é a minha nova voz clonada.`,
+  'pt-BR': (voice) => `Olá, meu nome é ${voice}! Não sou uma voz sintética comum. Quer ouvir algo interessante? Eu gosto do gosto deste café, almoço um bom almoço e chego à reunião às dez e meia.`,
+  'pt-PT': (voice) => `Olá, o meu nome é ${voice}! Não sou uma voz sintética comum. Quer ouvir algo interessante? Eu gosto do gosto deste café, almoço um bom almoço e chego à reunião às dez e meia.`,
   de: (voice) => `Hallo! Ich bin ${voice}. Das ist meine neue geklonte Stimme.`,
   es: (voice) => `¡Hola! Soy ${voice}. Esta es mi nueva voz clonada.`,
   fr: (voice) => `Bonjour ! Je suis ${voice}. Voici ma nouvelle voix clonée.`,
