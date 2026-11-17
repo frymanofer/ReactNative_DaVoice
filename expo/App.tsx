@@ -6,7 +6,7 @@
  */
 
 import RNFS from 'react-native-fs';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 
 import { Platform } from 'react-native';
 //import { check, request, openSettings, PERMISSIONS, RESULTS } from 'react-native-permissions';
@@ -84,14 +84,14 @@ import {
 } from './src/tts/voiceClone';
 import type { VoiceCloneResult } from 'react-native-davoice/speech';
 import ModelPicker from './src/local_llm/ModelPicker';
-import { getLocalDemo, getSelectedModel, listModels, setLocalDemo } from './src/local_llm/ModelRegistry';
+import { getLocalConfidence, getLocalDemo, getSelectedModel, listModels, setLocalConfidence, setLocalDemo } from './src/local_llm/ModelRegistry';
 import { currentLocalDemo } from './src/local_llm/demo';
 import type { LocalDemo } from './src/local_llm/demo';
 import { resetLocalAgent } from './src/agent/LocalAgent';
 import { DID_NOT_CATCH, isBareDone, isNoiseFragment } from './src/aichat/fragments';
 import { setAIChatSentenceRewriter } from './src/aichat';
 import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
-import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
+import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_CONFIDENCE_CHOICES, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
@@ -120,6 +120,10 @@ import {
   isDownloadableLanguage,
   isLanguagePackReady,
   languagePackSizeBytes,
+  markLanguagePackWorking,
+  refreshLanguagePackManifest,
+  rollbackLanguagePack,
+  updateLanguagePackInBackground,
   type LanguagePackProgress,
 } from './src/tts/languagePacks';
 import {
@@ -356,6 +360,8 @@ function App(): React.JSX.Element {
   useEffect(() => {
     let alive = true;
     (async () => {
+      // Remote voice manifest (signed; never code or the LLM): new voice files for downloaded languages without an app update.
+      console.log('[languagePacks]', await refreshLanguagePackManifest());
       const ready: Partial<Record<AppLanguage, boolean>> = {};
       for (const { id } of APP_LANGUAGES) {
         if (isDownloadableLanguage(id)) ready[id] = await isLanguagePackReady(id).catch(() => false);
@@ -369,6 +375,8 @@ function App(): React.JSX.Element {
   async function selectAppLanguage(language: AppLanguage) {
     if (!isDownloadableLanguage(language) || (await isLanguagePackReady(language).catch(() => false))) {
       chooseAppLanguage(language);
+      // a newer voice version (remote manifest) downloads quietly for the next start; this session keeps the one it has
+      if (isDownloadableLanguage(language)) updateLanguagePackInBackground(language);
       return;
     }
     startLanguagePackDownload(language);
@@ -468,10 +476,23 @@ function App(): React.JSX.Element {
   const [aiChatResponse, setAiChatResponse] = useState('');
   const [aiChatStatus, setAiChatStatus] = useState('Waiting for your voice...');
   const [aiChatMessages, setAiChatMessages] = useState<AIChatHistoryMessage[]>([]);
+  // The last request was speech not meant for the assistant (command scope IGNORE): no reply box for it.
+  const [aiChatIgnored, setAiChatIgnored] = useState(false);
   const [isAIChatHistoryVisible, setIsAIChatHistoryVisible] = useState(false);
   const [isAIChatLoading, setIsAIChatLoading] = useState(false);
   const [isAIChatHelpVisible, setIsAIChatHelpVisible] = useState(false);
   const [isModelPickerVisible, setIsModelPickerVisible] = useState(false);
+  // The car demo's "Local confidence" (core 2026-11-17): Off -> 0.8 -> 0.9 -> 0.95 -> Off; persisted; sent to the agent before the next turn.
+  const [localConfidence, setLocalConfidenceState] = useState(0);
+  useEffect(() => {
+    getLocalConfidence().then(setLocalConfidenceState).catch(() => undefined);
+  }, []);
+  const cycleLocalConfidence = useCallback(() => {
+    const i = LOCAL_LLM_CONFIDENCE_CHOICES.indexOf(localConfidence);
+    const next = LOCAL_LLM_CONFIDENCE_CHOICES[(i + 1) % LOCAL_LLM_CONFIDENCE_CHOICES.length];
+    setLocalConfidenceState(next);
+    setLocalConfidence(next).catch(() => undefined);
+  }, [localConfidence]);
   // Local AI Chat demo (2026-11-10): calories (Personal Agent) or car (Automotive Agent); each has its own pack, tools, card and model.
   const [localDemo, setLocalDemoState] = useState<LocalDemo>(currentLocalDemo());
   useEffect(() => {
@@ -534,7 +555,9 @@ function App(): React.JSX.Element {
   // Sentences handed to the speech library and not yet finished (it queues them).
   const aiChatSpeechChainRef = useRef<Promise<void>>(Promise.resolve());
   const aiChatSpeechPendingRef = useRef(0);
-  const processAIChatTurnRef = useRef<((text: string) => Promise<void>) | null>(null);   // DEV in-app script (runDevInAppScript)
+  const processAIChatTurnRef = useRef<((text: string) => Promise<void>) | null>(null);
+  // DEV ONLY (2026-11-12, S20 tests without someone saying the wake word): the wake-word callback, run by a __DEV__ button.
+  const devWakeWordRef = useRef<(() => Promise<void>) | null>(null);   // DEV in-app script (runDevInAppScript)
   const getLocalLLMProvider = (): LocalLLMProvider => {
     if (!localLLMProviderRef.current) {
       // The agent (web search, fillers, the calorie tracker's tools) is set
@@ -776,13 +799,24 @@ function App(): React.JSX.Element {
   };
 
   async function initializeSpeechLibrary(enrollmentJsonPath?: string | null) {
-    await initializeSpeechLibraryBase(
+    const language = appLanguageRef.current;
+    const init = () => initializeSpeechLibraryBase(
       Speech,
       selectedTTSModelRef.current,
       enrollmentJsonPath,
       SV_SPEAKER_ID,
-      APP_LANGUAGES.find((language) => language.id === appLanguageRef.current)?.sttLocale,
+      APP_LANGUAGES.find((entry) => entry.id === language)?.sttLocale,
     );
+    try {
+      await init();
+    } catch (error) {
+      // A downloaded voice version that doesn't load (remote manifest update): back to the last working version, once.
+      if (!isDownloadableLanguage(language) || !(await rollbackLanguagePack(language))) throw error;
+      console.log(`[languagePacks] ${language}: the new voice files did not load, back to the last working version`, error);
+      selectedTTSModelRef.current = getTTSVoiceConfig(selectedTTSVoiceRef.current, useTTS2Only.current).model;
+      await init();
+    }
+    if (isDownloadableLanguage(language)) markLanguagePackWorking(language).catch(() => undefined);
     console.log('[STT_DIAG] initialized', { withSV: !!enrollmentJsonPath,
       native: await Speech.sttHealthSnapshot(), listeners: Speech.sttListenerDiag() });
     const availableVoices = await Speech.getAllVoices();
@@ -1270,6 +1304,7 @@ function App(): React.JSX.Element {
       selectedAppModeRef.current === 'local_ai_chat' ? 'Sending transcript to the local AI...' : 'Sending transcript to Gemini...',
     );
     setAiChatResponse('');
+    setAiChatIgnored(false);
     aiChatFullReplyRef.current = '';
     aiChatSpeechChainRef.current = Promise.resolve();
     aiChatSpeechPendingRef.current = 0;
@@ -1378,10 +1413,28 @@ function App(): React.JSX.Element {
             }
           },
         );
-        if (turn.toolMessages.length > 0) {
+        if (turn.scope?.outcome === 'ignore' && !aiReply.trim()) {
+          // Command scope IGNORE (2026-11-15 brief): background talk, not for the assistant. No reply bubble, nothing said; the heard
+          // text stays on screen (marked) but out of the history. The finally block below gives the microphone back.
+          console.log(`[AIChat][LOCAL_LLM] ignored (${turn.scope.reason ?? 'background'}): "${userText}"`);
+          aiChatStreamingActiveRef.current = false;
+          aiChatStreamGenerationDoneRef.current = true;
+          aiChatAwaitingSpeechFinishRef.current = false;
+          setAiChatMessages((prev) =>
+            prev
+              .filter((message) => message.id !== `model-${requestId}`)
+              .map((message) => (message.id === `user-${requestId}` ? { ...message, ignored: true } : message)),
+          );
+          setAiChatIgnored(true);
+          setAiChatStatus('Not for me: ignored.');
+          return;
+        }
+        if (turn.toolMessages.length > 0 || turn.operationTurns) {
           setAiChatMessages((prev) =>
             prev.map((message) =>
-              message.id === `model-${requestId}` ? { ...message, toolMessages: turn.toolMessages } : message,
+              message.id === `model-${requestId}`
+                ? { ...message, toolMessages: turn.toolMessages, ...(turn.operationTurns ? { operationTurns: turn.operationTurns } : {}) }
+                : message,
             ),
           );
         }
@@ -1805,6 +1858,7 @@ function App(): React.JSX.Element {
       //  Restart detection after timeout
 
     };
+    devWakeWordRef.current = () => keywordCallback('hey_coach_model_28_22012026b');   // DEV ONLY: the button below
 
     const updateVoiceProps = async () => {
       const inst = myInstanceRef.current;
@@ -2527,21 +2581,34 @@ function App(): React.JSX.Element {
             <Text style={styles.svPromptTitle}>{demoTitle}</Text>
             {localDemo === 'car' ? <CarCard /> : <CaloriesCard />}
             <View style={styles.speechSummaryBlock}>
-              <Text style={styles.speechSentenceLabel}>You said{isAIChatLoading ? ' · working...' : ''}</Text>
+              <Text style={styles.speechSentenceLabel}>You said{isAIChatLoading ? ' · working...' : aiChatIgnored ? ' · not for me (ignored)' : ''}</Text>
               <Text style={styles.aiChatLiveTranscriptText}>
                 {aiChatLiveTranscript || aiChatTranscript || 'Say the wake word, then speak.'}
               </Text>
             </View>
-            <View style={styles.speechSummaryBlock}>
-              <Text style={styles.speechSentenceLabel}>Reply</Text>
-              <Text style={styles.speechSentenceText}>{aiChatResponse || 'The reply will appear here and be spoken.'}</Text>
-            </View>
+            {!aiChatIgnored && (
+              <View style={styles.speechSummaryBlock}>
+                <Text style={styles.speechSentenceLabel}>Reply</Text>
+                <Text style={styles.speechSentenceText}>{aiChatResponse || 'The reply will appear here and be spoken.'}</Text>
+              </View>
+            )}
             <View style={styles.chatModelFooter}>
               <Text style={styles.speechSentenceLabel}>Model: {localModelName}</Text>
               <TouchableOpacity activeOpacity={0.7} disabled={isAIChatLoading} onPress={() => setIsModelPickerVisible(true)}>
                 <Text style={styles.localModelChangeText}>Change</Text>
               </TouchableOpacity>
             </View>
+            {localDemo === 'car' && (
+              <View style={styles.chatModelFooter}>
+                <Text style={styles.speechSentenceLabel}>
+                  Local confidence: {localConfidence > 0 ? localConfidence.toFixed(2) : 'Off'}
+                  {localConfidence > 0 ? ' · less sure → remote agent' : ''}
+                </Text>
+                <TouchableOpacity activeOpacity={0.7} disabled={isAIChatLoading} onPress={cycleLocalConfidence}>
+                  <Text style={styles.localModelChangeText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <View style={styles.ttsTestActionRow}>
               <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={resetAIChatSession}>
                 <Text style={styles.ttsSpeakButtonText}>Reset Chat</Text>
@@ -2656,12 +2723,14 @@ function App(): React.JSX.Element {
                     'Start talking and your transcription will appear here in real time.'}
                 </Text>
               </View>
-              <View style={styles.speechSummaryBlock}>
-                <Text style={styles.speechSentenceLabel}>{isLocalAIChat ? 'Local AI Reply' : 'Gemini Reply'}</Text>
-                <Text style={styles.speechSentenceText}>
-                  {aiChatResponse || (isLocalAIChat ? 'The local AI reply will appear here.' : 'Gemini response will appear here.')}
-                </Text>
-              </View>
+              {!aiChatIgnored && (
+                <View style={styles.speechSummaryBlock}>
+                  <Text style={styles.speechSentenceLabel}>{isLocalAIChat ? 'Local AI Reply' : 'Gemini Reply'}</Text>
+                  <Text style={styles.speechSentenceText}>
+                    {aiChatResponse || (isLocalAIChat ? 'The local AI reply will appear here.' : 'Gemini response will appear here.')}
+                  </Text>
+                </View>
+              )}
               <View style={styles.ttsTestActionRow}>
                 <TouchableOpacity
                   style={[styles.ttsSpeakButton, styles.aiChatResetButton]}
@@ -3482,6 +3551,14 @@ function App(): React.JSX.Element {
                     activeOpacity={0.7}
                     onPress={handleSkipNarration}>
                     <Text style={styles.skipNarrationButtonText}>Skip Narration</Text>
+                  </TouchableOpacity>
+                )}
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={styles.skipNarrationButton}
+                    activeOpacity={0.7}
+                    onPress={() => { void devWakeWordRef.current?.(); }}>
+                    <Text style={styles.skipNarrationButtonText}>Continue without wake word (dev)</Text>
                   </TouchableOpacity>
                 )}
               </View>

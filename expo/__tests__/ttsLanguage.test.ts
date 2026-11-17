@@ -2,7 +2,7 @@
 // non-English voice throw, and no test covered it). Downloaded language packs are faked as "on disk".
 jest.mock('react-native-fs', () => ({
   DocumentDirectoryPath: '/docs',
-  exists: jest.fn(async () => true),
+  exists: jest.fn(async (path: string) => path.endsWith('.dm')),
   stat: jest.fn(async (path: string) => ({ size: mockSizes[path.split('/').pop() as string] })),
 }));
 const mockSizes: Record<string, number> = {};
@@ -29,8 +29,9 @@ describe('TTS files per language', () => {
       expect(Number.isFinite(config.speed)).toBe(true);
       expect(getVoiceEmbedder()).toBeTruthy();
       if (isDownloadableLanguage(id)) {
-        expect(String(config.model)).toBe(`/docs/language_packs/${id}/${LANGUAGE_PACKS[id]!.model.filename}`);
-        expect(String(getVoiceEmbedder())).toBe(`/docs/language_packs/${id}/${LANGUAGE_PACKS[id]!.embedder.filename}`);
+        // language_packs/<language>/<version>/<file> (each voice version in its own folder)
+        expect(String(config.model)).toMatch(new RegExp(`^/docs/language_packs/${id}/[0-9a-f]{12}-[0-9a-f]{12}/${LANGUAGE_PACKS[id]!.model.filename}$`));
+        expect(String(getVoiceEmbedder())).toMatch(new RegExp(`^/docs/language_packs/${id}/[0-9a-f]{12}-[0-9a-f]{12}/${LANGUAGE_PACKS[id]!.embedder.filename}$`));
       }
     });
   }

@@ -1,9 +1,9 @@
 # Guia em português: app de exemplo DaVoice (Expo)
 
 > Para: outro agente Claude que vai usar, testar ou extrair partes da versão **Expo** do app de
-> exemplo (`expo/`). Tudo aqui foi conferido no código (última atualização: 12/11/2026,
-> `react-native-davoice-llm` 1.0.13, `react-native-davoice` 1.0.140, Expo com React Native
-> 0.85). Os caminhos de arquivos são relativos à pasta `expo/`. A versão em inglês está em
+> exemplo (`expo/`). Tudo aqui foi conferido no código (última atualização: 17/11/2026,
+> `react-native-davoice-llm` 1.0.15 (o núcleo com todos os recursos marcados como "núcleo de
+> desenvolvimento" em 2.3, mais a Confiança local, 2.6), `react-native-davoice` 1.0.140, Expo SDK 56 com React Native 0.85). Os caminhos de arquivos são relativos à pasta `expo/`. A versão em inglês está em
 > `englishHowTo.md`.
 >
 > **O mesmo app de `../example/`:** `App.tsx` e `src/` são idênticos aos do exemplo React Native
@@ -13,21 +13,23 @@
 > app (plugins de configuração, 1.6) e onde ficam os modelos que vêm no app (1.5).
 
 > **Status: modelos de teste, ainda em treinamento.** O modelo da demo do carro, que roda no
-> aparelho ("DaVoice Automotive Agent 0.6B", checkpoint `r4b_it100`), é **um modelo de
-> teste, não um produto final**. No nosso conjunto de teste automotivo fixo, com o mesmo núcleo
-> e as mesmas configurações do app (medido num Mac; o teste no Galaxy S20 está pendente):
-> - acerta por completo (ferramenta e argumentos) cerca de **82% dos comandos em português do
->   Brasil** (o `ft7f2_it900` anterior: 68%) e escolhe a ferramenta certa cerca de **90%** das
->   vezes;
-> - nos testes de segurança não executou **nenhuma ação oposta** ("abrir" no lugar de "fechar")
->   e **nenhuma ação não suportada**.
+> aparelho ("DaVoice Automotive Agent 0.6B", checkpoint `g3c_it3639`, o padrão desde 17/11/2026),
+> é **um modelo de teste, não um produto final**. Num conjunto lacrado de 128 frases novas,
+> nunca vistas por ele (rodado uma única vez, português do Brasil e inglês, mesmo núcleo e mesmas
+> configurações do app):
+> - **86%** dos comandos do carro (92 de 107) terminaram exatamente na ação certa (ferramenta e
+>   argumentos); só a primeira chamada do modelo já acertou 92% deles;
+> - **2 de 128** turnos executaram uma ação errada, **nenhuma ação oposta** ("abrir" no lugar de
+>   "fechar") e **nenhuma ação não suportada**; fala de fundo e fragmentos nunca viraram ação;
+> - 6 comandos completos receberam "pode repetir" em vez da ação.
 >
-> Ainda às vezes escolhe um valor errado ou uma ferramenta parecida (autonomia vs. hora de
-> chegada, teto solar aberto vs. inclinado) ou pergunta quando poderia agir. Por isso todas
-> as ações do carro são **simuladas** e conferidas pelo app (guards, veja 2.3). Um Agente Automotivo dedicado está em treinamento (primeiro em
-> português do Brasil); novos checkpoints só substituem este depois de passar nos testes de
-> segurança. Considere os resultados uma prévia do pipeline de voz (wake word, verificação de
-> locutor, STT/TTS, agente no aparelho), não a precisão final.
+> Comparado ao modelo anterior (`r8d_it150`) nos mesmos testes: em 474 comandos novos em pt-BR o
+> resultado final acerta 90,7% das vezes em vez de 84,2%, e uma ação errada roda 6,5% das vezes em
+> vez de 10,1%; em conversas longas (12 conversas, 169 turnos) 89% dos turnos acertam em vez de
+> 81%, e as continuações curtas ("o do passageiro", "não, pra mim") 78% em vez de 49%. Toda ação do
+> carro é **simulada** e conferida pelo app antes de rodar (guards, 2.3), e a configuração
+> **Confiança local** (2.6) pode mandar comandos incertos para um agente remoto. Considere os
+> resultados uma prévia do pipeline de voz, não a precisão final.
 
 O app demonstra um assistente de voz que roda no próprio aparelho:
 
@@ -45,7 +47,7 @@ Pacotes usados (`package.json`):
 |---|---|
 | `react-native-wakeword` | palavra de ativação + verificação de locutor (onboarding e verificação) |
 | `react-native-davoice` | STT + TTS (`Speech`), clonagem de voz, filtro por locutor no STT |
-| `react-native-davoice-llm` (1.0.13) | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas, guards de chamada |
+| `react-native-davoice-llm` (1.0.15) | LLM no aparelho, `Agent` (turno completo de assistente), ferramentas, guards de chamada, Confiança local |
 | `react-native-fs` | arquivos: assinatura de voz, modelos e pacotes de idioma baixados, estados de prompt salvos, banco do agente |
 | `expo`, `expo-dev-client`, `expo-build-properties` | prebuild do Expo / EAS Build, o development client, `minSdkVersion` 29 no Android |
 
@@ -58,6 +60,8 @@ O que vai dentro do app e o que é baixado (e como mudar isso): veja 1.5.
 ### 1.1 Rodar o app
 
 ```bash
+git lfs install             # uma vez por máquina: os modelos (*.dm, *.onnx) ficam no Git LFS
+git lfs pull                # no repositório clonado: troca os arquivos ponteiro do LFS pelos modelos reais
 cd expo
 npm install                 # postinstall: patch-package, checagem do Git LFS e local.config.ts a partir do modelo
 cp local.expo.config.example.js local.expo.config.js   # nome do app, pacote Android, bundle id iOS (ignorado pelo git)
@@ -242,8 +246,8 @@ vez que fazem falta (nunca na instalação), do Cloudflare R2 da DaVoice
 | Modelo de TTS + codificador de clonagem de **inglês** e **português do Brasil** (cerca de 167 MB por idioma) | dentro do app: o modelo em `assets/models/local/` (carregado pelo nome do arquivo), o codificador em `assets/models/` (`require()`); padrão, definido em `language_packs.json` | sempre |
 | Pacotes do agente (`agent/`, `agent_automotive/`), JSON das ferramentas do carro, narração | dentro do app | sempre |
 | Modelo de TTS + codificador de todos os outros idiomas (pt-PT, de, es, fr, it, nl, da, sv, el; 136–168 MB cada) | R2 `language-packs/<arquivo>` → aparelho `Documents/language_packs/<idioma>/` | na primeira vez que o idioma é escolhido |
-| Modelos no aparelho (GGUF, 382 MB cada): Agente Automotivo `auto5_r4b_it100`, Personal Agent `ft7f2_it900` | R2 `agent-llm/<arquivo>` → aparelho `Documents/local_llm/models/` | na primeira vez que a demo abre |
-| Estado pré-aquecido do Agente Automotivo, inglês ou pt-BR (cerca de 400 MB) | R2 `agent-llm/prewarm/<arquivo>` → ao lado do modelo | junto com o modelo, no idioma do app |
+| Modelos no aparelho (GGUF, 382 MB cada): Agente Automotivo `auto16_g3c_it3639` (padrão; `auto8_r8d_it150` e `auto5_r4b_it100` como reservas), Personal Agent `ft7f2_it900` | R2 `agent-llm/<arquivo>` → aparelho `Documents/local_llm/models/` | na primeira vez que a demo abre |
+| Estado pré-aquecido do Agente Automotivo, inglês ou pt-BR (cerca de 430 MB) | R2 `agent-llm/prewarm/<arquivo>` → ao lado do modelo | junto com o modelo, no idioma do app |
 
 **Configuração dos arquivos de idioma: `language_packs.json`** (em `expo/`):
 
@@ -301,6 +305,20 @@ ferramentas e as configurações de prompt exatos com que foi feito: depois de m
 um deles, gere estados novos num aparelho (o app salva um depois do primeiro aquecimento),
 suba-os e atualize `sha256` e `sizeBytes`.
 
+**Manifesto remoto de vozes** (desenvolvimento, 12/11/2026): apps instalados podem receber novos
+arquivos de voz sem atualizar o app.
+- Ao iniciar, o app busca `<baseUrl>/manifest.json` em segundo plano. Ele só é usado quando a
+  assinatura Ed25519 confere com a chave pública em `src/tts/languagePacks.ts` (a DaVoice guarda
+  a chave privada fora de qualquer repositório), o esquema é um que o app lê e toda entrada é
+  válida (nome do arquivo, tamanho, sha256). Qualquer outra coisa: a configuração embutida.
+- Ele só muda quais arquivos de voz um idioma baixado usa: nunca código, nunca o LLM do
+  aparelho, nunca um idioma que vem no app. Os arquivos continuam vindo da mesma pasta e são
+  conferidos por sha256.
+- Cada versão fica na sua própria pasta (`language_packs/<idioma>/<versão>/`) e só é usada
+  quando os dois arquivos estão completos; a última versão que carregou
+  (`markLanguagePackWorking`) é mantida, e uma versão nova que não carrega volta para a anterior
+  (`rollbackLanguagePack`).
+
 **Regras de hospedagem:**
 - Primeiro suba, depois confira cada URL pública (HTTP 200, sha256 do download) e só então
   coloque a URL no app. Nunca chute uma URL.
@@ -309,8 +327,8 @@ suba-os e atualize `sha256` e `sizeBytes`.
 
 **O exemplo React Native** (`../example/`) usa os mesmos arquivos, a mesma pasta no R2 e o mesmo
 gerador; os modelos que vêm no app são carregados com `require()` de `assets/models/`. **O
-Flutter** leva os mesmos arquivos de inglês e pt-BR (checksums iguais) e oferece só esses dois
-idiomas. Os três listam os mesmos modelos do aparelho e baixam os mesmos estados pré-aquecidos.
+Flutter** também funciona do mesmo jeito (`assets/language_packs.json`: os mesmos arquivos, inglês e
+pt-BR dentro do app, os outros idiomas baixados). Os três listam os mesmos modelos do aparelho e baixam os mesmos estados pré-aquecidos.
 
 ### 1.6 Configuração nativa do Expo (plugins de configuração)
 
@@ -344,10 +362,16 @@ LLM no aparelho precisa. O nome e os ids do app vêm de `local.expo.config.js` (
 
 - **Implementação:** `src/local_llm/demo.ts` guarda a demo atual, e
   `LOCAL_LLM_DEMO_DEFAULT_MODEL` em `src/local_llm/constants.ts` define o modelo de cada demo.
-  - Demo do carro: **DaVoice Automotive Agent 0.6B**, `LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`
-    (checkpoint `r4b_it100`, cerca de 380 MB, baixado uma vez e conferido por sha256), com o
-    seu estado pré-aquecido em inglês ou português do Brasil (cerca de 400 MB, baixado junto
-    com o modelo), para que o primeiro início pule o aquecimento.
+  - Demo do carro (desde 17/11/2026): **DaVoice Automotive Agent 0.6B**,
+    `LOCAL_LLM_DAVOICE_AUTOMOTIVE_G3C` (checkpoint `g3c_it3639`, descrições de ferramentas h3d,
+    cerca de 380 MB, baixado uma vez e conferido por sha256), com o seu estado pré-aquecido em
+    inglês ou português do Brasil (cerca de 430 MB, baixado junto com o modelo), para que o
+    primeiro início pule o aquecimento. Os arquivos no R2 foram conferidos baixando-os e
+    comparando tamanho e sha256.
+  - Reservas, usadas só quando escolhidas à mão: **r8d_it150** (`LOCAL_LLM_DAVOICE_AUTOMOTIVE_R8D`,
+    "(r8d, backup)", o padrão de 13/11/2026 a 17/11/2026) e **r4b_it100**
+    (`LOCAL_LLM_DAVOICE_AUTOMOTIVE_R4B`, "(r4b, backup)"). Não há troca automática para outro
+    modelo.
   - Demo de calorias: o Personal Agent, `ft7f2_it900`.
   - O exemplo RN, o app Expo e o exemplo Flutter listam os mesmos modelos.
 - **Outros modelos:** cada demo lembra a sua escolha feita em **Change** (seletor de modelos,
@@ -372,6 +396,7 @@ LLM no aparelho precisa. O nome e os ids do app vêm de `local.expo.config.js` (
   - **You said** (o STT ao vivo);
   - **Reply** (o que é falado);
   - o nome do modelo com **Change**;
+  - na demo do carro, **Local confidence** com **Change** (2.6);
   - Reset Chat e Back.
 - **Aquecimento e estado salvo:** o aquecimento processa o prompt de sistema (persona +
   ferramentas: cerca de 3.100 tokens na demo do carro e cerca de 4.000 na de calorias).
@@ -457,16 +482,109 @@ LLM no aparelho precisa. O nome e os ids do app vêm de `local.expo.config.js` (
     para um vidro, com um natural "Desculpe, acho que não entendi direito. Pode repetir?". Uma
     chamada bloqueada **nunca** vira outra ferramenta;
   - bloqueiam uma chamada cujos argumentos são de outra ferramenta;
+  - usam o valor que o usuário disse (`enumWords`, núcleo de desenvolvimento de 12/11/2026):
+    "joga o ar nos pés" → `feet`, "acha um estacionamento" → `parking`, "quanto tem de
+    combustível" → `fuel`, só quando as palavras nomeiam exatamente um valor daquele argumento
+    (dois ou nenhum: nada muda);
+  - leem um plural sem lugar como todos ("fecha os vidros", "Can you open my car windows?" →
+    `all`); qualquer palavra de lugar ("de trás", "do carona", "meu", "back") deixa a chamada
+    como está;
   - mantêm a ação numa correção que só muda o alvo: "fecha o vidro traseiro esquerdo" → "não,
     o outro de trás" fecha o traseiro direito (`followUp`; precisa de `historyAsRun: true` na
-    entrada do modelo, para o histórico mostrar cada chamada como ela rodou).
+    entrada do modelo, para o histórico mostrar cada chamada como ela rodou);
+  - mais, no núcleo de desenvolvimento de 13/11/2026:
+    - um valor que o usuário diz numa correção nunca é desfeito: "abre o teto solar" → "não, só
+      inclina" inclina;
+    - um lado só ("baixa três graus no lado do passageiro") → a ferramenta de duas zonas é a
+      ferramenta errada (a nova tentativa abaixo escolhe a de um lado);
+    - um número depois de "pra" / "to" é um alvo: "sobe a temperatura pra vinte" = 20, não +20
+      ("aumenta em dois" continua um passo);
+    - "abaixa os vidros" / "roll down the windows" abre; uma fresta precisa de "um pouco",
+      "uma fresta", "a little";
+    - valores ditos: "pedágio" → `tolls`, "pen drive" → `usb`, AM / FM, aquecimento x
+      ventilação do banco, "no 1" → `low` (lido da descrição do próprio argumento), "casa" →
+      `home`, "jantar" → `restaurant`;
+    - objetos ditos: um posto, um pen drive, o aquecimento do banco, "autonomia". Uma
+      ferramenta que não trata deles é a ferramenta errada.
+    - (mais tarde no mesmo dia, a partir de frases de teste no estilo da fala) um número que o
+      usuário não disse nunca roda ("onde eu ponho etanol" → duas zonas 19 / 18: bloqueado); um
+      número para uma ferramenta que não recebe número ("o ar do passageiro em 22" → direção do
+      ar), um passo numa ferramenta só de alvo ("dá mais dois graus" → 23 / 23) e um número de
+      rádio como temperatura ("noventa e três ponto três" → 93 °C) são a ferramenta errada;
+    - uma sensação pura ("tô suando", "tá um gelo aqui") não é chamada de teto solar / vidro; "a
+      trava" / "o trinco" é a trava; o desembaçador não é "desce os vidros"; para-brisa,
+      consumo, pneus, tanque, pedágio e "onde eu carrego / paro" precisam de uma ferramenta que
+      trate deles; o porta-luvas não é suportado; um objeto negado ("não quero a porta, quero o
+      vidro") não conta como dito;
+    - quanto abrir: "um pouquinho" / "um dedinho" / "a couple of inches" = fresta (teto solar:
+      inclinar), "de vez" / "all the way" = abrir; "bring / get / put / roll … down" abre,
+      "… up" fecha; o objeto antes do verbo ("os vidros do carro, baixa") também vale;
+    - "lado dela / her side" = passageiro ("meu lado" = motorista); "tira o embaçado" = liga o
+      desembaçador, "chega de desembaçador" = desliga; "liga o som de novo" = tira do mudo; um
+      valor de rádio fora da faixa (FM 87,5–108, AM 530–1710) vira o único número dito; "meu
+      serviço" = `work`; níveis do banco "fraquinho" / "médio" / "forte".
+
+    Esses são bloqueios de ferramenta *errada*, em que o modelo deve escolher de novo, então
+    usam a nova tentativa abaixo. O app nunca troca um bloqueio por outra ferramenta.
 
   Toda decisão de guard aparece no log (`guard ...`).
+- **Uma nova tentativa quando o modelo escolheu a ferramenta errada** (núcleo de desenvolvimento
+  de 12/11/2026; `guardRetry: true` na entrada do modelo). Quando um guard bloqueia uma chamada
+  por ser a *ferramenta* errada (uma ferramenta de porta para "fecha os vidros", a ferramenta de
+  duas zonas para um lado só), o mesmo modelo reconsidera **uma vez**, a partir do mesmo prompt
+  já processado, sem aquela ferramenta (nem as outras que não tratam o que o usuário nomeou). A
+  nova chamada passa por todos os guards de novo; a mesma ferramenta, nenhuma chamada ou outro
+  bloqueio → o usuário é perguntado, como antes. O app nunca troca uma ferramenta por outra.
+  - Corrigiu "fecha os vidros" depois de "abre os vidros" (o modelo chamava `close_doors` toda
+    vez): de 12 para 22 de 22 turnos no conjunto de regressão do celular, 40 / 40 num conjunto de
+    sequências de vidro / porta; no Galaxy S20 soma cerca de 1,5–2 s nos turnos em que acontece
+    (cerca de 3% dos turnos).
+  - Com o núcleo de 13/11/2026, o Automotive Agent r8d_it150 acerta 156 de 161 turnos do teste
+    de aceitação pt-BR (eram 149), com 12 ações erradas (eram 27) e nenhuma ação oposta ou não
+    suportada. No Galaxy S20 a ação fica pronta cerca de 1,7 s depois que o texto reconhecido
+    chega ao modelo (mediana; 2,2 s em 9 de cada 10 turnos), com pico de 1,8 GB de memória.
+  - Com o núcleo de desenvolvimento mais recente de 13/11/2026: 157 de 161 (10 ações erradas,
+    nenhuma oposta ou não suportada). Em frases novas no estilo da fala (com "ô", "aí", outras
+    ordens de palavras) que aquele teste não tem, as ações erradas caem de cerca de 28% para
+    cerca de 15% dos turnos (as certas sobem de cerca de 70% para 81%). O custo: a nova
+    tentativa acontece em cerca de 20% desses turnos, e um turno com nova tentativa leva cerca
+    de 3,6 s no S20 (2,0 s nos outros).
+  - Travar vs. abrir / fechar (núcleo de desenvolvimento g29): uma palavra de travar ("trava",
+    "tranca", "lock") numa ferramenta que só abre / fecha portas, ou uma palavra de abrir / fechar
+    numa ferramenta de trava, é um bloqueio de ferramenta errada (a nova tentativa acima).
+    "fecha o carro" / "abre o carro" continuam com as ferramentas de trava. "trava o carro" sem
+    porta nomeada trava o carro todo.
+- **Duas operações num pedido** (núcleo de desenvolvimento g29; `maxOperations: 2` na entrada do
+  modelo, enviado como `maxOperations` no configure do agente). "fecha os vidros e trava o carro"
+  executa as duas, uma depois da outra, na mesma sessão (mesmo modelo, mesmo prompt processado).
+  - O núcleo corta a frase em "e" / "and" / "depois" / "then" / "também" / vírgula só onde cada
+    parte é um comando claro ("fecha os vidros e as portas" → "fecha as portas" na segunda). Não
+    corta uma autocorreção ("abre... quer dizer, fecha"), nomes ("Zezé di Camargo e Luciano"),
+    números ("vinte e dois"), um lugar para duas coisas ("o vidro do motorista e o do
+    passageiro", "o motorista em 20 e o passageiro em 23"), um desejo ("queria um ventinho, ...")
+    ou uma primeira parte vaga ("esquenta um pouquinho, sobe dois graus").
+  - Cada operação é decidida pelo modelo com as próprias palavras e conferida por todos os
+    guards. A segunda vê a primeira no histórico e nunca executa de novo uma chamada que a
+    primeira já executou.
+  - As respostas são ditas uma depois da outra ("Fechei todos os vidros. Tranquei o carro."),
+    então um sucesso parcial é contado como aconteceu. Um terceiro pedido não é feito; o usuário
+    ouve "Não fiz o resto do pedido. Pode repetir?" (`prompts.notDoneRest` em `agent_automotive`).
+  - O `operationTurns` do resultado fica com a resposta no histórico
+    (`AIChatHistoryMessage.operationTurns`); o núcleo repete o pedido como as suas operações, e
+    o turno seguinte reaproveita o prompt processado.
+  - Custo no Galaxy S20: a segunda operação soma cerca de 3 s (cerca de 2 s de prompt + 1,2 s de
+    decodificação), em parte escondidos enquanto a primeira resposta é falada.
 - **Posições:** vidros, portas e travas aceitam `front_left`, `front_right`, `rear_left`,
   `rear_right`, `driver`, `passenger`, `front`, `rear`, `left`, `right` ou `all`.
   - `driver` / `passenger` são resolvidos pelo app a partir do lado do volante do carro
     (`CarState.vehicle.steering`, padrão esquerdo; `setSteering()` em `src/car/CarState.ts`),
     então nada supõe volante à esquerda.
+  - O lado do volante também vai para o núcleo (configure do agente `vehicle: { steering }`,
+    enviado de novo quando muda; núcleo de desenvolvimento g29). Um lado dito para um banco da
+    frente ("o banco da direita", "lado direito 22 graus") é o motorista ou o passageiro conforme
+    ele. Esquerda / direita ditas explicitamente mantêm o sentido físico: "o vidro do lado
+    direito" é `front_right`, também quando o modelo disse `passenger` num carro com volante à
+    direita. Sem essa configuração o núcleo não supõe nada.
   - Mover o vidro, abrir a porta e travar a porta são ferramentas separadas.
 - **Duas temperaturas de uma vez:** `set_dual_zone_temperature` (motorista + passageiro). O app
   confere cada valor e diz qual lado não conseguiu ajustar. O r4b foi treinado nela e acerta a
@@ -491,6 +609,11 @@ LLM no aparelho precisa. O nome e os ids do app vêm de `local.expo.config.js` (
   freio de mão) devem ser **recusados**, não executados.
 
 ### 2.4 Como testar
+
+Só em builds de debug (`__DEV__`): **Continue without wake word (dev)** na tela da palavra de
+ativação inicia o app como se "Hey Coach" tivesse sido ouvido, e **Run test script (dev)** na
+tela do chat toca as linhas de `files/inapp_test.txt` (na pasta de arquivos do app; `#reset`
+começa uma conversa nova) como se fossem faladas. Nenhum dos dois existe numa build release.
 
 1. Escolha **Local AI · Car demo** (ou Calories). Espere a tela de carregamento terminar:
    cerca de 30–40 s na primeira vez, cerca de um segundo depois.
@@ -518,13 +641,13 @@ LLM no aparelho precisa. O nome e os ids do app vêm de `local.expo.config.js` (
    - recusa quando não é suportado;
    - **nenhuma ação executada** em frases de conversa ou em ruído de fala.
 4. **Ferramentas registradas:** `LOCAL_LLM_CAR_TOOLS` em `src/local_llm/constants.ts`:
-   - `'vw_demo'` (padrão: 22 ferramentas na redação h3, prompt menor e mais rápido);
+   - `'vw_demo'` (padrão: 22 ferramentas, prompt menor e mais rápido);
    - `'all'` (o catálogo inteiro).
 
    O `toolWording` da entrada do modelo escolhe o arquivo de descrições:
-   - `h3` (`src/car/carToolDefinitions.h3.json`: posições + duas zonas, gerado por
-     `Davoice_LLM_Training/tools/make_h3_schemas.py`);
-   - `h2`;
+   - `h3d` (`src/car/carToolDefinitions.h3d.json`: posições + duas zonas, com as descrições
+     corrigidas com que os modelos do Agente Automotivo são treinados);
+   - `h3`, `h2` (modelos mais antigos);
    - `v1` (a redação original dos primeiros modelos).
 5. **Log da conversa:**
    - build debug: `adb shell run-as com.exampleapp cat files/davoice_chat.log`;
@@ -634,6 +757,40 @@ normal (`interruptCoachForUserSpeech` em `SpeechLibHeadless.ts`). É mais comple
 preciso filtrar o eco comparando a transcrição com a frase que a IA está falando. Para o
 carro, a versão com wake word acima é mais segura.
 
+### 2.6 Confiança local: comandos incertos vão para o agente remoto
+
+A tela de conversa da demo do carro tem uma linha **Local confidence** com **Change**: Off (padrão)
+→ 0,80 → 0,90 → 0,95 → Off. O valor fica salvo na instalação (`getLocalConfidence` /
+`setLocalConfidence` em `src/local_llm/ModelRegistry.ts`) e é enviado ao agente antes do próximo
+turno (`agent.configure({ confidence: { min } })` em `src/aichat/provider.ts`; a demo de calorias
+sempre envia 0).
+
+- Cada chamada de ferramenta que o modelo escreve tem uma probabilidade: o produto das
+  probabilidades dos tokens que o modelo escolheu (o texto que o guia insere é certo e não conta).
+  Uma chamada abaixo do valor **nunca roda**: nem guard, nem ação no carro.
+- O pedido então vai para o assistente remoto com o motivo `low-confidence`. Sem modelo remoto
+  configurado (`LOCAL_LLM_LAYER2 = 'none'`), o `src/aichat/remote.ts` responde com
+  `LOCAL_LLM_LOW_CONFIDENCE_MESSAGE`: **"Para esse comando eu preciso de um agente remoto."** (em
+  inglês: *"For this command I need a remote agent."*).
+- O resultado do turno traz `confidence: { value, min, low }`; o log mostra `confidence: 0.29 <
+  0.80: the call did not run`.
+- Precisa do `react-native-davoice-llm` 1.0.15 ou mais novo (núcleos antigos ignoram a
+  configuração). Ela não muda o prompt, então os estados pré-aquecidos continuam valendo.
+
+Medido com o `g3c_it3639` em comandos que ele nunca viu no treinamento:
+
+| Valor | Ações erradas evitadas | Comandos válidos enviados ao agente remoto |
+|---|---|---|
+| Off (padrão) | 0% | 0% |
+| 0,80 | cerca de 40% | cerca de 13% |
+| 0,90 | cerca de dois terços | cerca de 20% |
+| 0,95 | cerca de 70% | cerca de 27% |
+
+Em frases mais difíceis (pares de contraste, números falados) muito mais comandos válidos são
+enviados para fora, e algumas chamadas erradas saem com confiança alta (por exemplo "fexa as
+portas" → travar), então sozinha a configuração não chega a zero ação errada. Escolha o valor com
+os seus próprios comandos.
+
 ---
 
 ## 3. Como extrair cada componente para outro app
@@ -710,7 +867,7 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   - `src/tts/voiceClone.ts`: clonagem de voz.
 - **Assets:** um modelo de TTS e um codificador de clonagem por idioma, dentro do app ou
   baixados (1.5). Para português do Brasil (dentro do app):
-  - TTS: `model_ex2_portuguese_brv1.dm` (cerca de 143 MB);
+  - TTS: `model_ex2_portuguese_brv1.dm` (cerca de 145 MB);
   - clonagem de voz: `embedder_brv1.dm`.
   - Todo `require()` de um arquivo `.dm` coloca o arquivo no app, mesmo que esse código nunca
     rode. Neste exemplo os `require()` são gerados a partir de `language_packs.json`; não
@@ -768,7 +925,7 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
       mensagens, sem a skill de calorias). Este é o prompt de sistema com que o modelo
       automotivo é treinado: mantenha-o igual quando usar esse modelo.
   - **Carro:**
-    - `src/car/carToolDefinitions.h3.json` (definições das ferramentas no formato MCP:
+    - `src/car/carToolDefinitions.h3d.json` (definições das ferramentas no formato MCP:
       `name`, `description`, `inputSchema`, `execution`);
     - `src/car/carTools.ts` (handlers e as frases faladas);
     - `src/car/positions.ts` (posições, lado do volante, redação das frases);
@@ -796,14 +953,15 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
   (o exemplo já faz isso). Modelos ajustados precisam do mesmo `chatTemplate` (`qwen3`) e
   das configurações da entrada (`usesRouter: false`, `modelTools: true`,
   `remoteAssistant: true`, `temperature: 0`, `callGuards: 'correct'`, `toolWording`; no
-  Agente Automotivo também `historyAsRun: true`, `guidedToolCalls: true` e `promptOrder:
-  'cache'`, além dos `prebuiltStates`). O `provider.ts` as
+  Agente Automotivo também `historyAsRun: true`, `guidedToolCalls: true`, `promptOrder:
+  'cache'` e `guardRetry: true`, além dos `prebuiltStates`). O `provider.ts` as
   envia para `agent.configure` (`historyAsRun`, `guidedToolCalls`, `promptOrder` e os
-  `guards`, incluindo `followUp`, e `dualZone` a partir do 1.0.14).
+  `guards`, incluindo `followUp`, `dualZone` a partir do 1.0.14, e `enumWords` e `guardRetry` com
+  o núcleo de 12/11/2026). A partir do 1.0.15 ele envia também a Confiança local (`confidence: { min }`, 2.6).
 - **Ferramentas novas:** um modelo pequeno depende muito do texto das descrições. Use
   descrições curtas e claras e diga explicitamente "absoluto vs. relativo" e qual lado é
   qual. Mantenha no app **o mesmo texto** com que o modelo foi treinado: o modelo da demo do
-  carro espera `src/car/carToolDefinitions.h3.json`.
+  carro espera `src/car/carToolDefinitions.h3d.json`.
 
 ---
 
@@ -823,3 +981,5 @@ a sua licença. Os módulos de `src/` foram separados do `App.tsx` exatamente pa
 6. Lembre que o chat é por turnos (2.5): espere a IA terminar antes de falar de novo.
 7. Teste também uma voz diferente: ela **não** deve ativar o assistente, nem destrancar o
    carro.
+8. Na demo do carro, coloque a **Local confidence** em 0,90 (2.6) e fale alguns comandos: os incertos não rodam e o app
+   diz "Para esse comando eu preciso de um agente remoto."; os claros continuam rodando.

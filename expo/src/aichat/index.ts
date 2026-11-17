@@ -15,6 +15,12 @@ export type AIChatHistoryMessage = {
    * (see react-native-davoice-llm's runToolTurn). Rendered into later prompts
    * so the model sees that actions are done by calling tools. */
   toolMessages?: { role: 'user' | 'assistant'; content: string }[];
+  /** Local AI Chat, a request that ran two operations (core 2026-11-13, Q3): each operation as it ran. Sent back with the history, so the
+   * agent replays the request as those turns (the prompt then matches the cached one: no reprocessing on the next turn). */
+  operationTurns?: unknown[];
+  /** Local AI Chat, command scope IGNORE (core 2026-11-14): speech not meant for the assistant (background talk). Shown as heard, no
+   * reply bubble, nothing said, and left out of the history the model sees. */
+  ignored?: boolean;
 };
 
 export type GeminiRequestLogMeta = {

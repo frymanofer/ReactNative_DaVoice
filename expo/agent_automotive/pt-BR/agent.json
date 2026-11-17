@@ -13,11 +13,23 @@
     "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
     "noToolRetry": "Reply to what I said above, in plain words.",
     "noReply": "Desculpe, não entendi. Pode repetir?",
+    "notDoneRest": "Não fiz o resto do pedido. Pode repetir?",
     "done": "Pronto.",
     "failed": "Desculpe, não deu certo.",
     "notConfirmed": "Tudo bem, não vou fazer isso.",
     "notAuthorized": "Desculpe, você não tem permissão para isso.",
     "invalidArgs": "Desculpe, não entendi todos os detalhes. Pode repetir?",
+    "scopeClarify": "Desculpe, não entendi. Pode repetir?",
+    "scopeTooLong": "Pode me dizer isso de um jeito mais curto? Por exemplo: abre o vidro do motorista.",
+    "scopeUnsupported": "Desculpe, isso eu não consigo controlar neste carro.",
+    "scopeNoRemote": "Isso eu não consigo responder aqui. Posso ajudar com os vidros, as portas, o ar, a música, a navegação e o status do carro.",
+    "scopeIgnore": "",
+    "undoNothing": "Não tem nenhuma ação recente para desfazer.",
+    "undoIrreversible": "Desculpe, isso não dá para desfazer.",
+    "undoDone": "Pronto, voltei como estava.",
+    "undoFailed": "Desculpe, não consegui desfazer.",
+    "undoLastFailed": "O último comando não foi feito, então não tem nada para desfazer.",
+    "undoChangedSince": "Outra pessoa mudou isso depois, então deixei como está.",
     "unsupported": "Desculpe, isso não está disponível neste app.",
     "guardConflict": "Desculpe, acho que não entendi direito. Pode repetir?",
     "outOfRange": "Desculpe, {value} não dá: vai de {min} a {max}.",
@@ -1301,5 +1313,11 @@
         "Por nada!"
       ]
     }
+  ],
+  "changeClaims": [
+    "\\b(liguei|deixei|botei|pus|desliguei|abri|fechei|travei|tranquei|destravei|destranquei|coloquei|ajustei|aumentei|baixei|abaixei|subi|desci|mudei|troquei|ativei|desativei|aqueci|esquentei|resfriei|direcionei|sintonizei|configurei|acionei|silenciei|inclinei)\\b",
+    "\\b(ja|agora) (esta|ta|estao|tao|ficou|ficaram) (ligad|desligad|abert|fechad|travad|destravad|trancad|destrancad|aquecid|no mudo)\\w*",
+    "\\bi( ve| have)? (set|turned|opened|closed|locked|unlocked|raised|lowered|adjusted|increased|decreased|changed|switched|started|stopped|muted|unmuted|tuned|heated|cooled|activated|deactivated|moved|rolled|tilted)\\b",
+    "\\b(is|are) now (set|on|off|open|closed|locked|unlocked|at|muted)\\b"
   ]
 }

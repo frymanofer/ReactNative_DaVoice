@@ -91,6 +91,29 @@ export interface LocalLLMModelConfig {
   /** Agent configure "historyAsRun" (2026-11-11): a guard-corrected call stays in the history as it ran, and the follow-up guard
    * ("não, o outro de trás" keeps the previous action) is on with callGuards 'correct'. Default false. */
   historyAsRun?: boolean;
+  /** Agent configure "guardRetry" (core g13+, 2026-11-12, I078): when a guard blocks a call because the model picked the wrong tool
+   * ("close the windows" -> close_doors), the same model reconsiders ONCE with that tool excluded; the new call passes every guard
+   * again, otherwise the user is asked. Never a substitution by the app. Older cores ignore the key. */
+  guardRetry?: boolean;
+  /** Agent configure "maxOperations" (core 2026-11-13, Q3): 2 = a request with two clear commands ("fecha os vidros e trava o carro")
+   * runs both, one after the other, in the same session; each is decided and checked on its own words, never run twice; a third is
+   * not done and the user hears so. Default 1. Older cores ignore the key. */
+  maxOperations?: number;
+  /** Agent configure "historyTurns" (core 2026-11-13): keep only the last N user turns in the prompt; with the engine's KV shift, dropping
+   * the oldest costs no reprocessing, so long conversations stay as fast as short ones. 0 / unset = all that fit. */
+  historyTurns?: number;
+  /** Agent configure "compactToolResults" (core 2026-11-13): a tool that answered with its own sentence shows {"ok":true} in the prompt
+   * (what the DaVoice models were trained on; fewer tokens per turn). Default false. */
+  compactToolResults?: boolean;
+  /** Agent configure "scope" (core 2026-11-14, dev): which requests the local model gets at all. A deterministic check of the words
+   * before the model: a straightforward car command stays local; a general request goes to the remote assistant; an incomplete /
+   * vague / garbled one is asked again; a car function without a tool here is declined; speech not meant for the assistant is
+   * ignored. Unset / enabled false = off (everything goes to the model, as before). Older cores ignore the key. */
+  scope?: { enabled: boolean; localMaxWords?: number; strictMaxWords?: number; hardMaxWords?: number; longCarRequest?: 'clarify' | 'remote';
+            background?: 'ignore' | 'clarify'; other?: 'remote' | 'local' };
+  /** Agent configure "undo" (core 2026-11-14, dev): "desfaz" / "undo that" puts the car back as it was before the last request (the car
+   * tools return how; src/car/undo.ts). Default false. Older cores ignore the key. */
+  undo?: boolean;
   /** Agent configure "guidedToolCalls": the certain parts of a JSON tool call are fed in one batch (same calls, fewer decode
    * steps; S20 warm call round 2.2 -> 1.9 s). Default false. */
   guidedToolCalls?: boolean;

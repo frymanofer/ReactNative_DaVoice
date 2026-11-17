@@ -9,7 +9,8 @@ import { generateGeminiReply, generateGeminiReplyStream } from './index';
 
 import type { LocalLLMModelConfig } from '../local_llm/types';
 import { ensureLayer2Loaded, ensureModelLoaded, isModelReady, nativeLoadCount } from '../local_llm/LocalLLMLoader';
-import { getSelectedModel } from '../local_llm/ModelRegistry';
+import { getLocalConfidence, getSelectedModel } from '../local_llm/ModelRegistry';
+import { currentLocalDemo } from '../local_llm/demo';
 import { LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL, LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
 import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
@@ -21,6 +22,8 @@ import { downloadPrebuiltState, kvStatePath, stablePromptKey } from '../local_ll
 import { getTTSLanguage } from '../tts';
 import { getLocalAgent } from '../agent/LocalAgent';
 import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
+import { getCarState } from '../car/CarState';
+import { setCarUndoResults } from '../car/carTools';
 
 export interface LLMProvider {
   generateReply(history: AIChatHistoryMessage[], userText: string): Promise<string>;
@@ -84,11 +87,16 @@ function callGuardSettings(mode: 'off' | 'shadow' | 'correct', historyAsRun = fa
   const followUp = historyAsRun ? mode : 'off';
   // dualZone (core g10+): one temperature per side said unambiguously -> the dual-zone call gets exactly those values; a call that would drop
   // or copy a side is blocked (asked again), never redirected. Older native cores ignore the key.
-  return { polarity: mode, direction: mode, absRel: mode, zone: mode, capability: mode, numberGround: mode, opposite, followUp, dualZone: mode } as const;
+  // enumWords (core g15+, 2026-11-12): the user named exactly one value of an enum argument (pés -> feet, estacionamento -> parking)
+  // and the call has another one -> that value, same tool. Older cores ignore the key.
+  return { polarity: mode, direction: mode, absRel: mode, zone: mode, capability: mode, numberGround: mode, opposite, followUp, dualZone: mode, enumWords: mode } as const;
 }
 
 function toAgentHistory(history: AIChatHistoryMessage[]): AgentHistoryMessage[] {
-  return history.map((m) => ({ role: m.role, text: m.text, toolMessages: m.toolMessages }));
+  // operationTurns (core 2026-11-13): a two-operation request is replayed as its operations; older cores ignore the key
+  // speech the scope check ignored (background talk) is not part of the conversation
+  return history.filter((m) => !m.ignored).map((m) => ({ role: m.role, text: m.text, toolMessages: m.toolMessages,
+    ...(m.operationTurns ? ({ operationTurns: m.operationTurns } as Record<string, unknown>) : {}) }));
 }
 
 /** What a local turn did besides speaking (see `generateReplyStream`). */
@@ -97,6 +105,10 @@ export interface LocalTurnOutcome {
   toolMessages: ToolTurnMessage[];
   /** Set when the turn searched the web. */
   webSearch: TurnResult['webSearch'];
+  /** A request that ran two operations (core 2026-11-13): keep with the reply (AIChatHistoryMessage.operationTurns). */
+  operationTurns?: unknown[];
+  /** The command scope's decision for this request (core 2026-11-14, when the model enables it): {outcome, reason, words}. */
+  scope?: { outcome: 'local' | 'remote' | 'clarify' | 'unsupported' | 'ignore'; reason?: string; words?: number };
 }
 
 /**
@@ -108,6 +120,11 @@ export interface LocalTurnOutcome {
  */
 export class LocalLLMProvider implements LLMProvider {
   private chatTemplateFor: string | null = null;
+  // The steering side last sent to the agent (configure "vehicle"), and to which agent.
+  private steeringSent: string | null = null;
+  private steeringSentTo: Agent | null = null;
+  private confidenceSentTo: Agent | null = null;
+  private confidenceSent = -1;
   private configuredAgent: Agent | null = null;
   private chatTemplateSet: Promise<void> = Promise.resolve();
 
@@ -168,11 +185,36 @@ export class LocalLLMProvider implements LLMProvider {
         guards: callGuardSettings(model.callGuards ?? 'off', model.historyAsRun === true),
         // Sent every time (shared agent): the previous model's settings must not stick.
         historyAsRun: model.historyAsRun === true,
+        // Spread: the published react-native-davoice-llm typings predate guardRetry (core g13+; older cores ignore the key).
+        ...({ guardRetry: model.guardRetry === true } as Record<string, unknown>),
+        // Two operations per request (core 2026-11-13, Q3; older cores ignore it). Sent every time: the shared agent must not keep it.
+        ...({ maxOperations: model.maxOperations ?? 1 } as Record<string, unknown>),
+        // History window + compact tool results (core 2026-11-13, latency; older cores ignore them). Sent every time (shared agent).
+        ...({ historyTurns: model.historyTurns ?? 0, compactToolResults: model.compactToolResults === true } as Record<string, unknown>),
         guidedToolCalls: model.guidedToolCalls === true,
+        // Command scope + undo (core 2026-11-14; older cores ignore them). Sent every time (shared agent): off unless the model sets them.
+        ...({ scope: model.scope ?? { enabled: false }, undo: model.undo === true } as Record<string, unknown>),
         promptOrder: model.promptOrder ?? 'trained',
       });
     }
     await this.chatTemplateSet;
+    // the car's results carry their undo only when the agent uses it (an older core would show it to the model)
+    setCarUndoResults(model.undo === true);
+    // The car's steering-wheel side (core 2026-11-13, Q4; older cores ignore it): "o banco da direita" is the passenger in a left-hand-drive
+    // car and the driver in a right-hand-drive one; explicit left / right positions stay physical. Sent again when it changes.
+    // Local confidence (core 2026-11-17, configure "confidence"; older cores ignore it): the car demo's setting, off in the other demo.
+    const minConfidence = currentLocalDemo() === 'car' ? await getLocalConfidence() : 0;
+    if (this.confidenceSentTo !== agent || this.confidenceSent !== minConfidence) {
+      this.confidenceSentTo = agent;
+      this.confidenceSent = minConfidence;
+      await agent.configure({ ...({ confidence: { min: minConfidence } } as Record<string, unknown>) });
+    }
+    const steering = getCarState().vehicle.steering;
+    if (this.steeringSentTo !== agent || this.steeringSent !== steering) {
+      this.steeringSentTo = agent;
+      this.steeringSent = steering;
+      await agent.configure({ ...({ vehicle: { steering } } as Record<string, unknown>) });
+    }
     return agent;
   }
 
@@ -358,6 +400,9 @@ export class LocalLLMProvider implements LLMProvider {
     );
     onDelta('', true);
     clearHeardSpeakers(); // the next request is checked on its own voice
-    return { toolMessages: result.toolMessages, webSearch: result.webSearch };
+    const extra = result as unknown as { operationTurns?: unknown[]; scope?: LocalTurnOutcome['scope'] };
+    const operationTurns = extra.operationTurns;
+    return { toolMessages: result.toolMessages, webSearch: result.webSearch, ...(operationTurns ? { operationTurns } : {}),
+      ...(extra.scope ? { scope: extra.scope } : {}) };
   }
 }

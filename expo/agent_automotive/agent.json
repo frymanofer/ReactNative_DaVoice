@@ -13,11 +13,23 @@
     "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
     "noToolRetry": "Reply to what I said above, in plain words.",
     "noReply": "Sorry, I didn't get that. Could you say it again?",
+    "notDoneRest": "I didn't do the rest of that. Can you say it again?",
     "done": "Done.",
     "failed": "Sorry, that didn't work.",
     "notConfirmed": "Okay, I won't do that.",
     "notAuthorized": "Sorry, you're not allowed to do that.",
     "invalidArgs": "Sorry, I didn't get all the details for that. Could you say it again?",
+    "scopeClarify": "Sorry, I didn't catch that. Could you say it again?",
+    "scopeTooLong": "Could you say that a bit shorter? For example: open the driver's window.",
+    "scopeUnsupported": "Sorry, I can't control that in this car.",
+    "scopeNoRemote": "I can't answer that here. I can help with the windows, doors, climate, music, navigation and the car's status.",
+    "scopeIgnore": "",
+    "undoNothing": "There's nothing recent to undo.",
+    "undoIrreversible": "Sorry, I can't undo that one.",
+    "undoDone": "Done, I put it back the way it was.",
+    "undoFailed": "Sorry, I couldn't undo that.",
+    "undoLastFailed": "The last command didn't go through, so there's nothing to undo.",
+    "undoChangedSince": "Someone changed that again since, so I left it as it is.",
     "outOfRange": "Sorry, {value} isn't possible: it goes from {min} to {max}.",
     "outOfRangeAsk": "What value would you like? It goes from {min} to {max}."
   },
@@ -905,5 +917,11 @@
         "Anytime!"
       ]
     }
+  ],
+  "changeClaims": [
+    "\\b(liguei|deixei|botei|pus|desliguei|abri|fechei|travei|tranquei|destravei|destranquei|coloquei|ajustei|aumentei|baixei|abaixei|subi|desci|mudei|troquei|ativei|desativei|aqueci|esquentei|resfriei|direcionei|sintonizei|configurei|acionei|silenciei|inclinei)\\b",
+    "\\b(ja|agora) (esta|ta|estao|tao|ficou|ficaram) (ligad|desligad|abert|fechad|travad|destravad|trancad|destrancad|aquecid|no mudo)\\w*",
+    "\\bi( ve| have)? (set|turned|opened|closed|locked|unlocked|raised|lowered|adjusted|increased|decreased|changed|switched|started|stopped|muted|unmuted|tuned|heated|cooled|activated|deactivated|moved|rolled|tilted)\\b",
+    "\\b(is|are) now (set|on|off|open|closed|locked|unlocked|at|muted)\\b"
   ]
 }
