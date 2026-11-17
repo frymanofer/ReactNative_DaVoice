@@ -5,14 +5,12 @@ import { CHAT_TEMPLATE_PRESETS } from './chatTemplates';
 // Users can add more at runtime — see ModelRegistry.ts. The native engine and
 // TTSLLM bridge never see this list; they only receive whichever resolved
 // path ModelManager hands them.
-/** The car-agent example's models: the DaVoice Automotive Agent g3c_it3639 (the default) and r8d_it150 (a backup, picked explicitly).
- * Exactly one model is loaded. Car actions stay simulated. */
+/** The car-agent example's model: the DaVoice Automotive Agent g3c_it3639. Car actions stay simulated. */
 export const LOCAL_LLM_DAVOICE_AUTOMOTIVE_G3C: ModelId = 'davoice-automotive-agent-0.6b-g3c-it3639';
-export const LOCAL_LLM_DAVOICE_AUTOMOTIVE_R8D: ModelId = 'davoice-automotive-agent-0.6b-r8d-it150';
 
 export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
   {
-    // Automotive Agent g3c_it3639, the car demo's default since 2026-11-17 (see LOCAL_LLM_DAVOICE_AUTOMOTIVE_G3C): same settings as r8d.
+    // Automotive Agent g3c_it3639, the car demo's default since 2026-11-17 (see LOCAL_LLM_DAVOICE_AUTOMOTIVE_G3C).
     // R2 upload verified 2026-11-17: HTTP 200, 381,565,920 bytes, sha256 of the full download = the training artifact's.
     id: LOCAL_LLM_DAVOICE_AUTOMOTIVE_G3C,
     displayName: 'DaVoice Automotive Agent 0.6B',
@@ -53,52 +51,6 @@ export const BUILTIN_LOCAL_LLM_MODELS: LocalLLMModelConfig[] = [
     prebuiltStates: {
       en: { url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/prewarm/g3c_it3639_prewarm_en.kvstate', sha256: '75a35e15c774b9b63223b4b71e3283f6abffbf3b52e6343f16b04d9f26cd325f', sizeBytes: 426_699_589 },
       'pt-BR': { url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/prewarm/g3c_it3639_prewarm_pt-BR.kvstate', sha256: 'f794a202844afdcb754678ce092da729dbdc66377c5e39c78d81300c683f11a0', sizeBytes: 429_681_893 },
-    },
-    isCustom: false,
-  },
-  {
-    // Automotive Agent r8d_it150, the car demo's default until 2026-11-17, now a backup (explicit pick only; see LOCAL_LLM_DAVOICE_AUTOMOTIVE_R8D): h3d wording.
-    // R2 upload verified 2026-11-13: HTTP 200, 381,565,920 bytes, sha256 of the full download = the training artifact's.
-    id: LOCAL_LLM_DAVOICE_AUTOMOTIVE_R8D,
-    displayName: 'DaVoice Automotive Agent 0.6B (r8d, backup)',
-    filename: 'davoice-automotive-qwen3-0.6b-r8d-it150-q4_0.gguf',
-    url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/auto8_r8d_it150-q4_0.gguf',
-    sizeBytes: 381_565_920,
-    sha256: 'a977c181c3af6aa49991d927e66256fba77502af76bf42291109e3c3c4b2a550',
-    // 6144 (2026-11-13): with the 6-turn history the prompt stays under ~4.7k tokens; S20: same decisions as 8192 (150 / 150), peak
-    // 1.59 vs 1.82 GB; the pre-warmed state (made at 8192) restores into it
-    contextSize: 6144,
-    chatTemplate: CHAT_TEMPLATE_PRESETS.qwen3.template,
-    remoteAssistant: true,
-    usesRouter: false,
-    modelTools: true,
-    temperature: 0,
-    relevantMemory: false,
-    toolWording: 'h3d',
-    callGuards: 'correct',
-    historyAsRun: true,
-    guidedToolCalls: true,
-    promptOrder: 'cache',
-    guardRetry: true,
-    // two clear commands in one request run both (core 2026-11-13, Q3; older cores ignore it)
-    maxOperations: 2,
-    // latency (core 2026-11-13): only the last 6 user turns in the prompt (KV shift: no reprocessing) and {"ok":true} for tools that
-    // answered with their own sentence. S20, 25-turn conversations: prompt time ~2.3 s flat (was 2.0 -> 3.2 s), no accuracy loss
-    historyTurns: 6,
-    compactToolResults: true,
-    // Command scope + undo (core 2026-11-14, dev g29zh; older cores ignore both): only straightforward car commands reach the model
-    // (<= 10 words; up to 15 when clear; up to 22 for a clear car request such as a dual zone with a preamble); general requests go
-    // to the remote assistant, garbled / vague ones are asked again, car functions without a tool are declined, background speech is
-    // ignored. "desfaz" / "undo" restores the car's previous state (src/car/undo.ts). Benchmarked on a
-    // separate held-out test set.
-    scope: { enabled: true, localMaxWords: 10, strictMaxWords: 15, hardMaxWords: 22 },
-    undo: true,
-    // Pre-warmed states made 2026-11-12 on the S20 by this app (r8d + h3d + cache order + agent_automotive pack; the prompt text is the
-    // same in core g14-g28). R2 upload verified 2026-11-13 (HTTP 200, size + sha256 of the full download match). Regenerate whenever the
-    // model, pack, tools or core prompt text change.
-    prebuiltStates: {
-      en: { url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/prewarm/r8d_it150_prewarm_en.kvstate', sha256: 'ae8ec4f6ce359d171faddc31d2195af8da4cf5b8b66e2d64fc0630058b58a6d9', sizeBytes: 426_699_589 },
-      'pt-BR': { url: 'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/prewarm/r8d_it150_prewarm_pt-BR.kvstate', sha256: 'e5fc93e1a3af51741a7748125452ef89e166b97f08aee58d7249575830d8007d', sizeBytes: 429_681_893 },
     },
     isCustom: false,
   },

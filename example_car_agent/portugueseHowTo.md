@@ -110,7 +110,7 @@ porque é uma demonstração).
 |---|---|
 | Cartão do carro | o estado do carro simulado (temperatura, ventilação, vidros, travas, volume, ...) e a última ação |
 | You said / Reply | o que o STT ouviu e a resposta do agente (também falada) |
-| Model · Change | o modelo no aparelho: **DaVoice Automotive Agent 0.6B** (`g3c_it3639`, o padrão) ou o reserva `r8d_it150`; dá para adicionar o seu próprio GGUF |
+| Model · Change | o modelo no aparelho: **DaVoice Automotive Agent 0.6B** (`g3c_it3639`); dá para adicionar o seu próprio GGUF |
 | Local confidence · Change | Off → 0,80 → 0,90 → 0,95 (2.3) |
 | Reset Chat / Back | conversa nova / volta para a tela da palavra de ativação |
 

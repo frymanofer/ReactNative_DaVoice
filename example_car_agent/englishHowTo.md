@@ -104,7 +104,7 @@ enrolled owner was verified in this request (or when verification was skipped, s
 |---|---|
 | Car card | the simulated car's state (temperature, fan, windows, locks, volume, ...) and the last action |
 | You said / Reply | what STT heard, and the agent's reply (also spoken) |
-| Model · Change | the on-device model: **DaVoice Automotive Agent 0.6B** (`g3c_it3639`, the default) or the backup `r8d_it150`; you can also add your own GGUF |
+| Model · Change | the on-device model: **DaVoice Automotive Agent 0.6B** (`g3c_it3639`); you can also add your own GGUF |
 | Local confidence · Change | Off → 0.80 → 0.90 → 0.95 (2.3) |
 | Reset Chat / Back | a new conversation / back to the wake-word screen |
 
