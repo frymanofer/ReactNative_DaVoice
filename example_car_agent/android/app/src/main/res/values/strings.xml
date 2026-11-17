@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">DaVoice Car Agent</string>
+    <string name="shortcut_short_label">Open Example App</string>
+    <string name="shortcut_long_label">Open Example App</string>
+</resources>
