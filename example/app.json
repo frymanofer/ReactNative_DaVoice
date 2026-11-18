@@ -1,6 +1,6 @@
 {
   "name": "ExampleApp",
-  "displayName": "ExampleApp",
+  "displayName": "DaVoice V2V",
   "android": {
     "packageName": "com.exampleapp"
   },
