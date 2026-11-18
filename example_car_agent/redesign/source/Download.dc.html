@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Installing the language pack</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#34D399}a:hover{color:#6EE7B7}
+.dv-bg{background-image:linear-gradient(180deg,rgba(5,8,7,0.55) 0%,rgba(5,8,7,0.88) 40%,#050807 60%),url(/_blob/057c7e61b5b9c668c7c8089fd1442b3a);background-size:cover;background-position:center top}
+</style>
+</helmet>
+<div class="dv-bg" style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background-color: #0B0F0E; color: #F9FAFB; font-family: Inter, system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center">
+
+  <sc-if value="{{ canReplay }}" hint-placeholder-val="{{ false }}">
+    <button type="button" onClick="{{ replay }}" style="position: absolute; right: 14px; top: 22px; z-index: 3; display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #34D399; background: rgba(8, 13, 11, 0.85); color: #34D399; font-size: 13px; font-weight: 600; cursor: pointer; font-family: Inter, sans-serif">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v4h4"></path></svg>
+      Replay
+    </button>
+  </sc-if>
+  <div style="padding: 34px 24px 0; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: #6EE7B7">{{ eyebrow }}</span>
+    <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 0.02em">Português do Brasil</h1>
+    <span style="font-size: 13px; color: #9CA3AF">PT-BR voice pack · 168 MB</span>
+  </div>
+
+  <div style="position: relative; margin-top: 26px; width: 340px; height: 320px">
+    <svg width="340" height="320" viewBox="0 0 340 320" role="img" aria-label="{{ pct }} percent installed" style="position: absolute; inset: 0">
+      <circle cx="170" cy="170" r="152" fill="rgba(6, 12, 10, 0.85)" stroke="#4B5552" stroke-width="3"></circle>
+      <circle cx="170" cy="170" r="146" fill="none" stroke="#2C3331" stroke-width="1"></circle>
+      <path d="{{ trackPath }}" fill="none" stroke="#17211E" stroke-width="12" stroke-linecap="round"></path>
+      <path d="{{ valuePath }}" fill="none" stroke="#34D399" stroke-width="12" stroke-linecap="round" style="filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.9))"></path>
+      <sc-for list="{{ ticks }}" as="t" hint-placeholder-count="21">
+        <line x1="{{ t.x1 }}" y1="{{ t.y1 }}" x2="{{ t.x2 }}" y2="{{ t.y2 }}" stroke="{{ t.color }}" stroke-width="{{ t.w }}" stroke-linecap="round"></line>
+      </sc-for>
+      <sc-for list="{{ labels }}" as="l" hint-placeholder-count="11">
+        <text x="{{ l.x }}" y="{{ l.y }}" fill="{{ l.color }}" font-family="Inter, sans-serif" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="middle">{{ l.text }}</text>
+      </sc-for>
+      <g style="transform: rotate({{ needleDeg }}deg); transform-origin: 170px 170px; transition: transform 0.35s cubic-bezier(0.3, 1.25, 0.5, 1)">
+        <path d="M170 166 L284 169 L284 171 L170 174 Z" fill="#F9FAFB" style="filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.9))"></path>
+        <path d="M170 167 L146 169 L146 171 L170 173 Z" fill="#59625F"></path>
+      </g>
+      <circle cx="170" cy="170" r="16" fill="#1A2421" stroke="#59625F" stroke-width="2"></circle>
+      <circle cx="170" cy="170" r="5" fill="#34D399" style="filter: drop-shadow(0 0 6px #34D399)"></circle>
+    </svg>
+    <div style="position: absolute; left: 0; right: 0; top: 216px; display: flex; flex-direction: column; align-items: center; gap: 0">
+      <span style="font-size: 46px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; text-shadow: 0 0 16px rgba(52, 211, 153, 0.7)">{{ pct }}</span>
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #6EE7B7">{{ unitLabel }}</span>
+    </div>
+  </div>
+
+  <div style="margin-top: 18px; width: 358px; padding: 4px 16px; box-sizing: border-box; border-radius: 14px; border: 1px solid rgba(16, 185, 129, 0.35); background: rgba(8, 13, 11, 0.9); display: flex; flex-direction: column">
+    <sc-for list="{{ stages }}" as="s" hint-placeholder-count="3">
+      <div style="display: flex; align-items: center; gap: 12px; height: 46px; border-bottom: {{ s.divider }}">
+        <span style="width: 22px; height: 22px; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px solid {{ s.ring }}; background: {{ s.fill }}; box-shadow: {{ s.glow }}; display: flex; align-items: center; justify-content: center">
+          <sc-if value="{{ s.done }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#04140D" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg></sc-if>
+        </span>
+        <span style="flex: 1; font-size: 14px; font-weight: 500; color: {{ s.text }}">{{ s.label }}</span>
+        <span style="font-size: 12px; color: #9CA3AF; font-variant-numeric: tabular-nums">{{ s.detail }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="position: absolute; left: 16px; right: 16px; bottom: 24px">
+    <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+      <a href="Voice.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 10px; height: 58px; border-radius: 14px; background: linear-gradient(180deg, #34D399 0%, #10B981 100%); box-shadow: 0 0 22px rgba(16, 185, 129, 0.6); color: #04140D; font-weight: 800; font-size: 16px; letter-spacing: 0.02em; text-decoration: none">
+        Ready to drive — choose a voice
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+      </a>
+    </sc-if>
+    <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+      <a href="HoodLanguage.dc.html" style="display: flex; align-items: center; justify-content: center; height: 58px; border-radius: 14px; border: 1px solid #4B5552; background: rgba(20, 26, 24, 0.92); color: #F9FAFB; font-weight: 600; font-size: 16px; text-decoration: none">Cancel installation</a>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"simulate":{"editor":"boolean","default":true},"progress":{"editor":"range","default":62,"min":0,"max":100,"step":1,"unit":"%"},"unit":{"editor":"enum","options":["km/h","mph"],"default":"km/h"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sim: 0 };
+    this.timer = null;
+  }
+  componentDidMount() { if (this.props.simulate !== false) this.start(); }
+  componentWillUnmount() { this.stop(); }
+  stop() { if (this.timer) { clearInterval(this.timer); this.timer = null; } }
+  start() {
+    this.stop();
+    this.setState({ sim: 0 });
+    this.timer = setInterval(() => {
+      const cur = this.state.sim;
+      if (cur >= 100) { this.stop(); return; }
+      const step = cur < 90 ? 0.6 + Math.random() * 1.6 : 0.35;
+      this.setState({ sim: Math.min(100, cur + step) });
+    }, 90);
+  }
+  renderVals() {
+    const simulate = this.props.simulate !== false;
+    const raw = simulate ? this.state.sim : (this.props.progress ?? 62);
+    const v = Math.max(0, Math.min(100, Math.round(raw)));
+    const cx = 170, cy = 170, R = 128;
+    const start = 135, sweep = 270;
+    const ang = (val) => start + sweep * val / 100;
+    const pt = (deg, r) => {
+      const a = deg * Math.PI / 180;
+      return [+(cx + r * Math.cos(a)).toFixed(2), +(cy + r * Math.sin(a)).toFixed(2)];
+    };
+    const arc = (from, to, r) => {
+      if (to - from < 0.5) to = from + 0.5;
+      const [x1, y1] = pt(ang(from), r), [x2, y2] = pt(ang(to), r);
+      const large = (to - from) * sweep / 100 > 180 ? 1 : 0;
+      return `M${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+    };
+    const ticks = [];
+    for (let i = 0; i <= 100; i += 5) {
+      const major = i % 10 === 0;
+      const [x1, y1] = pt(ang(i), major ? 104 : 110);
+      const [x2, y2] = pt(ang(i), 116);
+      ticks.push({ x1, y1, x2, y2, w: major ? 3 : 1.5, color: i <= v ? '#6EE7B7' : '#4B5552' });
+    }
+    const labels = [];
+    for (let i = 0; i <= 100; i += 10) {
+      const [x, y] = pt(ang(i), 88);
+      labels.push({ x, y, text: String(i), color: i <= v ? '#F9FAFB' : '#6B7470' });
+    }
+    const done = v >= 100;
+    const mb = Math.round(168 * v / 100);
+    const stage = (label, detail, state, last) => ({
+      label, detail,
+      done: state === 'done',
+      ring: state === 'todo' ? '#3A4D3F' : '#34D399',
+      fill: state === 'done' ? '#34D399' : 'transparent',
+      glow: state === 'active' ? '0 0 8px rgba(52, 211, 153, 0.8)' : 'none',
+      text: state === 'todo' ? '#9CA3AF' : '#F9FAFB',
+      divider: last ? '0' : '1px solid #1A2421'
+    });
+    const dlState = v >= 90 ? 'done' : 'active';
+    const verState = done ? 'done' : v >= 90 ? 'active' : 'todo';
+    return {
+      pct: v,
+      canReplay: simulate && v >= 100,
+      replay: () => this.start(),
+      unitLabel: this.props.unit === 'mph' ? 'mph' : 'km/h',
+      eyebrow: done ? 'Installed' : 'Installing language pack',
+      trackPath: arc(0, 100, R),
+      valuePath: arc(0, Math.max(v, 0.5), R),
+      needleDeg: ang(v),
+      ticks, labels,
+      isDone: done, notDone: !done,
+      stages: [
+        stage('Downloading', `${Math.min(mb, 168)} / 168 MB`, dlState, false),
+        stage('Checking the download', verState === 'active' ? 'verifying…' : '', verState, false),
+        stage('Installed on the engine', done ? 'ready' : '', done ? 'done' : 'todo', true)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

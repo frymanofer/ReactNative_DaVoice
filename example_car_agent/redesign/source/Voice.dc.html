@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Choose a voice</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#34D399}a:hover{color:#6EE7B7}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0B0F0E; color: #F9FAFB; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="position: relative; height: 150px; flex: none; background: repeating-linear-gradient(45deg, #161D1B 0px, #161D1B 3px, #0B0F0E 3px, #0B0F0E 7px)">
+    <div style="position: absolute; left: 0; right: 0; top: 92px; height: 38px; background: linear-gradient(180deg, #7C8582 0%, #59625F 30%, #4B5552 55%, #2C3331 100%); border-top: 1px solid #34D399; box-shadow: 0 -10px 22px rgba(16, 185, 129, 0.30)"></div>
+    <div style="position: absolute; left: 14px; top: 106px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #C9D0CE, #4B5552); box-shadow: inset 0 0 0 1px #2C3331"></div>
+    <div style="position: absolute; right: 14px; top: 106px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #C9D0CE, #4B5552); box-shadow: inset 0 0 0 1px #2C3331"></div>
+    <img src="/_blob/14d80748b2c138f9759f82a078f867a0" alt="DaVoice AI emblem" style="position: absolute; left: 130px; top: 10px; width: 130px; height: 130px; z-index: 2; filter: drop-shadow(0 0 16px rgba(52, 211, 153, 0.45))">
+  </div>
+
+  <div style="position: relative; z-index: 1; flex: 1; min-height: 0; margin: -12px 12px 0; border: 1.5px solid #4B5552; border-bottom: 0; border-radius: 24px 24px 0 0; background: #0D1210; display: flex; flex-direction: column; overflow: hidden">
+    <svg width="90" height="70" viewBox="0 0 90 70" aria-hidden="true" style="position: absolute; right: 8px; top: 10px"><g fill="none" stroke="#3A4D3F" stroke-width="1.2"><path d="M2 6H58L72 20V66"></path></g><g fill="#0D1210" stroke="#3A4D3F" stroke-width="1.2"><circle cx="2" cy="6" r="2.5"></circle><circle cx="72" cy="66" r="2.5"></circle></g></svg>
+
+    <div style="padding: 22px 24px 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #34D399">Step 2 of 5</span>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2">Choose Your Voice</h1>
+    </div>
+
+    <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 16px">
+      <button type="button" style="display: flex; align-items: center; gap: 14px; width: 100%; height: 60px; padding: 0 14px; box-sizing: border-box; border-radius: 14px; border: 1px dashed rgba(52, 211, 153, 0.6); background: transparent; color: #F9FAFB; text-align: left; cursor: pointer; font-family: Inter, sans-serif">
+        <span style="width: 36px; height: 36px; flex: none; border-radius: 10px; background: rgba(52, 211, 153, 0.14); color: #34D399; display: flex; align-items: center; justify-content: center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+        </span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 600">Clone a new voice</span>
+          <span style="font-size: 12px; color: #9CA3AF">Record ~20 s or upload a file</span>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+      </button>
+
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; padding-left: 4px">Expressive · 12 styles</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{ expressive }}" as="v" hint-placeholder-count="2">
+            <button type="button" aria-pressed="{{ v.pressed }}" onClick="{{ v.pick }}" style="display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 12px; box-sizing: border-box; border-radius: 14px; border: 1px solid {{ v.border }}; background: rgba(26, 36, 33, 0.85); box-shadow: {{ v.glow }}; color: #F9FAFB; text-align: left; cursor: pointer; font-family: Inter, sans-serif">
+              <span style="width: 36px; height: 36px; flex: none; border-radius: 50%; background: {{ v.avatar }}; color: {{ v.avatarText }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">{{ v.initial }}</span>
+              <span style="display: flex; flex-direction: column; gap: 1px">
+                <span style="font-size: 15px; font-weight: 600">{{ v.name }}</span>
+                <span style="font-size: 12px; color: #9CA3AF">{{ v.kind }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <sc-for list="{{ styles }}" as="s" hint-placeholder-count="3">
+            <button type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: 22px; border: 1px solid #2A3632; background: #141A18; color: #F9FAFB; font-size: 13px; font-weight: 500; cursor: pointer; font-family: Inter, sans-serif">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#34D399" aria-hidden="true"><path d="M7 4v16l13-8z"></path></svg>
+              {{ s }}
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; padding-left: 4px">Built-in</h2>
+        <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+          <sc-for list="{{ builtin }}" as="v" hint-placeholder-count="5">
+            <button type="button" aria-pressed="{{ v.pressed }}" onClick="{{ v.pick }}" style="display: flex; flex-direction: column; align-items: center; gap: 6px; height: 76px; padding: 8px 0; box-sizing: border-box; border-radius: 12px; border: 1px solid {{ v.border }}; background: rgba(26, 36, 33, 0.85); box-shadow: {{ v.glow }}; color: #F9FAFB; cursor: pointer; font-family: Inter, sans-serif">
+              <span style="width: 32px; height: 32px; border-radius: 50%; background: {{ v.avatar }}; color: {{ v.avatarText }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">{{ v.initial }}</span>
+              <span style="font-size: 12px; font-weight: 600">{{ v.name }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; padding-left: 4px">Your cloned voices</h2>
+        <div style="height: 44px; display: flex; align-items: center; padding: 0 14px; border-radius: 12px; border: 1px solid #1F2B27; font-size: 13px; color: #9CA3AF">None yet — clone one above</div>
+      </section>
+    </div>
+
+    <div style="margin-top: auto; padding: 16px 16px 24px; display: flex; gap: 10px">
+      <a href="Main.dc.html" aria-label="Back" style="width: 58px; height: 58px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 14px; border: 1px solid #4B5552; background: #141A18; color: #F9FAFB; text-decoration: none">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>
+      </a>
+      <a href="Speaker.dc.html" style="flex: 1; display: flex; align-items: center; justify-content: center; height: 58px; border-radius: 14px; background: linear-gradient(180deg, #34D399 0%, #10B981 100%); box-shadow: 0 0 18px rgba(16, 185, 129, 0.45); color: #04140D; font-weight: 700; font-size: 16px; text-decoration: none">Continue with {{ selectedName }}</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: 'Kate' };
+  }
+  renderVals() {
+    const picked = this.state.picked;
+    const make = (name, kind) => {
+      const on = name === picked;
+      return {
+        name, kind, initial: name.charAt(0),
+        pressed: on ? 'true' : 'false',
+        border: on ? '#34D399' : 'rgba(16, 185, 129, 0.35)',
+        glow: on ? '0 0 12px rgba(16, 185, 129, 0.35)' : 'none',
+        avatar: on ? '#34D399' : '#26322E',
+        avatarText: on ? '#04140D' : '#F9FAFB',
+        pick: () => this.setState({ picked: name })
+      };
+    };
+    return {
+      selectedName: picked,
+      expressive: [make('Kate', 'Female · warm'), make('Rich', 'Male · calm')],
+      builtin: ['Ariana', 'Hanna', 'Jenny', 'Matthew', 'Gloria'].map((n) => make(n, '')),
+      styles: ['Whisper', 'Happy', 'Sergeant']
+    };
+  }
+}
+</script>
+</body>
+</html>

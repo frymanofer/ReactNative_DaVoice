@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Starting the car agent</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#34D399}a:hover{color:#6EE7B7}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0B0F0E; color: #F9FAFB; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="position: relative; height: 262px; flex: none; background: repeating-linear-gradient(45deg, #161D1B 0px, #161D1B 3px, #0B0F0E 3px, #0B0F0E 7px)">
+    <div style="position: absolute; left: 0; right: 0; top: 190px; height: 44px; background: linear-gradient(180deg, #7C8582 0%, #59625F 30%, #4B5552 55%, #2C3331 100%); border-top: 1px solid #34D399; box-shadow: 0 -10px 22px rgba(16, 185, 129, 0.30)"></div>
+    <div style="position: absolute; left: 14px; top: 206px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #C9D0CE, #4B5552); box-shadow: inset 0 0 0 1px #2C3331"></div>
+    <div style="position: absolute; right: 14px; top: 206px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #C9D0CE, #4B5552); box-shadow: inset 0 0 0 1px #2C3331"></div>
+    <img src="/_blob/14d80748b2c138f9759f82a078f867a0" alt="DaVoice AI emblem" style="position: absolute; left: 87px; top: 28px; width: 216px; height: 216px; z-index: 2; filter: drop-shadow(0 0 22px rgba(52, 211, 153, 0.45))">
+  </div>
+
+  <div style="position: relative; z-index: 1; flex: 1; min-height: 0; margin: -12px 12px 0; border: 1.5px solid #4B5552; border-bottom: 0; border-radius: 24px 24px 0 0; background: #0D1210; display: flex; flex-direction: column; overflow: hidden">
+    <div style="padding: 28px 24px 22px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #34D399">Step 5 of 5 · First start only</span>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2">Starting the car agent</h1>
+      <p style="margin: 0; font-size: 14px; line-height: 1.35; color: #9CA3AF">DaVoice Automotive Agent 0.6B · on-device</p>
+    </div>
+
+    <div style="margin: 0 16px; padding: 6px 16px; border-radius: 14px; border: 1px solid #1F2B27; background: #101614; display: flex; flex-direction: column">
+      <div style="display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #1A2421">
+        <span style="width: 28px; height: 28px; flex: none; border-radius: 50%; background: #10B981; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#04140D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg></span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Download the model</span><span style="font-size: 13px; color: #9CA3AF">382 MB · done</span></span>
+      </div>
+      <div style="display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #1A2421">
+        <span style="width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2px solid #34D399; box-sizing: border-box; box-shadow: 0 0 10px rgba(52, 211, 153, 0.6); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #34D399">2</span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 15px; font-weight: 600">Download the pre-warmed state</span>
+          <span style="font-size: 13px; color: #D1D5DB; font-variant-numeric: tabular-nums">275 / 430 MB · 64% · 18 s</span>
+          <span style="display: block; height: 6px; border-radius: 3px; background: #1A2421; overflow: hidden"><span style="display: block; width: 64%; height: 100%; border-radius: 3px; background: #34D399; box-shadow: 0 0 8px #34D399"></span></span>
+        </span>
+      </div>
+      <div style="display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #1A2421">
+        <span style="width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2px solid #3A4D3F; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #9CA3AF">3</span>
+        <span style="flex: 1; font-size: 15px; color: #9CA3AF; padding-top: 4px">Load it into memory</span>
+      </div>
+      <div style="display: flex; gap: 14px; padding: 12px 0">
+        <span style="width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2px solid #3A4D3F; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #9CA3AF">4</span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; color: #9CA3AF">Warm up</span><span style="font-size: 13px; color: #9CA3AF">so the first reply is fast</span></span>
+      </div>
+    </div>
+
+    <div style="margin-top: auto; padding: 16px 16px 24px; display: flex; gap: 10px">
+      <a href="WakeWord.dc.html" style="flex: 1; display: flex; align-items: center; justify-content: center; height: 58px; border-radius: 14px; border: 1px solid #4B5552; background: #141A18; color: #F9FAFB; font-weight: 600; font-size: 16px; text-decoration: none">Back</a>
+      <a href="Car.dc.html" style="flex: 2; display: flex; align-items: center; justify-content: center; height: 58px; border-radius: 14px; background: #1A2421; color: #9CA3AF; font-weight: 600; font-size: 15px; text-decoration: none">Opens when ready</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

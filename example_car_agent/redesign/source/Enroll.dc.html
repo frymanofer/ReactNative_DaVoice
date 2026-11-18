@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Capture your voice signature</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#34D399}a:hover{color:#6EE7B7}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0B0F0E; color: #F9FAFB; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="position: relative; height: 150px; flex: none; background: repeating-linear-gradient(45deg, #161D1B 0px, #161D1B 3px, #0B0F0E 3px, #0B0F0E 7px)">
+    <div style="position: absolute; left: 0; right: 0; top: 92px; height: 38px; background: linear-gradient(180deg, #7C8582 0%, #59625F 30%, #4B5552 55%, #2C3331 100%); border-top: 1px solid #34D399; box-shadow: 0 -10px 22px rgba(16, 185, 129, 0.30)"></div>
+    <div style="position: absolute; left: 14px; top: 106px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #C9D0CE, #4B5552); box-shadow: inset 0 0 0 1px #2C3331"></div>
+    <div style="position: absolute; right: 14px; top: 106px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #C9D0CE, #4B5552); box-shadow: inset 0 0 0 1px #2C3331"></div>
+    <img src="/_blob/14d80748b2c138f9759f82a078f867a0" alt="DaVoice AI emblem" style="position: absolute; left: 130px; top: 10px; width: 130px; height: 130px; z-index: 2; filter: drop-shadow(0 0 16px rgba(52, 211, 153, 0.45))">
+  </div>
+
+  <div style="position: relative; z-index: 1; flex: 1; min-height: 0; margin: -12px 12px 0; border: 1.5px solid #4B5552; border-bottom: 0; border-radius: 24px 24px 0 0; background: #0D1210; display: flex; flex-direction: column; overflow: hidden">
+    <div style="padding: 22px 24px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #34D399">Step 3 of 5 · Voice signature</span>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2">Capture your voice</h1>
+      <p style="margin: 0; font-size: 14px; line-height: 1.35; color: #9CA3AF">Speak naturally for a couple of seconds each time.</p>
+    </div>
+
+    <div style="display: flex; justify-content: center; padding: 18px 0 10px">
+      <div style="position: relative; width: 210px; height: 210px; display: flex; align-items: center; justify-content: center">
+        <svg width="210" height="210" viewBox="0 0 210 210" role="img" aria-label="{{ count }} of 5 samples captured" style="position: absolute; inset: 0; transform: rotate(-90deg); filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.55))">
+          <circle cx="105" cy="105" r="92" fill="none" stroke="#1A2421" stroke-width="10"></circle>
+          <circle cx="105" cy="105" r="92" fill="none" stroke="#34D399" stroke-width="10" stroke-linecap="round" stroke-dasharray="578" stroke-dashoffset="{{ offset }}"></circle>
+        </svg>
+        <div style="width: 150px; height: 150px; border-radius: 50%; border: 1px solid #3A4D3F; background: radial-gradient(circle, rgba(16, 185, 129, 0.16) 0%, rgba(13, 18, 16, 0) 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px">
+          <svg width="96" height="40" viewBox="0 0 96 40" aria-hidden="true"><g stroke="#34D399" stroke-width="4" stroke-linecap="round"><path d="M6 17v6"></path><path d="M16 12v16"></path><path d="M26 6v28"></path><path d="M36 14v12"></path><path d="M46 3v34"></path><path d="M56 10v20"></path><path d="M66 5v30"></path><path d="M76 13v14"></path><path d="M86 17v6"></path></g></svg>
+          <span style="font-size: 13px; font-weight: 600; color: #34D399">Listening</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 10px; padding-bottom: 18px" aria-hidden="true">
+      <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
+        <span style="width: 34px; height: 6px; border-radius: 3px; background: {{ d.color }}; box-shadow: {{ d.glow }}"></span>
+      </sc-for>
+    </div>
+
+    <div style="margin: 0 16px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(16, 185, 129, 0.45); background: rgba(26, 36, 33, 0.85); display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF">Sample {{ next }} of 5 · say anything, for example</span>
+      <span style="font-size: 17px; font-weight: 600; line-height: 1.35">“Set the temperature to twenty-one degrees.”</span>
+    </div>
+
+    <div style="margin-top: auto; padding: 16px 16px 24px">
+      <a href="Speaker.dc.html" style="display: flex; align-items: center; justify-content: center; height: 58px; border-radius: 14px; border: 1px solid #4B5552; background: #141A18; color: #F9FAFB; font-weight: 600; font-size: 16px; text-decoration: none">Cancel</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"captured":{"editor":"range","default":3,"min":0,"max":5,"step":1},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const count = Math.max(0, Math.min(5, Math.round(this.props.captured ?? 3)));
+    const dots = [0, 1, 2, 3, 4].map((i) => ({
+      color: i < count ? '#34D399' : '#26322E',
+      glow: i < count ? '0 0 6px rgba(52, 211, 153, 0.7)' : 'none'
+    }));
+    return {
+      count,
+      next: Math.min(5, count + 1),
+      offset: String(Math.round(578 * (1 - count / 5))),
+      dots
+    };
+  }
+}
+</script>
+</body>
+</html>

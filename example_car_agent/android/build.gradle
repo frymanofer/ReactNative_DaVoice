@@ -16,6 +16,12 @@ buildscript {
   }
 }
 
+// Puts the React Native plugin (the includeBuild in settings.gradle) on the shared classpath without applying it,
+// so libraries that `apply plugin: "com.facebook.react"` (react-native-svg) can find it.
+plugins {
+  id("com.facebook.react") apply false
+}
+
 //apply plugin: "com.facebook.react.rootproject"
 
 allprojects {
@@ -42,5 +48,19 @@ allprojects {
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
     mavenLocal()
+  }
+}
+
+// The React Native root-project plugin is not applied in this app (see above), so its build-order rule is repeated here: every
+// library's preBuild (its code generation) runs before the app's. Without it a clean build fails in the app's CMake step
+// (react-native-svg: 'react/renderer/components/rnsvg/ShadowNodes.h' file not found).
+gradle.projectsEvaluated {
+  def app = rootProject.subprojects.find { it.name == "app" }
+  def appPreBuild = app?.tasks?.findByName("preBuild")
+  if (appPreBuild != null) {
+    rootProject.subprojects.findAll { it != app }.each { p ->
+      def t = p.tasks.findByName("preBuild")
+      if (t != null) appPreBuild.dependsOn(t)
+    }
   }
 }
