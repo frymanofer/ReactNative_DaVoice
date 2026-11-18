@@ -14,6 +14,15 @@ tasks.matching { it.name.startsWith("createBundle") && it.name.endsWith("JsAndAs
   inputs.files(fileTree("../../agent"), fileTree("../../agent_automotive"), fileTree("../../src") { include "**/*.json" })
 }
 
+// -PskipHermesc=true: ship the JS bundle as source instead of Hermes bytecode (Hermes still runs it), for machines where
+// Windows Smart App Control blocks the unsigned hermesc.exe.
+if (project.findProperty("skipHermesc") == "true") {
+  react {
+    hermesCommand = "${projectDir}/hermesc-skip.cmd"
+    hermesFlags = []
+  }
+}
+
 android {
   namespace "com.exampleapp"                 // <-- keep your package
   ndkVersion rootProject.ext.ndkVersion
