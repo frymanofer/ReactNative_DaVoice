@@ -16,6 +16,12 @@ buildscript {
   }
 }
 
+// Puts the React Native plugin (the includeBuild in settings.gradle) on the shared classpath without applying it,
+// so libraries that `apply plugin: "com.facebook.react"` (react-native-svg) can find it.
+plugins {
+  id("com.facebook.react") apply false
+}
+
 //apply plugin: "com.facebook.react.rootproject"
 
 allprojects {

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Say the wake word</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#34D399}a:hover{color:#6EE7B7}
+@keyframes dvRing{0%{transform:scale(0.75);opacity:0.9}100%{transform:scale(1.45);opacity:0}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background: radial-gradient(circle at 50% 40%, #12201B 0%, #0B0F0E 60%); color: #F9FAFB; font-family: Inter, system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center">
+  <div style="position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0px, rgba(255, 255, 255, 0.018) 3px, rgba(0, 0, 0, 0) 3px, rgba(0, 0, 0, 0) 7px)"></div>
+
+  <span style="position: relative; margin-top: 30px; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #34D399">Step 4 of 5</span>
+
+  <div style="position: relative; margin-top: 40px; width: 340px; height: 340px; display: flex; align-items: center; justify-content: center">
+    <span style="position: absolute; inset: 40px; border-radius: 50%; border: 2px solid rgba(52, 211, 153, 0.7); animation: dvRing 2.4s ease-out infinite"></span>
+    <span style="position: absolute; inset: 40px; border-radius: 50%; border: 2px solid rgba(52, 211, 153, 0.7); animation: dvRing 2.4s ease-out 0.8s infinite"></span>
+    <span style="position: absolute; inset: 40px; border-radius: 50%; border: 2px solid rgba(52, 211, 153, 0.7); animation: dvRing 2.4s ease-out 1.6s infinite"></span>
+    <span style="position: absolute; inset: 20px; border-radius: 50%; border: 1px solid #3A4D3F"></span>
+    <img src="/_blob/14d80748b2c138f9759f82a078f867a0" alt="DaVoice AI emblem" style="position: relative; width: 240px; height: 240px; filter: drop-shadow(0 0 30px rgba(52, 211, 153, 0.55))">
+  </div>
+
+  <svg width="260" height="44" viewBox="0 0 260 44" aria-hidden="true" style="position: relative; margin-top: 6px"><g stroke="#34D399" stroke-width="3" stroke-linecap="round" opacity="0.9"><path d="M10 20v4"></path><path d="M22 16v12"></path><path d="M34 19v6"></path><path d="M46 12v20"></path><path d="M58 18v8"></path><path d="M70 8v28"></path><path d="M82 15v14"></path><path d="M94 5v34"></path><path d="M106 12v20"></path><path d="M118 3v38"></path><path d="M130 9v26"></path><path d="M142 3v38"></path><path d="M154 12v20"></path><path d="M166 5v34"></path><path d="M178 15v14"></path><path d="M190 8v28"></path><path d="M202 18v8"></path><path d="M214 12v20"></path><path d="M226 19v6"></path><path d="M238 16v12"></path><path d="M250 20v4"></path></g></svg>
+
+  <div style="position: relative; margin-top: 22px; padding: 0 28px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+    <span style="font-size: 15px; color: #9CA3AF">Listening for the wake word</span>
+    <h1 style="margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; color: #F9FAFB; text-shadow: 0 0 18px rgba(52, 211, 153, 0.45)">“Hey Coach”</h1>
+    <span style="font-size: 14px; color: #9CA3AF">then say what you want the car to do</span>
+  </div>
+
+  <div style="position: relative; margin-top: 24px; display: flex; gap: 8px">
+    <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #2A3632; background: #111816; font-size: 12px; color: #D1D5DB">Voice · Kate</span>
+    <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #2A3632; background: #111816; font-size: 12px; color: #D1D5DB">Português (BR)</span>
+    <span style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid rgba(52, 211, 153, 0.5); background: rgba(16, 185, 129, 0.12); font-size: 12px; color: #34D399">Driver only</span>
+  </div>
+
+  <div style="position: absolute; left: 16px; right: 16px; bottom: 24px; display: flex; gap: 10px">
+    <a href="Speaker.dc.html" aria-label="Back" style="width: 58px; height: 58px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 14px; border: 1px solid #4B5552; background: #141A18; color: #F9FAFB; text-decoration: none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>
+    </a>
+    <a href="Loading.dc.html" style="flex: 1; display: flex; align-items: center; justify-content: center; height: 58px; border-radius: 14px; border: 1px solid #4B5552; background: #141A18; color: #D1D5DB; font-weight: 600; font-size: 15px; text-decoration: none">Simulate wake word</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

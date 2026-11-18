@@ -96,6 +96,14 @@ import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import CarCard from './src/car/CarCard';
+import LanguageHoodScreen from './src/redesign/LanguageHoodScreen';
+import InstallSpeedometerScreen from './src/redesign/InstallSpeedometerScreen';
+import VoiceScreen from './src/redesign/VoiceScreen';
+import SpeakerScreen from './src/redesign/SpeakerScreen';
+import SignatureScreen from './src/redesign/SignatureScreen';
+import WakeWordScreen from './src/redesign/WakeWordScreen';
+import AgentLoadingScreen from './src/redesign/AgentLoadingScreen';
+import CarAgentScreen from './src/redesign/CarAgentScreen';
 import { setSpeakerGate } from './src/speaker_verification/currentSpeaker';
 import { CAR_TOOL_NAMES, carTools } from './src/car/carTools';
 // MCP_SERVER_URL / MCP_SERVER_TOKEN for Local AI Chat, from the git-ignored
@@ -353,6 +361,7 @@ function App(): React.JSX.Element {
     language: AppLanguage;
     progress: LanguagePackProgress | null;
     error: string | null;
+    installed?: boolean;
   } | null>(null);
   const languagePackDownloadRef = useRef<AppLanguage | null>(null);
   const [downloadedLanguagePacks, setDownloadedLanguagePacks] = useState<Partial<Record<AppLanguage, boolean>>>({});
@@ -383,17 +392,24 @@ function App(): React.JSX.Element {
   function startLanguagePackDownload(language: AppLanguage) {
     languagePackDownloadRef.current = language;
     setLanguagePackDownload({ language, progress: null, error: null });
-    const update = (patch: { progress?: LanguagePackProgress; error?: string }) =>
+    const update = (patch: { progress?: LanguagePackProgress; error?: string; installed?: boolean }) =>
       setLanguagePackDownload((current) => (current && current.language === language ? { ...current, ...patch } : current));
     downloadLanguagePack(language, (progress) => update({ progress }))
       .then(() => {
         if (languagePackDownloadRef.current !== language) return; // the user went back meanwhile
-        languagePackDownloadRef.current = null;
         setDownloadedLanguagePacks((ready) => ({ ...ready, [language]: true }));
-        setLanguagePackDownload(null);
-        chooseAppLanguage(language);
+        const bytesTotal = languagePackSizeBytes(language);
+        update({ installed: true, progress: { stage: 'download', bytesDone: bytesTotal, bytesTotal } });
+        // The speedometer stays on 100 % "Installed" for a second, then the app moves on to the voices.
+        setTimeout(() => finishLanguagePackInstall(language), 1000);
       })
       .catch((e) => update({ error: String(e?.message ?? e) }));
+  }
+  function finishLanguagePackInstall(language: AppLanguage) {
+    if (languagePackDownloadRef.current !== language) return; // already continued, or the user went back
+    languagePackDownloadRef.current = null;
+    setLanguagePackDownload(null);
+    chooseAppLanguage(language);
   }
   function leaveLanguagePackDownload() {
     const language = languagePackDownloadRef.current;
@@ -2385,79 +2401,49 @@ function App(): React.JSX.Element {
 
   // A language that isn't bundled: its download screen, until the language pack is on the device.
   if (!appLanguage && languagePackDownload) {
-    const { language, progress, error } = languagePackDownload;
+    const { language, progress, error, installed } = languagePackDownload;
     const label = APP_LANGUAGES.find((entry) => entry.id === language)?.label ?? language;
     const total = progress?.bytesTotal || languagePackSizeBytes(language);
     const done = Math.min(progress?.bytesDone ?? 0, total);
     const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
     const mb = (bytes: number) => Math.round(bytes / 1e6);
-    const status = error
-      ? 'Download failed'
-      : progress?.stage === 'verify'
-        ? 'Checking the download…'
-        : progress
-          ? `Downloading… ${pct}%`
-          : 'Starting the download…';
-    return renderPromptScreen(
-      <View style={styles.svPromptCard}>
-        <Text style={styles.svPromptTitle}>Downloading language pack</Text>
-        <Text style={styles.svPromptSubtitle}>{label}</Text>
-        <Text style={styles.svPromptSubtitle}>
-          The voices for this language are downloaded once ({mb(total)} MB). The app starts when the download is complete.
-        </Text>
-        <View style={styles.ttsOptionSection}>
-          <Text style={styles.speechSentenceText}>{status}</Text>
-          <Text style={styles.speechSentenceLabel}>{`${mb(done)} / ${mb(total)} MB`}</Text>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${pct}%` }]} />
-          </View>
-          {error && <Text style={[styles.svPromptSubtitle, styles.loadingError]}>{error}</Text>}
-        </View>
-        <View style={styles.ttsTestActionRow}>
-          {error && (
-            <TouchableOpacity
-              style={[styles.ttsSpeakButton, styles.aiChatResetButton]}
-              activeOpacity={0.7}
-              onPress={() => startLanguagePackDownload(language)}>
-              <Text style={styles.ttsSpeakButtonText}>Retry</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
-            activeOpacity={0.7}
-            onPress={leaveLanguagePackDownload}>
-            <Text style={styles.svButtonText}>Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>,
+    return (
+      <InstallSpeedometerScreen
+        name={label.split(' (')[0]}
+        code={language.toUpperCase()}
+        sizeMB={mb(total)}
+        pct={pct}
+        mbDone={mb(done)}
+        mbTotal={mb(total)}
+        stage={progress?.stage ?? null}
+        installed={!!installed}
+        error={error}
+        onCancel={leaveLanguagePackDownload}
+        onRetry={() => startLanguagePackDownload(language)}
+        onContinue={() => finishLanguagePackInstall(language)}
+      />
     );
   }
 
   // First of all: the language.
   if (!appLanguage) {
-    return renderPromptScreen(
-      <View style={styles.svPromptCard}>
-        <Text style={styles.svPromptTitle}>Choose Your Language</Text>
-        <Text style={styles.svPromptSubtitle}>
-          The language for speech recognition and the voices.
-        </Text>
-        <View style={styles.ttsOptionSection}>
-          {APP_LANGUAGES.filter((language) => !language.hidden).map((language) => (
-            <TouchableOpacity
-              key={language.id}
-              style={[styles.svButton, styles.cloneWideButton, styles.ttsOptionButtonIdle]}
-              activeOpacity={0.7}
-              onPress={() => selectAppLanguage(language.id)}>
-              <Text style={styles.svButtonText}>
-                {language.label}
-                {isDownloadableLanguage(language.id) && !downloadedLanguagePacks[language.id]
-                  ? `  ·  ⬇ ${Math.round(languagePackSizeBytes(language.id) / 1e6)} MB`
-                  : ''}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>,
+    const hoodLanguages = APP_LANGUAGES.filter((language) => !language.hidden).map((language) => {
+      const name = language.label.split(' (')[0];
+      return {
+        id: language.id,
+        code: language.id.toUpperCase(),
+        shortName: name.split(' ')[0],
+        name,
+        sizeMB: Math.round(languagePackSizeBytes(language.id) / 1e6),
+        installed: !isDownloadableLanguage(language.id) || !!downloadedLanguagePacks[language.id],
+      };
+    });
+    return (
+      <LanguageHoodScreen
+        languages={hoodLanguages}
+        defaultId="pt-BR"
+        onInstall={(id) => selectAppLanguage(id as AppLanguage)}
+      />
     );
   }
 
@@ -2480,46 +2466,15 @@ function App(): React.JSX.Element {
       { key: 'warmup', label: 'Warm up', detail: 'reads its instructions and tools once, so replies are fast' },
     ];
     return (
-      <View style={styles.linearGradient}>
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-        <ScrollView style={styles.screenScroll} contentContainerStyle={[styles.aiChatScrollContent, { paddingTop: contentTopPadding }]}>
-          {renderScreenLogo()}
-          <View style={[styles.svPromptCard, styles.ttsTestScreenCard]}>
-            <Text style={styles.svPromptTitle}>{demoTitle}</Text>
-            <Text style={styles.svPromptSubtitle}>{localModelName || 'On-device model'}</Text>
-            <View style={styles.loadingStages}>
-              {stages.map((stage, i) => {
-                const done = at > i, active = at === i;
-                return (
-                  <View key={stage.key} style={styles.loadingStageRow}>
-                    <View style={[styles.loadingStageDot, done ? styles.loadingStageDone : active ? styles.loadingStageActive : styles.loadingStagePending]}>
-                      <Text style={styles.loadingStageDotText}>{done ? '✓' : String(i + 1)}</Text>
-                    </View>
-                    <View style={styles.loadingStageInfo}>
-                      <Text style={[styles.speechSentenceText, !done && !active && styles.loadingStageMuted]}>{stage.label}</Text>
-                      {active && <Text style={styles.speechSentenceLabel}>{[stage.detail, `${seconds} s`].filter(Boolean).join(' · ')}</Text>}
-                      {active && stage.key === 'download' && (
-                        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${pct}%` }]} /></View>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-            {loadingStage === 'failed' && <Text style={[styles.svPromptSubtitle, styles.loadingError]}>{localModelStatus}</Text>}
-            <View style={styles.ttsTestActionRow}>
-              {loadingStage === 'failed' && (
-                <TouchableOpacity style={[styles.ttsSpeakButton, styles.aiChatResetButton]} activeOpacity={0.7} onPress={() => warmUpLocalModel(aiChatMessages)}>
-                  <Text style={styles.ttsSpeakButtonText}>Retry</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]} activeOpacity={0.7} onPress={leaveFullAIChatMode}>
-                <Text style={styles.svButtonText}>Back</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
+      <AgentLoadingScreen
+        modelName={localModelName}
+        stages={stages.map((stage) => ({ ...stage, progress: stage.key === 'download' ? pct : undefined }))}
+        activeIndex={at}
+        seconds={seconds}
+        error={loadingStage === 'failed' ? localModelStatus : null}
+        onBack={leaveFullAIChatMode}
+        onRetry={() => warmUpLocalModel(aiChatMessages)}
+      />
     );
   }
 
@@ -2550,6 +2505,39 @@ function App(): React.JSX.Element {
   };
 
   // Local AI Chat, step 2: only once ready - the car (or calories) status, what was heard (STT), the reply (TTS), the model.
+  if (shouldShowFullAIChatScreen && isLocalAIChat && localDemo === 'car') {
+    return (
+      <>
+        <CarAgentScreen
+          language={appLanguageRef.current ?? 'en'}
+          voice={selectedTTSVoiceRef.current}
+          wakePhrase={wakeWords}
+          heard={aiChatLiveTranscript || aiChatTranscript}
+          reply={aiChatResponse}
+          working={isAIChatLoading}
+          ignored={aiChatIgnored}
+          modelName={localModelName}
+          localConfidence={localConfidence}
+          onBack={leaveFullAIChatMode}
+          onResetChat={resetAIChatSession}
+          onChangeModel={() => setIsModelPickerVisible(true)}
+          onCycleConfidence={cycleLocalConfidence}
+          onSendText={__DEV__ ? (text) => { void processAIChatTurnRef.current?.(text); } : undefined}
+          onRunTestScript={__DEV__ ? () => { void runDevInAppScript(); } : undefined}
+        />
+        <ModelPicker
+          visible={isModelPickerVisible}
+          isBusy={isAIChatLoading}
+          onClose={() => setIsModelPickerVisible(false)}
+          onModelSelected={(model) => {
+            setLocalModelName(model.displayName);
+            warmUpLocalModel(aiChatMessages);
+          }}
+        />
+      </>
+    );
+  }
+
   if (shouldShowFullAIChatScreen && isLocalAIChat) {
     return (
       <View style={styles.linearGradient}>
@@ -2718,53 +2706,22 @@ function App(): React.JSX.Element {
   }
 
   if (showSVPrompt) {
-    return renderPromptScreen(
-      <View style={styles.svPromptCard}>
-            <Text style={styles.svPromptTitle}>
-              {svPromptHasSavedEnrollment ? 'Use Saved Signature?' : 'Enable Speaker Verification?'}
-            </Text>
-            <Text style={styles.svPromptSubtitle}>
-              {svPromptHasSavedEnrollment
-                ? 'Use the saved speaker signature, redo onboarding to replace it, or skip speaker verification.'
-                : 'Create a speaker signature now, or skip speaker verification.'}
-            </Text>
-            <View style={styles.svPromptActionStack}>
-              <TouchableOpacity
-                style={[styles.svButton, styles.svPromptActionButton, styles.svButtonYes]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  svChoiceResolverRef.current?.(
-                    svPromptHasSavedEnrollment ? 'use_existing' : 'redo_onboarding',
-                  );
-                  svChoiceResolverRef.current = null;
-                }}>
-                <Text style={styles.svButtonText}>
-                  {svPromptHasSavedEnrollment ? 'Use Existing' : 'Create Signature'}
-                </Text>
-              </TouchableOpacity>
-              {svPromptHasSavedEnrollment && (
-                <TouchableOpacity
-                  style={[styles.svButton, styles.svPromptActionButton, styles.svButtonRedo]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    svChoiceResolverRef.current?.('redo_onboarding');
-                    svChoiceResolverRef.current = null;
-                  }}>
-                  <Text style={styles.svButtonText}>Redo Onboarding</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.svButton, styles.svPromptActionButton, styles.svButtonNo]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  svChoiceResolverRef.current?.('skip');
-                  svChoiceResolverRef.current = null;
-                }}>
-                  <Text style={styles.svButtonText}>Skip</Text>
-              </TouchableOpacity>
-            </View>
-      </View>
+    const answer = (choice: 'use_existing' | 'redo_onboarding' | 'skip') => {
+      svChoiceResolverRef.current?.(choice);
+      svChoiceResolverRef.current = null;
+    };
+    return (
+      <SpeakerScreen
+        hasSaved={svPromptHasSavedEnrollment}
+        onUseSaved={() => answer('use_existing')}
+        onCreate={() => answer('redo_onboarding')}
+        onSkip={() => answer('skip')}
+      />
     );
+  }
+
+  if (showSVStatusScreen && svStatusPhase === 'onboarding') {
+    return <SignatureScreen collected={svOnboardingCollected} target={svOnboardingTarget} message={message} />;
   }
 
   if (showSVStatusScreen) {
@@ -3059,123 +3016,25 @@ function App(): React.JSX.Element {
     // The v1 model's own voice: its own section, first (above the emotion voices).
     const originalVoiceName = ORIGINAL_TTS_VOICES[appLanguageRef.current];
     const originalVoice = originalVoiceName && ttsVoiceOptions.includes(originalVoiceName) ? originalVoiceName : null;
-    return renderPromptScreen(
-      <View style={styles.svPromptCard}>
-            <Text style={styles.svPromptTitle}>Choose Your Voice</Text>
-            <Text style={styles.svPromptSubtitle}>
-              Clone a new voice, or select a voice with emotions, a built-in voice, or one of your cloned voices before the demo starts.
-            </Text>
-            <TouchableOpacity
-              style={[styles.svButton, styles.cloneWideButton, styles.cloneNewVoiceButton]}
-              activeOpacity={0.7}
-              onPress={openVoiceCloneScreen}>
-              <Text style={styles.svButtonText}>Clone a new Voice</Text>
-            </TouchableOpacity>
-            {originalVoice ? (
-              <View style={styles.ttsOptionSection}>
-                <Text style={[styles.ttsOptionLabel, styles.ttsOptionLabelHighlight]}>Original Voice (fastest)</Text>
-                <View style={styles.ttsVoiceGrid}>
-                  <TouchableOpacity
-                    style={[
-                      styles.svButton,
-                      styles.ttsVoiceButton,
-                      ttsVoiceChoice === originalVoice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => setTtsVoiceChoice(originalVoice)}>
-                    <Text style={styles.svButtonText}>{originalVoice}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
-            {emotionVoices.length > 0 ? (
-              <View style={styles.ttsOptionSection}>
-                <Text style={[styles.ttsOptionLabel, styles.ttsOptionLabelHighlight]}>Voices with Emotions & Styles in Free Text</Text>
-                <View style={styles.ttsVoiceGrid}>
-                  {emotionVoices.map((voice) => (
-                    <TouchableOpacity
-                      key={`emotion-${voice}`}
-                      style={[
-                        styles.svButton,
-                        styles.ttsVoiceButton,
-                        ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => setTtsVoiceChoice(voice)}>
-                      <Text style={styles.svButtonText}>{voice}</Text>
-                      <Text style={styles.styleVoiceBadge}>{voiceAbilities[voice].length} styles</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                {renderStyleExamples(
-                  voiceAbilities[ttsVoiceChoice] ? ttsVoiceChoice : emotionVoices[0],
-                  (text) => void playStyleExample(voiceAbilities[ttsVoiceChoice] ? ttsVoiceChoice : emotionVoices[0], text),
-                  'Tap an example to hear it',
-                )}
-              </View>
-            ) : null}
-            <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>{emotionVoices.length > 0 ? 'Other Built-in Voices' : 'Built-in Voices'}</Text>
-              <View style={styles.ttsVoiceGrid}>
-                {ttsVoiceOptions.filter((voice) => !voiceAbilities[voice] && voice !== originalVoice).map((voice) => (
-                  <TouchableOpacity
-                    key={voice}
-                    style={[
-                      styles.svButton,
-                      styles.ttsVoiceButton,
-                      ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => setTtsVoiceChoice(voice)}>
-                    <Text style={styles.svButtonText}>{voice}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            <View style={styles.ttsOptionSection}>
-              <Text style={styles.ttsOptionLabel}>Cloned Voices</Text>
-              {clonedVoices.length > 0 ? (
-                <View style={styles.ttsVoiceGrid}>
-                  {clonedVoices.map((voice) => (
-                    <TouchableOpacity
-                      key={`cloned-${voice}`}
-                      style={[
-                        styles.svButton,
-                        styles.ttsVoiceButton,
-                        ttsVoiceChoice === voice ? styles.ttsOptionButtonSelected : styles.ttsOptionButtonIdle,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => setTtsVoiceChoice(voice)}>
-                      <Text style={styles.svButtonText}>{voice}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.cloneHint}>No cloned voices yet.</Text>
-              )}
-              {clonedVoices.includes(ttsVoiceChoice) ? (
-                <TouchableOpacity
-                  style={[styles.svButton, styles.cloneWideButton, styles.cloneDeleteButton]}
-                  activeOpacity={0.7}
-                  onPress={() => confirmDeleteClonedVoice(ttsVoiceChoice)}>
-                  <Text style={styles.svButtonText}>Delete "{ttsVoiceChoice}"</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            <View style={styles.svButtonRow}>
-              <TouchableOpacity
-                style={[styles.svButton, styles.ttsContinueButton]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  ttsModelChoiceResolverRef.current?.({
-                    voice: ttsVoiceChoice,
-                  });
-                  ttsModelChoiceResolverRef.current = null;
-                }}>
-                <Text style={styles.svButtonText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
-      </View>
+    const exampleVoice = voiceAbilities[ttsVoiceChoice] ? ttsVoiceChoice : emotionVoices[0];
+    return (
+      <VoiceScreen
+        expressive={emotionVoices.map((voice) => ({ name: voice, styles: voiceAbilities[voice].length }))}
+        originalVoice={originalVoice}
+        builtIn={ttsVoiceOptions.filter((voice) => !voiceAbilities[voice] && voice !== originalVoice)}
+        cloned={clonedVoices}
+        selected={ttsVoiceChoice}
+        examples={exampleVoice ? voiceStyleExamples(voiceAbilities[exampleVoice] ?? [], appLanguageRef.current) : []}
+        playingExample={playingStyleExample}
+        onSelect={setTtsVoiceChoice}
+        onPlayExample={(text) => exampleVoice && void playStyleExample(exampleVoice, text)}
+        onClone={openVoiceCloneScreen}
+        onDeleteCloned={confirmDeleteClonedVoice}
+        onContinue={() => {
+          ttsModelChoiceResolverRef.current?.({ voice: ttsVoiceChoice });
+          ttsModelChoiceResolverRef.current = null;
+        }}
+      />
     );
   }
 
@@ -3456,130 +3315,42 @@ function App(): React.JSX.Element {
   const displayedSpeakerName: TTSVoiceChoice =
     isIntroSpeaking ? introSpeakerName : selectedTTSVoiceRef.current;
 
+  const continueSession = async () => {
+    const mode = selectedAppModeRef.current;
+    if (mode === 'full_ai_chat' || mode === 'local_ai_chat') { await enterFullAIChatMode(); return; }
+    if (mode === 'stt_only') { await enterSTTOnlyMode(); return; }
+    if (mode === 'type_to_tts') { await enterTTSTestMode(); return; }
+    await enterCombinedMode();
+  };
+  const languageEntry = APP_LANGUAGES.find((entry) => entry.id === appLanguageRef.current);
+
   return (
-    <TouchableWithoutFeedback
-      onPress={() => {
-        Keyboard.dismiss();
-        setIsMenuOpen(false);
-      }}
-      accessible={false}>
-      <View
-        style={styles.linearGradient}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor="transparent"
-          translucent
-        />
-        <View style={[styles.container, { paddingTop: contentTopPadding }]}>
-          {renderScreenLogo()}
-          <View style={[styles.topMenuContainer, { top: menuTopOffset }]}>
-            <TouchableOpacity
-              style={styles.menuButton}
-              activeOpacity={0.7}
-              onPress={() => setIsMenuOpen((prev) => !prev)}>
-              <Text style={styles.menuButtonText}>☰</Text>
-            </TouchableOpacity>
-            {isMenuOpen && (
-              <View style={styles.menuDropdown}>
-                <TouchableOpacity
-                  style={styles.menuItemButton}
-                  activeOpacity={0.7}
-                  onPress={shareLatestRecordings}>
-                  <Text style={styles.menuItemText}>Share recordings</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-          {/* Main message card */}
-          {!shouldShowSpeechSessionCard && (
-            <View style={styles.ttsPromptWrapper}>
-              <View
-                style={[
-                  styles.svPromptCard,
-                  styles.homeScreenCard,
-                  isFlashing && styles.messageCardFlashing,
-                ]}>
-                <Text style={styles.appLabel}>VOICE DEMO</Text>
-                <Text style={styles.title}>{message}</Text>
-                {!skipNarration && (
-                  <TouchableOpacity
-                    style={styles.skipNarrationButton}
-                    activeOpacity={0.7}
-                    onPress={handleSkipNarration}>
-                    <Text style={styles.skipNarrationButtonText}>Skip Narration</Text>
-                  </TouchableOpacity>
-                )}
-                {__DEV__ && (
-                  <TouchableOpacity
-                    style={styles.skipNarrationButton}
-                    activeOpacity={0.7}
-                    onPress={() => { void devWakeWordRef.current?.(); }}>
-                    <Text style={styles.skipNarrationButtonText}>Continue without wake word (dev)</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
-
-          {shouldShowSpeechSessionCard && (
-            <View style={styles.ttsPromptWrapper}>
-              <View style={styles.svPromptCard}>
-                <Text style={styles.svPromptTitle}>
-                  {isIntroSpeaking ? `${displayedSpeakerName} is speaking...` : 'Ready'}
-                </Text>
-                {isIntroSpeaking && !skipNarration && (
-                  <TouchableOpacity
-                    style={styles.skipNarrationButton}
-                    activeOpacity={0.7}
-                    onPress={handleSkipNarration}>
-                    <Text style={styles.skipNarrationButtonText}>Skip Narration</Text>
-                  </TouchableOpacity>
-                )}
-                <View style={styles.speechSummaryBlock}>
-                  <Text style={styles.speechSentenceLabel}>Speaker</Text>
-                  <Text style={styles.speechSentenceText}>{displayedSpeakerName}</Text>
-                </View>
-                <View style={styles.speechSummaryBlock}>
-                  <Text style={styles.speechSentenceLabel}>Current Sentence</Text>
-                  <Text style={styles.speechSentenceText}>
-                    {isIntroSpeaking ? introScript : currentSpeechSentence || 'Listening...'}
-                  </Text>
-                </View>
-                <View style={styles.speechSummaryBlock}>
-                  <Text style={styles.speechSentenceLabel}>Speaker Identification</Text>
-                  <Text style={styles.speechSentenceText}>
-                    {isSpeakerIdentificationActive ? 'ON' : 'OFF'}
-                  </Text>
-                </View>
-                {!isIntroSpeaking && (
-                  <View style={styles.ttsTestActionRow}>
-                    <TouchableOpacity
-                      style={[styles.svButton, styles.ttsContinueButton]}
-                      activeOpacity={0.7}
-                      onPress={async () => {
-                        const mode = selectedAppModeRef.current;
-                        if (mode === 'full_ai_chat' || mode === 'local_ai_chat') { await enterFullAIChatMode(); return; }
-                        if (mode === 'stt_only') { await enterSTTOnlyMode(); return; }
-                        if (mode === 'type_to_tts') { await enterTTSTestMode(); return; }
-                        await enterCombinedMode();
-                      }}>
-                      <Text style={styles.svButtonText}>Continue</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.svButton, styles.svButtonNo, styles.ttsTestBackButton]}
-                      activeOpacity={0.7}
-                      onPress={goBackToModeSelection}>
-                      <Text style={styles.svButtonText}>Back</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-        </View>
-      </View>
-    </TouchableWithoutFeedback>
+    <WakeWordScreen
+      wakePhrase={wakeWords}
+      message={message}
+      listening={message.startsWith('Say the wake word')}
+      heard={isFlashing}
+      voice={selectedTTSVoiceRef.current}
+      language={languageEntry ? languageEntry.label.split(' (')[0] : appLanguageRef.current ?? ''}
+      driverOnly={!!enrollmentJsonRef.current}
+      onSkipNarration={!skipNarration ? handleSkipNarration : undefined}
+      onSimulateWakeWord={__DEV__ ? () => { void devWakeWordRef.current?.(); } : undefined}
+      onShareRecordings={shareLatestRecordings}
+      session={
+        shouldShowSpeechSessionCard
+          ? {
+              title: isIntroSpeaking ? `${displayedSpeakerName} is speaking…` : 'Ready',
+              rows: [
+                { label: 'Speaker', value: displayedSpeakerName },
+                { label: 'Current sentence', value: isIntroSpeaking ? introScript : currentSpeechSentence || 'Listening…' },
+                { label: 'Speaker identification', value: isSpeakerIdentificationActive ? 'On' : 'Off' },
+              ],
+              onContinue: isIntroSpeaking ? undefined : () => { void continueSession(); },
+              onBack: isIntroSpeaking ? undefined : goBackToModeSelection,
+            }
+          : null
+      }
+    />
   );
 }
 
