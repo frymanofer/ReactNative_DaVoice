@@ -21,6 +21,7 @@ import { getLocalAgent } from '../agent/LocalAgent';
 import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
 import { getCarState } from '../car/CarState';
 import { setCarUndoResults } from '../car/carTools';
+import { GENERAL_QUESTIONS_LOCAL_INTRO, GENERAL_QUESTIONS_LOCAL_NO_ANSWER, GENERAL_QUESTIONS_MODE, GENERAL_QUESTIONS_SOURCE_LEAD } from '../../general_questions.config';
 import { DEFAULT_CONFIDENCE, readTurn, toCoreConfidence, type TurnConfidence, type TurnOutcome } from '../local_llm/confidence';
 
 export interface LLMProvider {
@@ -222,13 +223,28 @@ export class LocalLLMProvider implements LLMProvider {
     // "safety"): never-act + "which seat?" stay on whatever the confidence setting; only their sentences follow the app's language.
     const language = getTTSLanguage();
     const confidence = currentLocalDemo() === 'car' ? await getLocalConfidence() : { ...DEFAULT_CONFIDENCE, enabled: false };
-    const confidenceKey = `${JSON.stringify(confidence)}|${language}`;
+    const confidenceKey = `${JSON.stringify(confidence)}|${language}|${GENERAL_QUESTIONS_MODE}`;
     if (this.confidenceSentTo !== agent || this.confidenceSent !== confidenceKey) {
       this.confidenceSentTo = agent;
       this.confidenceSent = confidenceKey;
       await agent.configure({
         ...({ confidence: toCoreConfidence(confidence, language), safety: safetySettings(language) } as Record<string, unknown>),
       });
+      // general_questions.config.ts 'local' (core 2026-11-19, remote {"answer": "self"}): a general question is answered by this model
+      // itself after the intro. Sent on its own: an older core refuses "self" and keeps the app's remote (= the 'message' behaviour).
+      const handsOver = model.remoteAssistant === true && LOCAL_LLM_USE_REMOTE_ASSISTANT && LOCAL_LLM_LAYER2 !== 'device';
+      if (handsOver && GENERAL_QUESTIONS_MODE === 'local') {
+        try {
+          await agent.configure({
+            ...({ remote: { enabled: true, timeoutMs: 15000, answer: 'self', selfPrompt: 'car',
+              selfIntro: GENERAL_QUESTIONS_LOCAL_INTRO[language] ?? GENERAL_QUESTIONS_LOCAL_INTRO.en,
+              selfNoAnswer: GENERAL_QUESTIONS_LOCAL_NO_ANSWER[language] ?? GENERAL_QUESTIONS_LOCAL_NO_ANSWER.en,
+              selfSourceLead: GENERAL_QUESTIONS_SOURCE_LEAD[language] ?? GENERAL_QUESTIONS_SOURCE_LEAD.en } } as Record<string, unknown>),
+          });
+        } catch (error) {
+          console.log('[LocalLLM] this agent core cannot answer general questions itself (remote "self"); the message is used:', error);
+        }
+      }
     }
     const steering = getCarState().vehicle.steering;
     if (this.steeringSentTo !== agent || this.steeringSent !== steering) {

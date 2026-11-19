@@ -47,6 +47,9 @@ function agentSettings(): AgentConfig {
       engine: config.WEB_SEARCH_ENGINE ?? 'wikipedia',
       tavilyApiKey: config.TAVILY_API_KEY,
       braveApiKey: config.BRAVE_API_KEY,
+      // core 2026-11-19: the Wikipedia of the app's language (a Portuguese question searched in English found unrelated pages);
+      // older cores ignore the key
+      ...({ wikipediaLanguage: language.toLowerCase().startsWith('pt') ? 'pt' : 'en' } as Record<string, unknown>),
     },
   };
 }

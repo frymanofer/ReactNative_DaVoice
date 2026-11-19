@@ -13,6 +13,7 @@
 
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import { toolReply } from 'react-native-davoice-llm';
+import { noteCarSay } from './speechComposer';
 
 import { getTTSLanguage } from '../tts';
 import carToolsJson from './carToolDefinitions.json'; // not "carTools.json": Metro resolves './carTools' to a .json before a .ts
@@ -531,8 +532,15 @@ function toTool(t: any): ToolDefinition {
         // The app says what it did (2026-11-10: a sentence naming the action, not "Done") and the turn ends there: no second
         // model round (~5 s on a phone CPU). Lookups the app can answer (ETA, vehicle status) are said the same way; the rest
         // (messages) stay with the model.
-        if (say) return toolReply({ ok: true, ...result }, say);
-        if (typeof result?.status === 'string' && result.status.startsWith('Done: ')) return toolReply({ ok: true, ...result }, `${cap(summary)}.`);
+        // what the driver hears is composed from these when one request did several actions (speechComposer.ts); undo stays as it is
+        if (say) {
+          noteCarSay(t.name, say, !undoing);
+          return toolReply({ ok: true, ...result }, say);
+        }
+        if (typeof result?.status === 'string' && result.status.startsWith('Done: ')) {
+          noteCarSay(t.name, `${cap(summary)}.`, !undoing);
+          return toolReply({ ok: true, ...result }, `${cap(summary)}.`);
+        }
         return { ok: true, ...result };
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -546,7 +554,9 @@ function toTool(t: any): ToolDefinition {
           // nothing was done instead of restoring an older action ({"ok": false} + "undo": false)
           const failedUndo = undoResults && !undoing && !READ_ONLY_TOOLS.has(t.name) ? { undo: false } : {};
           const offered = error.offer && !undoing ? { offer: error.offer } : {};
-          return toolReply({ ok: false, refused: reason, ...failedUndo, ...offered }, /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`));
+          const refusal = /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`);
+          noteCarSay(t.name, refusal, false);
+          return toolReply({ ok: false, refused: reason, ...failedUndo, ...offered }, refusal);
         }
         throw new Error(`Not done: ${reason}`);
       }

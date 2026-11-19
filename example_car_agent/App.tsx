@@ -93,6 +93,8 @@ import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { DEFAULT_CONFIDENCE, type ConfidenceSettings, type TurnConfidence, type TurnOutcome } from './src/local_llm/confidence';
 import ConfidenceControls from './src/redesign/ConfidenceControls';
+import { beginCarTurn, carTurnActions, composeCarSpeech } from './src/car/speechComposer';
+import { REMOTE_ANSWERS_ONLINE } from './src/aichat/remote';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
@@ -1315,6 +1317,9 @@ function App(): React.JSX.Element {
       const useLocalLLM = selectedAppModeRef.current === 'local_ai_chat';
 
       let aiReply = '';
+      // What the driver HEARS (and the car screen shows) when it differs from aiReply: several car actions in one request are said as one
+      // natural sentence (src/car/speechComposer.ts). aiReply, the history the model sees, keeps the tools' own sentences.
+      let spokenReply = '';
       // nextHistory only applies to the Gemini path below (the local LLM
       // keeps its own history via aiChatMessages).
       let shouldUseStreaming = false;
@@ -1359,6 +1364,9 @@ function App(): React.JSX.Element {
         // sends a short filler to say, so the wait isn't silent. Fillers
         // aren't part of the reply or the history.
         setLastTurnInfo({});
+        beginCarTurn();
+        let heldSpeech = '';
+        const composeSpeech = currentLocalDemo() === 'car';
         const turn = await getLocalLLMProvider().generateReplyStream(
           aiChatMessages,
           userText,
@@ -1372,11 +1380,17 @@ function App(): React.JSX.Element {
                 message.id === `model-${requestId}` ? { ...message, text: aggregateText } : message
               )
             );
-            await enqueueAIChatSpeechFromDelta(delta, aggregateText);
+            // once a car action ran in this request, its sentences are held and said together at the end (actions run in milliseconds)
+            if (composeSpeech && carTurnActions().length > 0) {
+              heldSpeech += delta;
+              return;
+            }
+            spokenReply += delta;
+            await enqueueAIChatSpeechFromDelta(delta, spokenReply || aggregateText);
           },
           (event) => {
             if (aiChatRequestIdRef.current !== requestId) return;
-            if (event.type === 'filler' && event.reason === 'remote' && LOCAL_LLM_LAYER2 === 'none') {
+            if (event.type === 'filler' && event.reason === 'remote' && !REMOTE_ANSWERS_ONLINE) {
               // No remote model set up: the reply itself says so; no "let me check" first.
             } else if (event.type === 'filler') {
               // Search fillers start the reply's speech queue; tool fillers
@@ -1389,7 +1403,7 @@ function App(): React.JSX.Element {
               }
             } else if (event.type === 'status' && event.status === 'searching') {
               setAiChatStatus('Searching the web...');
-            } else if (event.type === 'status' && event.status === 'remote' && LOCAL_LLM_LAYER2 !== 'none') {
+            } else if (event.type === 'status' && event.status === 'remote' && REMOTE_ANSWERS_ONLINE) {
               setAiChatStatus('Asking the online assistant...');
             } else if (event.type === 'webSearch') {
               setAiChatStatus(
@@ -1400,6 +1414,12 @@ function App(): React.JSX.Element {
             }
           },
         );
+        if (heldSpeech.trim()) {
+          const composed = composeCarSpeech(heldSpeech, carTurnActions(), appLanguageRef.current ?? 'en');
+          if (composed !== heldSpeech.trim()) console.log(`[AIChat][SPEECH] "${heldSpeech.trim()}" -> "${composed}"`);
+          spokenReply += (spokenReply.trim() ? ' ' : '') + composed;
+          await enqueueAIChatSpeechFromDelta(composed, spokenReply);
+        }
         setLastTurnInfo({ ...(turn.outcome ? { outcome: turn.outcome } : {}), ...(turn.confidence ? { confidence: turn.confidence } : {}) });
         if (turn.scope?.outcome === 'ignore' && !aiReply.trim()) {
           // Command scope IGNORE (2026-11-15 brief): background talk, not for the assistant. No reply bubble, nothing said; the heard
@@ -1522,7 +1542,7 @@ function App(): React.JSX.Element {
 
       if (shouldUseStreaming && aiChatStreamingActiveRef.current) {
         // Sentences appear as they are spoken; the full text when speech ends.
-        aiChatFullReplyRef.current = aiReply;
+        aiChatFullReplyRef.current = spokenReply.trim() ? spokenReply : aiReply;
         aiChatStreamGenerationDoneRef.current = true;
         aiChatAwaitingSpeechFinishRef.current = true;
         await speakNextAIChatSentence();

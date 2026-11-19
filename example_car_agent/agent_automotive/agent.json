@@ -916,6 +916,50 @@
         "You're welcome!",
         "Anytime!"
       ]
+    },
+    {
+      "id": "affection",
+      "patterns": [
+        "^\\W*(?:(?:hey|oh|aw+|you\\s+know\\s+what)\\W+(?:\\w+\\W+)?)?i\\s+(?:really\\s+)?(?:love|like|adore)\\s+you(?:\\s+(?:so\\s+much|a\\s+lot|too|very\\s+much))?\\W*$",
+        "^\\W*love\\s+you(?:\\s+(?:so\\s+much|too))?\\W*$",
+        "^\\W*you(?:'|’|\\s+a)?re\\s+(?:the\\s+best|awesome|amazing|great|so\\s+smart|smart|so\\s+good|so\\s+sweet|sweet|cute|a\\s+genius)(?:\\s+(?:buddy|friend|man))?\\W*$",
+        "^\\W*(?:good\\s+job|well\\s+done|nice\\s+job|great\\s+job|nice\\s+work|good\\s+work)(?:\\s+(?:buddy|friend|man))?\\W*$"
+      ],
+      "replies": [
+        "That's sweet of you! I'm always here when you need me.",
+        "Thank you! I'm happy to ride along with you."
+      ]
+    },
+    {
+      "id": "greeting",
+      "patterns": [
+        "^\\W*(?:hi|hello|hey|hey\\s+there|hi\\s+there|good\\s+(?:morning|afternoon|evening))(?:\\s+(?:there|again|friend|buddy))?\\W*$"
+      ],
+      "replies": [
+        "Hi! What can I do for you?",
+        "Hello! How can I help?"
+      ]
+    },
+    {
+      "id": "goodbye",
+      "patterns": [
+        "^\\W*(?:bye|goodbye|bye\\s+bye|see\\s+you(?:\\s+later|\\s+soon)?|good\\s+night)(?:\\s+(?:friend|buddy))?\\W*$"
+      ],
+      "replies": [
+        "Bye! Drive safe.",
+        "See you! Drive safe."
+      ]
+    },
+    {
+      "id": "love_question",
+      "patterns": [
+        "^\\W*(?:(?:hey|so|and|tell\\s+me)\\W+)?do\\s+you\\s+(?:really\\s+)?(?:love|like)\\s+me(?:\\s+(?:too|at\\s+all))?\\W*$",
+        "^\\W*(?:are\\s+we\\s+friends|will\\s+you\\s+marry\\s+me|are\\s+you\\s+my\\s+friend)\\W*$"
+      ],
+      "replies": [
+        "I'm your car's assistant, but I really do enjoy our drives together!",
+        "Of course! You're my favorite driver."
+      ]
     }
   ],
   "changeClaims": [

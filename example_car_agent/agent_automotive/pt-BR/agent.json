@@ -1292,9 +1292,9 @@
     {
       "id": "story",
       "patterns": [
-        "^\\W*(?:(?:ei|oi|olá|ola)\\W+(?:\\w+\\W+)?)?(?:(?:pode|você pode|voce pode)\\s+)?(?:me\\s+)?(?:conta|conte|contar|lê|le|ler)\\s+(?:uma|outra|mais\\s+uma)\\s+(?:\\w+\\s+)?hist[oó]ria(?:\\s+(?:por favor|pra mim))?\\W*$",
-        "^\\W*hora\\s+da\\s+hist[oó]ria\\W*$",
-        "^\\W*(?:uma\\s+)?hist[oó]ria(?:\\s+por\\s+favor)?\\W*$"
+        "^\\W*(?:(?:ei|oi|olá|ola)\\W+(?:\\w+\\W+)?)?(?:(?:pode|você pode|voce pode)\\s+)?(?:me\\s+)?(?:conta|conte|contar|lê|le|ler)\\s+(?:uma|outra|mais\\s+uma)\\s+(?:\\w+\\s+)?hist(?:o|ó)ria(?:\\s+(?:por favor|pra mim))?\\W*$",
+        "^\\W*hora\\s+da\\s+hist(?:o|ó)ria\\W*$",
+        "^\\W*(?:uma\\s+)?hist(?:o|ó)ria(?:\\s+por\\s+favor)?\\W*$"
       ],
       "replies": [
         "Era uma vez uma lebre que zombou de uma tartaruga por ser tão lenta e a desafiou para uma corrida. A lebre disparou na frente e, certa de que ia ganhar, deitou debaixo de uma árvore para tirar um cochilo. A tartaruga seguiu andando, devagar, mas sem parar nunca. Quando a lebre acordou, correu o mais rápido que pôde, mas a tartaruga já estava cruzando a linha de chegada. Devagar e sempre se vai longe.",
@@ -1311,6 +1311,49 @@
       "replies": [
         "De nada!",
         "Por nada!"
+      ]
+    },
+    {
+      "id": "affection",
+      "patterns": [
+        "^\\W*(?:(?:ai|ah|nossa|olha)\\W+)?(?:eu\\s+)?(?:te\\s+amo|amo\\s+(?:você|voce|vc)|gosto\\s+(?:de\\s+|muito\\s+de\\s+)?(?:você|voce|vc)|te\\s+adoro|adoro\\s+(?:você|voce|vc))(?:\\s+(?:demais|muito|tanto|também|tambem))?\\W*$",
+        "^\\W*(?:você|voce|vc)\\s+(?:é|e)\\s+(?:demais|o\\s+máximo|o\\s+maximo|incrível|incrivel|muito\\s+bom|muito\\s+boa|show|top|um\\s+gênio|um\\s+genio|fofo|fofa|legal)\\W*$",
+        "^\\W*(?:muito\\s+bem|bom\\s+trabalho|mandou\\s+bem|arrasou|parabéns|parabens)\\W*$"
+      ],
+      "replies": [
+        "Que fofo! Estou sempre aqui quando você precisar.",
+        "Obrigado! Fico feliz em te acompanhar na estrada."
+      ]
+    },
+    {
+      "id": "greeting",
+      "patterns": [
+        "^\\W*(?:oi|olá|ola|oie|e\\s+aí|e\\s+ai|bom\\s+dia|boa\\s+tarde|boa\\s+noite)(?:\\s+(?:de\\s+novo|amigo))?\\W*$"
+      ],
+      "replies": [
+        "Oi! Em que posso ajudar?",
+        "Olá! Como posso ajudar?"
+      ]
+    },
+    {
+      "id": "goodbye",
+      "patterns": [
+        "^\\W*(?:tchau|tchauzinho|até\\s+mais|ate\\s+mais|até\\s+logo|ate\\s+logo|falou)(?:\\s+(?:amigo|cara))?\\W*$"
+      ],
+      "replies": [
+        "Tchau! Boa viagem.",
+        "Até mais! Dirija com cuidado."
+      ]
+    },
+    {
+      "id": "love_question",
+      "patterns": [
+        "^\\W*(?:(?:e|então|ei)\\W+)?(?:você|voce|vc)\\s+(?:me\\s+ama|gosta\\s+de\\s+mim|me\\s+adora)(?:\\s+(?:mesmo|também|tambem))?\\W*$",
+        "^\\W*(?:somos\\s+amigos|(?:você|voce|vc)\\s+(?:é|e)\\s+meu\\s+amigo|casa\\s+comigo)\\W*$"
+      ],
+      "replies": [
+        "Sou o assistente do seu carro, mas adoro as nossas viagens juntos!",
+        "Claro! Você é o meu motorista favorito."
       ]
     }
   ],
