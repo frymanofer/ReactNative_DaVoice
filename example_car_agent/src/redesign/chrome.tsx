@@ -11,7 +11,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, G, Path, Pattern, Rect } from 'react-native-svg';
-import { C, F, LIFT, PANEL_GRADIENT, PRIMARY_GRADIENT } from './theme';
+import { C, F, HEADER_SCRIM, LIFT, PANEL_GRADIENT, PRIMARY_GLOW, PRIMARY_GRADIENT } from './theme';
 
 export const EMBLEM = require('../../assets/images/redesign/DaVoice_emblem.png');
 
@@ -76,6 +76,8 @@ export function EmblemHeader({ large }: { large?: boolean }) {
       />
       <Rivet side="left" top={barTop + (barHeight - 10) / 2 - 2} />
       <Rivet side="right" top={barTop + (barHeight - 10) / 2 - 2} />
+      {/* The header is decoration: dimmed, so the title and the buttons below carry the screen. */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { experimental_backgroundImage: HEADER_SCRIM }]} />
       <View
         style={{
           position: 'absolute',
@@ -85,8 +87,8 @@ export function EmblemHeader({ large }: { large?: boolean }) {
           alignItems: 'center',
           zIndex: 2,
         }}>
-        <View style={{ width: size, height: size, borderRadius: size / 2, boxShadow: `0 0 ${large ? 22 : 16}px rgba(52, 211, 153, 0.45)` }}>
-          <Image source={EMBLEM} style={{ width: size, height: size }} />
+        <View style={{ width: size, height: size, borderRadius: size / 2, boxShadow: `0 0 ${large ? 18 : 12}px rgba(52, 211, 153, 0.22)` }}>
+          <Image source={EMBLEM} style={{ width: size, height: size, opacity: 0.86 }} />
         </View>
       </View>
     </View>
@@ -97,7 +99,7 @@ export function EmblemHeader({ large }: { large?: boolean }) {
 export function Traces({ left, double }: { left?: boolean; double?: boolean }) {
   return (
     <>
-      <Svg width={90} height={70} viewBox="0 0 90 70" style={{ position: 'absolute', right: 8, top: 10 }} pointerEvents="none">
+      <Svg width={90} height={70} viewBox="0 0 90 70" style={{ position: 'absolute', right: 8, top: 10, opacity: 0.5 }} pointerEvents="none">
         <G fill="none" stroke={C.olive} strokeWidth={1.2}>
           <Path d="M2 6H58L72 20V66" />
           {double && <Path d="M24 14H52L62 24V50" />}
@@ -110,7 +112,7 @@ export function Traces({ left, double }: { left?: boolean; double?: boolean }) {
         </G>
       </Svg>
       {left && (
-        <Svg width={70} height={70} viewBox="0 0 70 70" style={{ position: 'absolute', left: 8, top: 10 }} pointerEvents="none">
+        <Svg width={70} height={70} viewBox="0 0 70 70" style={{ position: 'absolute', left: 8, top: 10, opacity: 0.5 }} pointerEvents="none">
           <Path d="M68 6H22L8 20V60" fill="none" stroke={C.olive} strokeWidth={1.2} />
           <G fill={C.panelTop} stroke={C.olive} strokeWidth={1.2}>
             <Circle cx={68} cy={6} r={2.5} />
@@ -237,9 +239,15 @@ export function Chevron({ dir = 'left', color = C.text, size = 20 }: { dir?: 'le
   );
 }
 
-export function BackSquare({ onPress }: { onPress: () => void }) {
+export function BackSquare({ onPress, disabled }: { onPress: () => void; disabled?: boolean }) {
   return (
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back" activeOpacity={0.8} onPress={onPress} style={styles.backSquare}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      activeOpacity={0.8}
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.backSquare, disabled && { opacity: 0.5 }]}>
       <Chevron />
     </TouchableOpacity>
   );
@@ -258,7 +266,7 @@ export const styles = StyleSheet.create({
     marginHorizontal: 12,
     borderWidth: 1.5,
     borderBottomWidth: 0,
-    borderColor: C.titanium,
+    borderColor: '#2C3432',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: C.panel,
@@ -269,11 +277,12 @@ export const styles = StyleSheet.create({
   },
   heading: { paddingTop: 22, paddingHorizontal: 24, paddingBottom: 14, alignItems: 'center', gap: 6 },
   eyebrow: { fontFamily: F.bold, fontSize: 11, letterSpacing: 11 * 0.18, color: C.mint, textAlign: 'center' },
-  title: { fontFamily: F.bold, fontSize: 24, letterSpacing: -0.2, lineHeight: 29, color: C.text, textAlign: 'center' },
-  subtitle: { fontFamily: F.regular, fontSize: 14, lineHeight: 19, color: C.text2, textAlign: 'center' },
-  sectionLabel: { fontFamily: F.semibold, fontSize: 12, letterSpacing: 12 * 0.08, color: C.text2, paddingLeft: 4 },
+  // The main message of a screen: the brightest, heaviest text on it.
+  title: { fontFamily: F.extrabold, fontSize: 27, letterSpacing: -0.3, lineHeight: 32, color: '#FFFFFF', textAlign: 'center' },
+  subtitle: { fontFamily: F.medium, fontSize: 15, lineHeight: 21, color: C.tag, textAlign: 'center' },
+  sectionLabel: { fontFamily: F.bold, fontSize: 12, letterSpacing: 12 * 0.08, color: C.tag, paddingLeft: 4 },
   primary: {
-    height: 58,
+    height: 60,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -281,10 +290,12 @@ export const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     experimental_backgroundImage: PRIMARY_GRADIENT,
-    boxShadow: '0 0 18px rgba(16, 185, 129, 0.45)',
+    borderWidth: 1,
+    borderColor: C.mintLight,
+    boxShadow: PRIMARY_GLOW,
   },
-  primaryDisabled: { experimental_backgroundImage: undefined, backgroundColor: '#1A2421', boxShadow: undefined },
-  primaryText: { fontFamily: F.bold, fontSize: 16, color: C.onPrimary, flexShrink: 1 },
+  primaryDisabled: { experimental_backgroundImage: undefined, backgroundColor: '#1A2421', boxShadow: undefined, borderColor: '#2C3432' },
+  primaryText: { fontFamily: F.extrabold, fontSize: 17, color: C.onPrimary, flexShrink: 1 },
   primaryTextDisabled: { fontFamily: F.semibold, fontSize: 15, color: C.text2 },
   secondary: {
     height: 58,
@@ -297,7 +308,7 @@ export const styles = StyleSheet.create({
     backgroundColor: C.carbon,
     boxShadow: LIFT,
   },
-  secondaryText: { fontFamily: F.semibold, fontSize: 16, color: C.text },
+  secondaryText: { fontFamily: F.bold, fontSize: 16, color: '#FFFFFF' },
   backSquare: {
     width: 58,
     height: 58,

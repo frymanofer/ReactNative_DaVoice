@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { C, F, LIFT, PRIMARY_GRADIENT } from './theme';
 import { Chevron, Footer, Heading, PanelScreen, PrimaryButton, SectionLabel } from './chrome';
@@ -49,7 +49,8 @@ export default function VoiceScreen(p: Props) {
   return (
     <PanelScreen>
       <Heading eyebrow="Step 2 of 5" title="Choose Your Voice" />
-      <View style={styles.body}>
+      {/* The list scrolls when it is taller than the screen (small phones, many cloned voices); Continue stays in view. */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} persistentScrollbar>
         <TouchableOpacity accessibilityRole="button" activeOpacity={0.8} onPress={p.onClone} style={styles.cloneRow}>
           <View style={styles.cloneIcon}>
             <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -164,8 +165,8 @@ export default function VoiceScreen(p: Props) {
             </View>
           )}
         </View>
-      </View>
-      <Footer>
+      </ScrollView>
+      <Footer style={styles.footer}>
         <PrimaryButton style={{ flex: 1 }} label={`Continue with ${p.selected}`} onPress={p.onContinue} />
       </Footer>
     </PanelScreen>
@@ -173,7 +174,9 @@ export default function VoiceScreen(p: Props) {
 }
 
 const styles = StyleSheet.create({
-  body: { paddingHorizontal: 16, gap: 16 },
+  scroll: { flex: 1, minHeight: 0 },
+  body: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 14, gap: 16 },
+  footer: { marginTop: 0, paddingTop: 12 },
   cloneRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
     boxShadow: LIFT,
   },
   cloneIcon: { width: 36, height: 36, borderRadius: 10, experimental_backgroundImage: PRIMARY_GRADIENT, alignItems: 'center', justifyContent: 'center' },
-  cloneTitle: { fontFamily: F.semibold, fontSize: 15, color: C.text },
+  cloneTitle: { fontFamily: F.bold, fontSize: 15, color: '#FFFFFF' },
   cloneSub: { fontFamily: F.regular, fontSize: 12, color: C.text2 },
   section: { gap: 8 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: C.tile,
   },
-  voiceName: { fontFamily: F.semibold, fontSize: 15, color: C.text },
+  voiceName: { fontFamily: F.bold, fontSize: 15, color: '#FFFFFF' },
   voiceKind: { fontFamily: F.regular, fontSize: 12, color: C.text2 },
   styleChip: {
     flex: 1,

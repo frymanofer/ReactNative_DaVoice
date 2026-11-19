@@ -51,13 +51,13 @@ export default function SpeakerScreen({ hasSaved, onUseSaved, onCreate, onSkip }
       />
       <View style={styles.points}>
         <Point>Passengers, the radio and other voices are ignored</Point>
-        <Point>Takes about 15 seconds: 5 short samples</Point>
+        <Point>Takes about 30 seconds: you read 5 short sentences</Point>
         <Point>Your voice signature never leaves this phone</Point>
       </View>
       <View style={styles.body}>
         {hasSaved ? (
           <>
-            <PrimaryButton label="Use my saved voice signature" icon={<ShieldIcon check />} onPress={onUseSaved} style={styles.cta} />
+            <PrimaryButton label="Use my saved signature" icon={<ShieldIcon check />} onPress={onUseSaved} style={styles.cta} />
             <SecondaryButton label="Record it again" onPress={onCreate} />
           </>
         ) : (
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   heading: { paddingTop: 30, paddingBottom: 18, gap: 8 },
   points: { paddingHorizontal: 28, gap: 12, paddingBottom: 26 },
   point: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  pointText: { flex: 1, fontFamily: F.medium, fontSize: 15, lineHeight: 20, color: C.tag },
+  pointText: { flex: 1, fontFamily: F.medium, fontSize: 15, lineHeight: 20, color: '#E5E7EB' },
   body: { paddingHorizontal: 16, gap: 12 },
   cta: { height: 64 },
   recommended: { fontFamily: F.semibold, fontSize: 12, letterSpacing: 12 * 0.08, color: C.mint, textAlign: 'center', textTransform: 'uppercase' },

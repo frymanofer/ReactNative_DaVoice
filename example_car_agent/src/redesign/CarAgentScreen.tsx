@@ -16,7 +16,9 @@ import { getCarActions, getCarState, onCarChange, resetCar, setDriving } from '.
 import type { CarAction, CarState } from '../car/CarState';
 import CarDrawing, { CAR_ASPECT } from './CarDrawing';
 import { CarbonFill, Chevron, EMBLEM, statusBarHeight } from './chrome';
-import { C, F, PRIMARY_GRADIENT } from './theme';
+import { C, F, PRIMARY_GRADIENT, LIFT, MESSAGE_CARD } from './theme';
+import ConfidenceControls from './ConfidenceControls';
+import { OUTCOME_LABEL, formatScore, type ConfidenceSettings, type TurnConfidence, type TurnOutcome } from '../local_llm/confidence';
 
 type Props = {
   language: string;
@@ -27,11 +29,13 @@ type Props = {
   working: boolean;
   ignored: boolean;
   modelName: string;
-  localConfidence: number;
+  localConfidence: ConfidenceSettings;
+  /** The last request: what happened and the model's score for its action (core 2026-11-19). */
+  lastTurn?: { outcome?: TurnOutcome; confidence?: TurnConfidence };
   onBack: () => void;
   onResetChat: () => void;
   onChangeModel: () => void;
-  onCycleConfidence: () => void;
+  onChangeConfidence: (next: ConfidenceSettings) => void;
   /** Dev aid: sends text through the same path as a final STT transcript. */
   onSendText?: (text: string) => void;
   onRunTestScript?: () => void;
@@ -215,6 +219,15 @@ export default function CarAgentScreen(p: Props) {
         {!!p.reply && !p.ignored && (
           <Text style={styles.reply} numberOfLines={2}>{`${p.voice}: ${p.reply}`}</Text>
         )}
+        {!p.working && !!p.lastTurn?.outcome && (
+          <Text style={styles.turnInfo} numberOfLines={1} accessibilityLabel={`${OUTCOME_LABEL[p.lastTurn.outcome]}. ${formatScore(p.lastTurn.confidence)}`}>
+            <Text style={[styles.turnOutcome, p.lastTurn.outcome === 'executed' ? { color: C.mint } : { color: C.warning2 }]}>
+              {OUTCOME_LABEL[p.lastTurn.outcome]}
+            </Text>
+            {p.lastTurn.confidence?.low ? ' · held back by Local confidence' : ''}
+            {formatScore(p.lastTurn.confidence) ? ` · ${formatScore(p.lastTurn.confidence)}` : ''}
+          </Text>
+        )}
       </View>
 
       {p.onSendText ? (
@@ -267,13 +280,7 @@ export default function CarAgentScreen(p: Props) {
                 p.onChangeModel();
               }}
             />
-            <SettingRow
-              label="Local confidence"
-              value={p.localConfidence > 0 ? `${p.localConfidence.toFixed(2)} · less sure → remote agent` : 'Off'}
-              action="Change"
-              disabled={p.working}
-              onPress={p.onCycleConfidence}
-            />
+            <ConfidenceControls value={p.localConfidence} onChange={p.onChangeConfidence} disabled={p.working} />
             {p.onRunTestScript && (
               <SettingRow
                 label="Test script (dev)"
@@ -341,7 +348,7 @@ const styles = StyleSheet.create({
   bannerRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginHorizontal: 12, height: 44 },
   banner: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
   bannerOn: { borderColor: C.mint, backgroundColor: 'rgba(16, 185, 129, 0.12)', boxShadow: '0 0 12px rgba(16, 185, 129, 0.3)' },
-  bannerOff: { borderColor: '#1F2B27', backgroundColor: '#101614' },
+  bannerOff: { borderColor: '#34423D', backgroundColor: '#141C19' },
   bannerDot: { width: 8, height: 8, borderRadius: 4 },
   bannerText: { flex: 1, fontFamily: F.semibold, fontSize: 13, color: C.text },
   bannerMeta: { fontFamily: F.regular, fontSize: 12, color: C.text2, maxWidth: '40%' },
@@ -352,7 +359,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    experimental_backgroundImage: 'radial-gradient(ellipse at 50% 50%, #13201B 0%, rgba(11, 15, 14, 0) 70%)',
+    experimental_backgroundImage: 'radial-gradient(ellipse at 50% 50%, #0C1512 0%, rgba(6, 9, 8, 0) 70%)',
   },
   side: { position: 'absolute', top: 24, gap: 18 },
   statLabel: { fontFamily: F.bold, fontSize: 10, letterSpacing: 1.2, color: C.text2 },
@@ -367,19 +374,21 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 14,
-    borderWidth: 1,
-    backgroundColor: 'rgba(20, 28, 25, 0.95)',
+    // The main message of the screen: a lighter, lifted card.
+    borderWidth: 1.5,
+    backgroundColor: MESSAGE_CARD,
+    boxShadow: LIFT,
     gap: 3,
   },
-  heard: { fontFamily: F.regular, fontSize: 12, color: C.text2 },
+  heard: { fontFamily: F.regular, fontSize: 13, color: C.tag },
   heardText: { fontFamily: F.medium, color: C.text },
-  lastTitle: { fontFamily: F.bold, fontSize: 15, color: C.text },
+  lastTitle: { fontFamily: F.extrabold, fontSize: 17, color: '#FFFFFF' },
   call: { fontFamily: 'monospace', fontSize: 11, color: C.tag },
-  reply: { fontFamily: F.regular, fontSize: 12, lineHeight: 16, color: C.mintLight },
+  reply: { fontFamily: F.medium, fontSize: 14, lineHeight: 19, color: '#A7F3D0' },
   devArea: { marginHorizontal: 12, marginTop: 8, marginBottom: 16, gap: 8 },
   chipRow: { flexDirection: 'row', gap: 6 },
-  chip: { flex: 1, minWidth: 0, height: 40, paddingHorizontal: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(52, 211, 153, 0.45)', backgroundColor: '#111816', justifyContent: 'center' },
-  chipText: { fontFamily: F.medium, fontSize: 12, color: C.mintPale, textAlign: 'center' },
+  chip: { flex: 1, minWidth: 0, height: 40, paddingHorizontal: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(52, 211, 153, 0.75)', backgroundColor: C.carbon, justifyContent: 'center' },
+  chipText: { fontFamily: F.semibold, fontSize: 12, color: '#FFFFFF', textAlign: 'center' },
   inputRow: {
     height: 56,
     flexDirection: 'row',
@@ -388,10 +397,10 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 6,
     borderRadius: 28,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: C.mint,
-    backgroundColor: '#101614',
-    boxShadow: '0 0 12px rgba(16, 185, 129, 0.25)',
+    backgroundColor: '#1A2622',
+    boxShadow: '0 0 16px rgba(16, 185, 129, 0.4)',
   },
   input: { flex: 1, minWidth: 0, height: 44, fontFamily: F.regular, fontSize: 15, color: C.text, paddingVertical: 0 },
   sendButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', experimental_backgroundImage: PRIMARY_GRADIENT },
@@ -411,6 +420,8 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6)',
   },
   sheetTitle: { fontFamily: F.bold, fontSize: 11, letterSpacing: 2, color: C.mint },
+  turnInfo: { fontFamily: F.medium, fontSize: 12, color: C.text2 },
+  turnOutcome: { fontFamily: F.bold, fontSize: 12 },
   settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingLabel: { fontFamily: F.semibold, fontSize: 14, color: C.text },
   settingValue: { fontFamily: F.regular, fontSize: 12, color: C.text2 },

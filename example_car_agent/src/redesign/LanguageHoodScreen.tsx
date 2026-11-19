@@ -115,7 +115,7 @@ export default function LanguageHoodScreen({ languages, defaultId, onInstall }: 
               right: 0,
               top: d(380),
               bottom: 0,
-              experimental_backgroundImage: 'linear-gradient(180deg, rgba(4, 6, 5, 0) 0%, rgba(4, 6, 5, 0.62) 30%, rgba(4, 6, 5, 0.78) 100%)',
+              experimental_backgroundImage: 'linear-gradient(180deg, rgba(3, 5, 4, 0) 0%, rgba(3, 5, 4, 0.8) 26%, rgba(3, 5, 4, 0.92) 100%)',
             }}
           />
 
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     borderColor: C.tileBorder,
     experimental_backgroundImage: 'linear-gradient(180deg, #2C3D37 0%, #1F2C27 100%)',
   },
-  tileTitle: { fontFamily: F.bold, fontSize: 13, color: C.text },
+  tileTitle: { fontFamily: F.bold, fontSize: 14, color: '#FFFFFF' },
   tileSize: { fontFamily: F.regular, fontSize: 11, color: C.text2 },
   tileIcon: { position: 'absolute', right: 8, top: 18 },
   thumbColumn: { width: 10, paddingTop: 12, paddingBottom: 12, paddingRight: 4 },
@@ -358,7 +358,9 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     experimental_backgroundImage: PRIMARY_GRADIENT,
-    boxShadow: '0 0 18px rgba(16, 185, 129, 0.45)',
+    borderWidth: 1,
+    borderColor: C.mintLight,
+    boxShadow: '0 0 26px rgba(16, 185, 129, 0.65)',
   },
-  primaryText: { fontFamily: F.bold, fontSize: 16, color: C.onPrimary, flexShrink: 1 },
+  primaryText: { fontFamily: F.extrabold, fontSize: 17, color: C.onPrimary, flexShrink: 1 },
 });

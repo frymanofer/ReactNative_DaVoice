@@ -16,6 +16,16 @@
 		362488802FC8608200325B19 /* sv.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887E2FC8608200325B19 /* sv.dm */; };
 		362488812FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */; };
 		362488822FC8608200325B19 /* sv.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887E2FC8608200325B19 /* sv.dm */; };
+		CA19F0022FD0000000C0FFEE /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0012FD0000000C0FFEE /* Inter-Regular.ttf */; };
+		CA19F0032FD0000000C0FFEE /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0012FD0000000C0FFEE /* Inter-Regular.ttf */; };
+		CA19F0052FD0000000C0FFEE /* Inter-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0042FD0000000C0FFEE /* Inter-Medium.ttf */; };
+		CA19F0062FD0000000C0FFEE /* Inter-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0042FD0000000C0FFEE /* Inter-Medium.ttf */; };
+		CA19F0082FD0000000C0FFEE /* Inter-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0072FD0000000C0FFEE /* Inter-SemiBold.ttf */; };
+		CA19F0092FD0000000C0FFEE /* Inter-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0072FD0000000C0FFEE /* Inter-SemiBold.ttf */; };
+		CA19F0112FD0000000C0FFEE /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0102FD0000000C0FFEE /* Inter-Bold.ttf */; };
+		CA19F0122FD0000000C0FFEE /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0102FD0000000C0FFEE /* Inter-Bold.ttf */; };
+		CA19F0142FD0000000C0FFEE /* Inter-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0132FD0000000C0FFEE /* Inter-ExtraBold.ttf */; };
+		CA19F0152FD0000000C0FFEE /* Inter-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0132FD0000000C0FFEE /* Inter-ExtraBold.ttf */; };
 		36C8BB7F2F3CDF8E00E94A82 /* words_flattened.txt in Resources */ = {isa = PBXBuildFile; fileRef = 36C8BB7E2F3CDF8E00E94A82 /* words_flattened.txt */; };
 		36C8BE1B2F474C9400E94A82 /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		36C8BE1C2F474C9400E94A82 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
@@ -61,6 +71,11 @@
 		29F3884A3F33CBAE9F3F95D3 /* Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig"; path = "Target Support Files/Pods-ExampleAppShared-ExampleAppRelease/Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig"; sourceTree = "<group>"; };
 		3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hey_coach_model_28_22012026b.dm; path = ../assets/models/hey_coach_model_28_22012026b.dm; sourceTree = SOURCE_ROOT; };
 		3624887E2FC8608200325B19 /* sv.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = sv.dm; path = ../assets/models/sv.dm; sourceTree = SOURCE_ROOT; };
+		CA19F0012FD0000000C0FFEE /* Inter-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-Regular.ttf"; path = "../assets/fonts/Inter-Regular.ttf"; sourceTree = SOURCE_ROOT; };
+		CA19F0042FD0000000C0FFEE /* Inter-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-Medium.ttf"; path = "../assets/fonts/Inter-Medium.ttf"; sourceTree = SOURCE_ROOT; };
+		CA19F0072FD0000000C0FFEE /* Inter-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-SemiBold.ttf"; path = "../assets/fonts/Inter-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
+		CA19F0102FD0000000C0FFEE /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-Bold.ttf"; path = "../assets/fonts/Inter-Bold.ttf"; sourceTree = SOURCE_ROOT; };
+		CA19F0132FD0000000C0FFEE /* Inter-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-ExtraBold.ttf"; path = "../assets/fonts/Inter-ExtraBold.ttf"; sourceTree = SOURCE_ROOT; };
 		36C8BB7E2F3CDF8E00E94A82 /* words_flattened.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = words_flattened.txt; path = ../assets/stt_bias_conf/words_flattened.txt; sourceTree = SOURCE_ROOT; };
 		36C8BE2D2F474C9400E94A82 /* ExampleAppRelease.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ExampleAppRelease.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36C8BE2E2F474C9500E94A82 /* ExampleApp copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "ExampleApp copy-Info.plist"; path = "/Volumes/T9/projects/ReactNative_WakeWordDetection_new/example_full_voice/ios/ExampleApp copy-Info.plist"; sourceTree = "<absolute>"; };
@@ -127,6 +142,11 @@
 			children = (
 				3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */,
 				3624887E2FC8608200325B19 /* sv.dm */,
+				CA19F0012FD0000000C0FFEE /* Inter-Regular.ttf */,
+				CA19F0042FD0000000C0FFEE /* Inter-Medium.ttf */,
+				CA19F0072FD0000000C0FFEE /* Inter-SemiBold.ttf */,
+				CA19F0102FD0000000C0FFEE /* Inter-Bold.ttf */,
+				CA19F0132FD0000000C0FFEE /* Inter-ExtraBold.ttf */,
 				36C8BB7E2F3CDF8E00E94A82 /* words_flattened.txt */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
@@ -318,6 +338,11 @@
 			files = (
 				3624887F2FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */,
 				362488802FC8608200325B19 /* sv.dm in Resources */,
+				CA19F0022FD0000000C0FFEE /* Inter-Regular.ttf in Resources */,
+				CA19F0052FD0000000C0FFEE /* Inter-Medium.ttf in Resources */,
+				CA19F0082FD0000000C0FFEE /* Inter-SemiBold.ttf in Resources */,
+				CA19F0112FD0000000C0FFEE /* Inter-Bold.ttf in Resources */,
+				CA19F0142FD0000000C0FFEE /* Inter-ExtraBold.ttf in Resources */,
 				36C8BB7F2F3CDF8E00E94A82 /* words_flattened.txt in Resources */,
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
@@ -331,6 +356,11 @@
 			files = (
 				362488812FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */,
 				362488822FC8608200325B19 /* sv.dm in Resources */,
+				CA19F0032FD0000000C0FFEE /* Inter-Regular.ttf in Resources */,
+				CA19F0062FD0000000C0FFEE /* Inter-Medium.ttf in Resources */,
+				CA19F0092FD0000000C0FFEE /* Inter-SemiBold.ttf in Resources */,
+				CA19F0122FD0000000C0FFEE /* Inter-Bold.ttf in Resources */,
+				CA19F0152FD0000000C0FFEE /* Inter-ExtraBold.ttf in Resources */,
 				36C8BE242F474C9400E94A82 /* words_flattened.txt in Resources */,
 				36C8BE252F474C9400E94A82 /* LaunchScreen.storyboard in Resources */,
 				36C8BE262F474C9400E94A82 /* Images.xcassets in Resources */,
@@ -368,9 +398,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleAppRelease/Pods-ExampleAppShared-ExampleAppRelease-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleAppRelease/Pods-ExampleAppShared-ExampleAppRelease-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -385,9 +419,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleAppRelease/Pods-ExampleAppShared-ExampleAppRelease-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleAppRelease/Pods-ExampleAppShared-ExampleAppRelease-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -424,9 +462,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp-ExampleAppTests/Pods-ExampleAppShared-ExampleApp-ExampleAppTests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp-ExampleAppTests/Pods-ExampleAppShared-ExampleApp-ExampleAppTests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -460,9 +502,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp/Pods-ExampleAppShared-ExampleApp-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp/Pods-ExampleAppShared-ExampleApp-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -521,9 +567,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp-ExampleAppTests/Pods-ExampleAppShared-ExampleApp-ExampleAppTests-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp-ExampleAppTests/Pods-ExampleAppShared-ExampleApp-ExampleAppTests-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -538,9 +588,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp/Pods-ExampleAppShared-ExampleApp-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-ExampleAppShared-ExampleApp/Pods-ExampleAppShared-ExampleApp-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -650,7 +704,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ExampleApp/ExampleApp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7S5B3GHP9K;
+				DEVELOPMENT_TEAM = RQ9FXT9864;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = ExampleApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice Car Agent";
@@ -665,7 +719,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.lunafit.voicetest.caragent;
+				PRODUCT_BUNDLE_IDENTIFIER = com.voicetest.caragent;
 				PRODUCT_NAME = ExampleApp;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -681,7 +735,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ExampleApp/ExampleApp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7S5B3GHP9K;
+				DEVELOPMENT_TEAM = RQ9FXT9864;
 				INFOPLIST_FILE = ExampleApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice Car Agent";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
@@ -695,7 +749,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.lunafit.voicetest.caragent;
+				PRODUCT_BUNDLE_IDENTIFIER = com.voicetest.caragent;
 				PRODUCT_NAME = ExampleApp;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -835,10 +889,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -911,10 +962,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import type { ChatTemplate, LocalLLMModelConfig, ModelId } from './types';
+import { C, F, PANEL_GRADIENT, PRIMARY_GRADIENT } from '../redesign/theme';
 import {
   CHAT_TEMPLATE_PRESETS,
   ChatTemplatePresetId,
@@ -293,7 +294,7 @@ export default function ModelPicker({ visible, isBusy = false, onClose, onModelS
               <View style={styles.form}>
                 <Text style={styles.formTitle}>Custom model</Text>
                 <Text style={styles.label}>Name</Text>
-                <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Llama 3.2 3B" placeholderTextColor="rgba(255,255,255,0.4)" />
+                <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Llama 3.2 3B" placeholderTextColor="#AAB2BA" />
                 <Text style={styles.label}>GGUF download URL (https)</Text>
                 <TextInput
                   style={styles.input}
@@ -303,7 +304,7 @@ export default function ModelPicker({ visible, isBusy = false, onClose, onModelS
                   autoCorrect={false}
                   keyboardType="url"
                   placeholder="https://huggingface.co/.../model-Q4_K_M.gguf"
-                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  placeholderTextColor="#AAB2BA"
                 />
                 <Text style={styles.label}>Context size (tokens)</Text>
                 <TextInput style={styles.input} value={contextSize} onChangeText={setContextSize} keyboardType="number-pad" />
@@ -365,86 +366,100 @@ export default function ModelPicker({ visible, isBusy = false, onClose, onModelS
   );
 }
 
+// Colours and fonts of the car agent's design (src/redesign/theme.ts): each weight is its own font family, so no fontWeight.
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '88%',
-    backgroundColor: 'rgba(7, 12, 26, 0.98)',
+    backgroundColor: C.panel,
+    experimental_backgroundImage: PANEL_GRADIENT,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderColor: '#2C3432',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 18,
     paddingBottom: 32,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  title: { fontSize: 22, fontWeight: '700', color: '#ffffff' },
-  closeButton: { paddingHorizontal: 12, paddingVertical: 6 },
-  closeText: { color: '#34C759', fontSize: 17, fontWeight: '600' },
-  busyText: { color: '#FFCC00', fontSize: 13, marginBottom: 8 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  title: { fontFamily: F.extrabold, fontSize: 22, color: '#FFFFFF' },
+  closeButton: {
+    height: 40,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    experimental_backgroundImage: PRIMARY_GRADIENT,
+  },
+  closeText: { fontFamily: F.extrabold, fontSize: 15, color: C.onPrimary },
+  busyText: { fontFamily: F.medium, color: C.warning2, fontSize: 13, marginBottom: 8 },
   modelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 14,
     marginBottom: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: C.tileBorder,
+    backgroundColor: C.tile,
   },
-  modelRowSelected: { borderColor: '#34C759', backgroundColor: 'rgba(52, 199, 89, 0.18)' },
+  modelRowSelected: { borderWidth: 2, borderColor: C.mint, backgroundColor: '#1C4636' },
   modelInfo: { flex: 1, paddingRight: 8 },
-  modelName: { color: '#ffffff', fontSize: 17, fontWeight: '600' },
-  modelMeta: { color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 2 },
+  modelName: { fontFamily: F.bold, color: '#FFFFFF', fontSize: 16 },
+  modelMeta: { fontFamily: F.regular, color: C.text2, fontSize: 12, marginTop: 3 },
   modelActions: { alignItems: 'flex-end', gap: 6 },
   smallButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: C.controlBorder,
+    backgroundColor: C.carbon,
   },
-  dangerButton: { backgroundColor: 'rgba(255, 59, 48, 0.6)' },
-  smallButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
+  dangerButton: { borderColor: C.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' },
+  smallButtonText: { fontFamily: F.semibold, color: '#FFFFFF', fontSize: 13 },
   addButton: {
     padding: 14,
     borderRadius: 14,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderWidth: 1.5,
+    borderColor: C.controlBorder,
+    backgroundColor: C.carbon,
     alignItems: 'center',
     marginTop: 4,
   },
-  addButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
-  form: { marginTop: 4, padding: 12, borderRadius: 14, backgroundColor: 'rgba(255, 255, 255, 0.06)' },
-  formTitle: { color: '#ffffff', fontSize: 17, fontWeight: '700', marginBottom: 8 },
-  label: { color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 8, marginBottom: 4 },
+  addButtonText: { fontFamily: F.bold, color: '#FFFFFF', fontSize: 15 },
+  form: { marginTop: 4, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#2C3432', backgroundColor: '#121A17' },
+  formTitle: { fontFamily: F.bold, color: '#FFFFFF', fontSize: 17, marginBottom: 8 },
+  label: { fontFamily: F.bold, color: C.tag, fontSize: 11, letterSpacing: 0.9, marginTop: 10, marginBottom: 5 },
   input: {
-    color: '#ffffff',
+    fontFamily: F.medium,
+    color: C.text,
     fontSize: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: C.controlBorder,
+    backgroundColor: C.carbon,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  monoInput: { fontFamily: 'Menlo', fontSize: 13 },
+  monoInput: { fontFamily: 'monospace', fontSize: 13 },
   fieldRow: { marginBottom: 2 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: C.controlBorder,
+    backgroundColor: C.carbon,
   },
-  chipSelected: { backgroundColor: '#34C759', borderColor: 'rgba(255, 255, 255, 0.4)' },
-  chipText: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
+  chipSelected: { borderColor: C.mint, backgroundColor: '#1C4636' },
+  chipText: { fontFamily: F.semibold, color: '#FFFFFF', fontSize: 13 },
   toggleChip: { marginTop: 10, alignSelf: 'flex-start' },
-  hint: { color: 'rgba(255, 255, 255, 0.55)', fontSize: 12, marginTop: 6 },
-  errorText: { color: '#FF6B6B', fontSize: 13, marginTop: 10 },
+  hint: { fontFamily: F.regular, color: C.text2, fontSize: 12, marginTop: 6 },
+  errorText: { fontFamily: F.semibold, color: C.warning2, fontSize: 13, marginTop: 10 },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 14 },
-  formButton: { paddingHorizontal: 14, paddingVertical: 9 },
-  saveButton: { backgroundColor: '#34C759' },
+  formButton: { paddingHorizontal: 16, paddingVertical: 10 },
+  saveButton: { borderColor: C.mint, backgroundColor: '#1C4636' },
 });
