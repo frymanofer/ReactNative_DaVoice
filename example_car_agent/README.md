@@ -1,4 +1,4 @@
-# Example App: DaVoice Car Agent (React Native)
+# DaVoice: AI Car Voice Agent (React Native example)
 
 A focused example of an on-device voice assistant for a car. It runs the whole voice pipeline on the phone:
 

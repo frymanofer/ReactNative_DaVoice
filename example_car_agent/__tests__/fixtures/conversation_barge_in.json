@@ -1,0 +1,15 @@
+[
+  { "heard": "", "agent": "I opened the driver window.", "decision": "empty" },
+  { "heard": "  ...  ", "agent": "I opened the driver window.", "decision": "empty" },
+  { "heard": "opened the", "agent": "I opened the driver window.", "decision": "echo" },
+  { "heard": "Driver window", "agent": "I opened the driver window.", "decision": "echo" },
+  { "heard": "stop", "agent": "I opened the driver window.", "decision": "interrupt" },
+  { "heard": "the passenger", "agent": "I opened the driver window.", "decision": "interrupt" },
+  { "heard": "no wait close it", "agent": "I opened the driver window.", "decision": "interrupt" },
+  { "heard": "abri a janela", "agent": "Abri a janela do motorista.", "decision": "echo" },
+  { "heard": "Janela do MOTORISTA!", "agent": "Abri a janela do motorista.", "decision": "echo" },
+  { "heard": "não fecha", "agent": "Abri a janela do motorista.", "decision": "interrupt" },
+  { "heard": "a temperatura", "agent": "Pronto, coloquei o ar em 19 graus.", "decision": "interrupt" },
+  { "heard": "it's 19", "agent": "It's 19 degrees now.", "decision": "echo" },
+  { "heard": "it is 19", "agent": "It's 19 degrees now.", "decision": "interrupt" }
+]

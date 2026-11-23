@@ -39,6 +39,8 @@ export function DownloadIcon({ size = 16, color, stroke = 2 }: { size?: number; 
   );
 }
 
+export { GearIcon } from '../conversation/GearIcon';
+
 export function CheckIcon({ size = 16, color, stroke = 2.6 }: { size?: number; color: string; stroke?: number }) {
   const u = size / 24;
   return (

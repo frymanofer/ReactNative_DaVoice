@@ -14,7 +14,7 @@
     "expect": {
      "text": "Lock the car"
     },
-    "heard": "Sure! I locked the car."
+    "heard": "Sure, you got it. I locked the car."
    }
   ]
  },
@@ -51,7 +51,7 @@
     "expect": {
      "text": "Lock the car"
     },
-    "heard": "Sure! I locked the car."
+    "heard": "Sure, you got it. I locked the car."
    }
   ]
  },
@@ -77,7 +77,7 @@
     "expect": {
      "text": "Close the driver's window"
     },
-    "heard": "Sure! I closed the driver's window."
+    "heard": "Sure, you got it. I closed the driver's window."
    }
   ]
  },
@@ -96,7 +96,7 @@
     "expect": {
      "text": "Heat the driver's seat"
     },
-    "heard": "Sure! I set the driver's seat heater to high."
+    "heard": "Sure, you got it. I set the driver's seat heater to high."
    }
   ]
  },
@@ -115,7 +115,7 @@
     "expect": {
      "text": "Open the sunroof"
     },
-    "heard": "Sure! I opened the sunroof."
+    "heard": "Sure, you got it. I opened the sunroof."
    }
   ]
  },
@@ -140,7 +140,7 @@
     "expect": {
      "text": "Lock the car"
     },
-    "heard": "Sure! I locked the car."
+    "heard": "Sure, you got it. I locked the car."
    }
   ]
  },
@@ -153,18 +153,18 @@
     "expect": {
      "text": "Volume up"
     },
-    "heard": "Sure! I turned the volume up to 15."
+    "heard": "Sure, you got it. I turned the volume up to 15."
    },
    {
     "user": "Say that again",
     "expect": {
-     "reply": "Sure! I turned the volume up to 15."
+     "reply": "Sure, you got it. I turned the volume up to 15."
     }
    },
    {
     "user": "What?",
     "expect": {
-     "reply": "Sure! I turned the volume up to 15."
+     "reply": "Sure, you got it. I turned the volume up to 15."
     }
    }
   ]
@@ -196,7 +196,7 @@
     "expect": {
      "text": "Navigate to the airport"
     },
-    "heard": "Sure! Navigating to the airport."
+    "heard": "Sure, you got it. Navigating to the airport."
    }
   ]
  },
@@ -215,7 +215,7 @@
     "expect": {
      "text": "Tranca o carro"
     },
-    "heard": "Claro! Tranquei o carro."
+    "heard": "Claro, já fiz isso para você. Tranquei todas as portas do carro."
    }
   ]
  },
@@ -234,7 +234,7 @@
     "expect": {
      "text": "Tranca o carro"
     },
-    "heard": "Claro! Tranquei o carro."
+    "heard": "Claro, já fiz isso para você. Tranquei todas as portas do carro."
    }
   ]
  },
@@ -260,7 +260,7 @@
     "expect": {
      "text": "Fecha o vidro do motorista"
     },
-    "heard": "Claro! Fechei o vidro do motorista."
+    "heard": "Claro, já fiz isso para você. Fechei o vidro do motorista."
    }
   ]
  },
@@ -279,7 +279,7 @@
     "expect": {
      "text": "Esquenta o banco do motorista"
     },
-    "heard": "Claro! Liguei o aquecimento."
+    "heard": "Claro, já fiz isso para você. Liguei o aquecimento."
    }
   ]
  },
@@ -296,7 +296,7 @@
    {
     "user": "Não",
     "expect": {
-     "reply": "Tudo bem."
+     "reply": "Tudo bem, então não vou fazer nada."
     }
    }
   ]
@@ -316,7 +316,7 @@
     "expect": {
      "text": "Esquenta o banco do motorista e esquenta o banco do passageiro"
     },
-    "heard": "Claro!"
+    "heard": "Claro, já fiz isso para você."
    }
   ]
  },
@@ -335,7 +335,7 @@
     "expect": {
      "text": "Esquenta o banco do motorista"
     },
-    "heard": "Claro!"
+    "heard": "Claro, já fiz isso para você."
    }
   ]
  },
@@ -354,7 +354,7 @@
     "expect": {
      "text": "Refresca o banco do passageiro"
     },
-    "heard": "Claro!"
+    "heard": "Claro, já fiz isso para você."
    }
   ]
  },
@@ -367,18 +367,18 @@
     "expect": {
      "text": "Aumenta o volume"
     },
-    "heard": "Claro! Aumentei o volume para 15."
+    "heard": "Claro, já fiz isso para você. Aumentei o volume para 15."
    },
    {
     "user": "Repete",
     "expect": {
-     "reply": "Claro! Aumentei o volume para 15."
+     "reply": "Claro, já fiz isso para você. Aumentei o volume para 15."
     }
    },
    {
     "user": "O que você disse?",
     "expect": {
-     "reply": "Claro! Aumentei o volume para 15."
+     "reply": "Claro, já fiz isso para você. Aumentei o volume para 15."
     }
    }
   ]
@@ -478,7 +478,7 @@
     "expect": {
      "text": "Turn off the music"
     },
-    "heard": "Sure! I muted the sound."
+    "heard": "Sure, you got it. I muted the sound."
    }
   ]
  },
@@ -551,7 +551,7 @@
     "expect": {
      "text": "Desliga o ar"
     },
-    "heard": "Pronto!"
+    "heard": "Pronto, já fiz isso para você."
    }
   ]
  },
@@ -568,7 +568,7 @@
     "expect": {
      "text": "Desliga"
     },
-    "heard": "Pronto! Desliguei o aquecimento do banco do motorista."
+    "heard": "Pronto, já fiz isso para você. Desliguei o aquecimento do banco do motorista."
    }
   ]
  },

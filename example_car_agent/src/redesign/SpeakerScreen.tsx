@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { C, F } from './theme';
 import { Footer, Heading, PanelScreen, PrimaryButton, SecondaryButton } from './chrome';
@@ -9,6 +9,8 @@ type Props = {
   onUseSaved: () => void;
   onCreate: () => void;
   onSkip: () => void;
+  /** Why the screen is shown again (the voice signature could not be recorded). */
+  notice?: string;
 };
 
 function ShieldIcon({ check, color = C.onPrimary }: { check?: boolean; color?: string }) {
@@ -27,7 +29,7 @@ function ShieldIcon({ check, color = C.onPrimary }: { check?: boolean; color?: s
   );
 }
 
-export default function SpeakerScreen({ hasSaved, onUseSaved, onCreate, onSkip }: Props) {
+export default function SpeakerScreen({ hasSaved, onUseSaved, onCreate, onSkip, notice }: Props) {
   return (
     // The small header: on this screen the logo is decoration, the buttons below are what the user acts on.
     <PanelScreen traces={{ left: true, double: true }}>
@@ -38,6 +40,11 @@ export default function SpeakerScreen({ hasSaved, onUseSaved, onCreate, onSkip }
         subtitle="The agent answers only you."
       />
       <View style={styles.body}>
+        {!!notice && (
+          <Text style={styles.notice} accessibilityLiveRegion="polite">
+            {notice}
+          </Text>
+        )}
         {hasSaved ? (
           <>
             <PrimaryButton label="Use my saved signature" icon={<ShieldIcon check />} onPress={onUseSaved} style={styles.cta} />
@@ -60,4 +67,5 @@ const styles = StyleSheet.create({
   heading: { paddingTop: 30, paddingBottom: 18, gap: 8 },
   body: { paddingHorizontal: 16, gap: 12 },
   cta: { height: 64 },
+  notice: { fontFamily: F.semibold, fontSize: 14, lineHeight: 20, color: C.warning2 },
 });

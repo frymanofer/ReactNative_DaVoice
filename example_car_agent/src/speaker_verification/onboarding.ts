@@ -123,25 +123,35 @@ export async function runSpeakerVerifyEnrollment(
     uiHooks?.onProgress?.(collected, target);
   });
 
-  const donePromise = new Promise<void>((resolve, reject) => {
-    let finished = false;
-    const offDone = onSpeakerVerificationOnboardingDone((e) => {
-      if (e?.controllerId !== 'svMic1') return;
-      if (finished) return;
-      finished = true;
-      console.log('[SVJS] DONE event:', e);
-      enrollmentJson = e?.enrollmentJson ?? e?.enrollment ?? e?.json ?? null;
-      offDone?.();
-      resolve();
-    });
-    setTimeout(() => {
-      if (finished) return;
-      finished = true;
-      offDone?.();
-      reject(new Error('[SVJS] timeout waiting for onboarding done'));
-    }, 60000);
+  // The "done" event (the enrollment JSON) is remembered from the start; its wait (FINALIZE_TIMEOUT_MS) only starts after the last
+  // sample. 2026-11-22 phone: a 60 s limit counted from the FIRST sample failed anyone reading the 5 sentences slowly.
+  let doneSeen = false;
+  let doneArrived: (() => void) | null = null;
+  const offDone = onSpeakerVerificationOnboardingDone((e) => {
+    if (e?.controllerId !== 'svMic1' || doneSeen) return;
+    doneSeen = true;
+    console.log('[SVJS] DONE event:', e);
+    enrollmentJson = e?.enrollmentJson ?? e?.enrollment ?? e?.json ?? null;
+    doneArrived?.();
   });
+  const waitForDone = () =>
+    new Promise<void>((resolve, reject) => {
+      if (doneSeen) return resolve();
+      const t = setTimeout(() => reject(new Error('[SVJS] timeout waiting for onboarding done')), FINALIZE_TIMEOUT_MS);
+      doneArrived = () => {
+        clearTimeout(t);
+        resolve();
+      };
+    });
+  const release = async () => {
+    offProg?.();
+    offErr?.();
+    offDone?.();
+    // the native mic controller keeps recording until it is destroyed (2026-11-22 phone: it ran on for 44 s after a timeout)
+    try { await ctrl.destroy?.(); } catch { }
+  };
 
+  try {
   setUiMessage?.(`Speaker verification: onboarding started. Collecting ${targetSamples} samples.`);
   await ctrl.beginOnboarding?.('davoice', targetSamples, true);
 
@@ -150,7 +160,7 @@ export async function runSpeakerVerifyEnrollment(
     setUiMessage?.(`Speaker verification: collecting sample ${i}/${targetSamples}...`);
 
     const before = collected;
-    const stepPromise = waitForNextSVStep('svMic1', before, 30000);
+    const stepPromise = waitForNextSVStep('svMic1', before, SAMPLE_TIMEOUT_MS);
     await ctrl.getNextEmbeddingFromMic();
     const step = await stepPromise;
 
@@ -167,27 +177,30 @@ export async function runSpeakerVerifyEnrollment(
 
   setUiMessage?.('Speaker verification: finalizing speaker profile...');
   uiHooks?.onFinalizing?.();
-  await donePromise;
+  await waitForDone();
 
-  if (!enrollmentJson || typeof enrollmentJson !== 'string' || enrollmentJson.length < 10) {
-    offProg?.();
-    offErr?.();
-    try { await ctrl.destroy?.(); } catch { }
+  const json: string | null = enrollmentJson;
+  if (!json || typeof json !== 'string' || json.length < 10) {
     throw new Error('[SVJS] onboarding done but enrollmentJson is empty/invalid');
   }
 
-  console.log('[SVJS] enrollmentJson len=', enrollmentJson.length);
-  await ctrl.setEnrollmentJson(enrollmentJson);
+  console.log('[SVJS] enrollmentJson len=', json.length);
+  await ctrl.setEnrollmentJson(json);
   setUiMessage?.('Speaker verification: speaker profile saved.');
-
-  offProg?.();
-  offErr?.();
-
-  // recommended: close mic-controller to avoid fighting resources during verification
-  try { await ctrl.destroy?.(); } catch { }
-
-  return enrollmentJson;
+  return json;
+  } finally {
+    // success or failure: the mic controller is closed (it would fight the wake word and STT for the microphone)
+    await release();
+  }
 }
+
+/** How long one voice sample may take (the user reads a sentence; 2026-11-22: 30 s was too short on the phone). */
+const SAMPLE_TIMEOUT_MS = 60000;
+/** After the last sample, how long the speaker profile may take to build. */
+const FINALIZE_TIMEOUT_MS = 30000;
+
+/** What the speaker screen says after a voice signature could not be recorded. */
+export const SV_ENROLLMENT_FAILED_NOTICE = "I couldn't hear the samples clearly. Try again in a quiet place, or skip this step.";
 
 export async function runSpeakerVerificationStartupFlow({
   beforeEnrollment,
@@ -210,6 +223,7 @@ export async function runSpeakerVerificationStartupFlow({
   setSvRunning,
   svStopRef,
   svContinueResolverRef,
+  setSvPromptNotice,
 }: {
   beforeEnrollment: () => Promise<void>;
   afterEnrollment: () => Promise<void>;
@@ -231,6 +245,8 @@ export async function runSpeakerVerificationStartupFlow({
   setSvRunning: (value: boolean) => void;
   svStopRef: { current: null | (() => Promise<void>) };
   svContinueResolverRef: { current: null | (() => void) };
+  /** A line on the speaker screen (why it is shown again: the voice signature could not be recorded). */
+  setSvPromptNotice?: (value: string) => void;
 }) {
   let enrollmentJson = enrollmentJsonRef.current;
   console.log('initializeKeywordDetection() enrollmentJson == ', enrollmentJson);
@@ -247,6 +263,9 @@ export async function runSpeakerVerificationStartupFlow({
         enrollmentJsonPathRef.current = `${RNFS.DocumentDirectoryPath}/sv_enrollment.json`;
       }
     }
+    // The prompt, and the recording if chosen; a recording that fails shows the prompt again (try again / skip) instead of
+    // failing the whole start-up (2026-11-22 phone: "Voice setup failed. Restart the app to retry.").
+    for (;;) {
     const hasSavedEnrollment = typeof enrollmentJson === 'string' && enrollmentJson.length > 0;
     setSvPromptHasSavedEnrollment(hasSavedEnrollment);
     setShowSVPrompt(true);
@@ -255,6 +274,7 @@ export async function runSpeakerVerificationStartupFlow({
     });
     setShowSVPrompt(false);
     setSvPromptHasSavedEnrollment(false);
+    setSvPromptNotice?.('');
     if (svChoice === 'skip') {
       enrollmentJson = null;
       enrollmentJsonRef.current = null;
@@ -289,6 +309,14 @@ export async function runSpeakerVerificationStartupFlow({
             enrollmentJson,
             'sv_enrollment.json',
           );
+        } catch (enrollError) {
+          console.warn('[SVJS] voice signature not recorded, back to the speaker screen:', enrollError);
+          enrollmentJson = enrollmentJsonRef.current; // a saved signature from before stays usable
+          setShowSVStatusScreen(false);
+          setSvStatusPhase('idle');
+          setSvOnboardingCollected(0);
+          setSvPromptNotice?.(SV_ENROLLMENT_FAILED_NOTICE);
+          continue;
         } finally {
           await afterEnrollment();
         }
@@ -334,6 +362,8 @@ export async function runSpeakerVerificationStartupFlow({
         svElapsedIntervalRef.current = null;
       }
       setSvRunning(false);
+    }
+    break;
     }
     setShowSVStatusScreen(false);
     setSvStatusCanContinue(false);

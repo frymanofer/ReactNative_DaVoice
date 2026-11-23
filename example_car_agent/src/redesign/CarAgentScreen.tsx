@@ -5,20 +5,27 @@ import {
   LayoutChangeEvent,
   Pressable,
   StatusBar,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { getCarActions, getCarState, onCarChange, resetCar, setDriving } from '../car/CarState';
 import type { CarState } from '../car/CarState';
 import CarDrawing, { CAR_ASPECT } from './CarDrawing';
-import { CarbonFill, Chevron, EMBLEM, statusBarHeight } from './chrome';
+import { CarbonFill, Chevron, EMBLEM, PrimaryButton, SecondaryButton, statusBarHeight } from './chrome';
 import { C, F, PRIMARY_GRADIENT, LIFT, MESSAGE_CARD } from './theme';
 import ConfidenceControls from './ConfidenceControls';
 import type { ConfidenceSettings, TurnConfidence, TurnOutcome } from '../local_llm/confidence';
+import ConversationSettingsPanel from '../conversation/ConversationSettingsPanel';
+import type { ConversationPhase } from '../conversation/controller';
+import { conversationHint, conversationTapEnabled } from '../conversation/hint';
+import type { ConversationSettings } from '../conversation/settings';
+import { GearIcon } from './icons';
 
 type Props = {
   language: string;
@@ -36,6 +43,12 @@ type Props = {
   onResetChat: () => void;
   onChangeModel: () => void;
   onChangeConfidence: (next: ConfidenceSettings) => void;
+  /** Conversation mode (src/conversation): the settings and where the conversation is now. */
+  conversation: ConversationSettings;
+  onChangeConversation: (next: ConversationSettings) => void;
+  conversationPhase: ConversationPhase;
+  /** The microphone button: wakes a sleeping conversation, or stops the agent and listens. */
+  onTapToTalk: () => void;
   /** Dev aid: sends text through the same path as a final STT transcript. */
   onSendText?: (text: string) => void;
   onRunTestScript?: () => void;
@@ -93,7 +106,23 @@ export default function CarAgentScreen(p: Props) {
   useEffect(() => onCarChange(() => setVersion((v) => v + 1)), []);
   const [area, setArea] = useState({ w: 0, h: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The sheet edits a draft; nothing changes in the app until Save (Cancel or a tap outside drops the draft).
+  const [draftConversation, setDraftConversation] = useState<ConversationSettings>(p.conversation);
+  const [draftConfidence, setDraftConfidence] = useState<ConfidenceSettings>(p.localConfidence);
+  const conversationDirty = JSON.stringify(draftConversation) !== JSON.stringify(p.conversation);
+  const confidenceDirty = JSON.stringify(draftConfidence) !== JSON.stringify(p.localConfidence);
+  const openSettings = () => {
+    setDraftConversation(p.conversation);
+    setDraftConfidence(p.localConfidence);
+    setSettingsOpen(true);
+  };
+  const saveSettings = () => {
+    if (conversationDirty) p.onChangeConversation(draftConversation);
+    if (confidenceDirty) p.onChangeConfidence(draftConfidence);
+    setSettingsOpen(false);
+  };
   const [text, setText] = useState('');
+  const { height: windowHeight } = useWindowDimensions();
 
   const s = getCarState();
   const actions = getCarActions();
@@ -183,12 +212,8 @@ export default function CarAgentScreen(p: Props) {
             <Path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4" stroke={C.text} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </Svg>
         </IconButton>
-        <IconButton label="Settings: model and local confidence" onPress={() => setSettingsOpen(true)}>
-          <Svg width={18} height={18} viewBox="0 0 24 24">
-            <Path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke={C.text} strokeWidth={2} strokeLinecap="round" fill="none" />
-            <Circle cx={16} cy={7} r={2} stroke={C.text} strokeWidth={2} fill="none" />
-            <Circle cx={10} cy={17} r={2} stroke={C.text} strokeWidth={2} fill="none" />
-          </Svg>
+        <IconButton label="Settings: conversation, model and local confidence" onPress={openSettings}>
+          <GearIcon size={20} color={C.text} />
         </IconButton>
       </View>
 
@@ -217,7 +242,18 @@ export default function CarAgentScreen(p: Props) {
         )}
       </View>
 
-      {p.onSendText ? (
+      {/* What the microphone is doing and what to say (every build: "Say “Hey DaVoice” before each request" when asleep). */}
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={p.conversationPhase === 'asleep' ? 'Tap to talk' : 'Microphone'}
+        activeOpacity={0.8}
+        disabled={!conversationTapEnabled(p.conversationPhase)}
+        onPress={p.onTapToTalk}
+        style={[styles.inputRow, styles.voiceHint, p.conversationPhase === 'asleep' && styles.asleep]}>
+        <MicIcon dim={p.conversationPhase === 'asleep'} />
+        <Text style={styles.voiceHintText} numberOfLines={1}>{conversationHint(p.conversationPhase, p.wakePhrase, p.conversation.wakeWord)}</Text>
+      </TouchableOpacity>
+      {p.onSendText && (
         <View style={styles.devArea}>
           <View style={styles.chipRow}>
             {chips.map((c) => (
@@ -227,7 +263,7 @@ export default function CarAgentScreen(p: Props) {
             ))}
           </View>
           <View style={styles.inputRow}>
-            <MicIcon />
+            <MicButton phase={p.conversationPhase} onPress={p.onTapToTalk} />
             <TextInput
               accessibilityLabel="What the driver says"
               value={text}
@@ -246,17 +282,21 @@ export default function CarAgentScreen(p: Props) {
             </TouchableOpacity>
           </View>
         </View>
-      ) : (
-        <View style={[styles.inputRow, styles.voiceHint]}>
-          <MicIcon />
-          <Text style={styles.voiceHintText} numberOfLines={1}>{`“${p.wakePhrase}” + your command`}</Text>
-        </View>
       )}
 
       {settingsOpen && (
         <Pressable accessibilityLabel="Close settings" style={styles.sheetBackdrop} onPress={() => setSettingsOpen(false)}>
-          <Pressable style={[styles.sheet, { top: sb + 112 }]} onPress={() => {}}>
-            <Text style={styles.sheetTitle}>SETTINGS</Text>
+          <Pressable style={[styles.sheet, { top: sb + 112, maxHeight: Math.max(240, windowHeight - sb - 136) }]} onPress={() => {}}>
+            <ScrollView contentContainerStyle={{ gap: 12 }} showsVerticalScrollIndicator>
+            <Text style={styles.sheetTitle}>CONVERSATION</Text>
+            <ConversationSettingsPanel
+              value={draftConversation}
+              onChange={setDraftConversation}
+              wakePhrase={p.wakePhrase}
+              theme={{ text: C.text, text2: C.text2, accent: C.mint, selectedBg: '#1C4636', control: C.carbon, controlBorder: C.controlBorder, fontMedium: F.medium, fontBold: F.bold }}
+            />
+            <View style={styles.sheetDivider} />
+            <Text style={styles.sheetTitle}>MODEL</Text>
             <SettingRow
               label="Model"
               value={p.modelName || '…'}
@@ -267,7 +307,7 @@ export default function CarAgentScreen(p: Props) {
                 p.onChangeModel();
               }}
             />
-            <ConfidenceControls value={p.localConfidence} onChange={p.onChangeConfidence} disabled={p.working} />
+            <ConfidenceControls value={draftConfidence} onChange={setDraftConfidence} disabled={p.working} />
             {p.onRunTestScript && (
               <SettingRow
                 label="Test script (dev)"
@@ -279,6 +319,11 @@ export default function CarAgentScreen(p: Props) {
                 }}
               />
             )}
+            </ScrollView>
+            <View style={styles.sheetButtons}>
+              <SecondaryButton label="Cancel" onPress={() => setSettingsOpen(false)} style={{ flex: 1 }} />
+              <PrimaryButton label="Save" disabled={!conversationDirty && !confidenceDirty} onPress={saveSettings} style={{ flex: 1 }} />
+            </View>
           </Pressable>
         </Pressable>
       )}
@@ -286,12 +331,25 @@ export default function CarAgentScreen(p: Props) {
   );
 }
 
-function MicIcon() {
+function MicIcon({ dim }: { dim?: boolean }) {
+  const color = dim ? C.text2 : C.mint;
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24">
-      <Rect x={9} y={3} width={6} height={11} rx={3} stroke={C.mint} strokeWidth={2.2} fill="none" />
-      <Path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke={C.mint} strokeWidth={2.2} strokeLinecap="round" fill="none" />
+      <Rect x={9} y={3} width={6} height={11} rx={3} stroke={color} strokeWidth={2.2} fill="none" />
+      <Path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke={color} strokeWidth={2.2} strokeLinecap="round" fill="none" />
     </Svg>
+  );
+}
+
+function MicButton({ phase, onPress }: { phase: ConversationPhase; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={phase === 'asleep' ? 'Tap to talk' : phase === 'busy' ? 'Stop the agent and talk' : 'Microphone'}
+      onPress={onPress}
+      hitSlop={8}>
+      <MicIcon dim={phase === 'asleep'} />
+    </TouchableOpacity>
   );
 }
 
@@ -403,6 +461,9 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6)',
   },
   sheetTitle: { fontFamily: F.bold, fontSize: 11, letterSpacing: 2, color: C.mint },
+  sheetButtons: { flexDirection: 'row', gap: 10, paddingTop: 12 },
+  sheetDivider: { height: 1, backgroundColor: C.titanium, marginVertical: 4 },
+  asleep: { borderColor: C.titanium, boxShadow: 'none' },
   turnInfo: { fontFamily: F.medium, fontSize: 12, color: C.warning2 },
   settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingLabel: { fontFamily: F.semibold, fontSize: 14, color: C.text },

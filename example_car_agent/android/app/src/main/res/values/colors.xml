@@ -1,0 +1,4 @@
+<resources>
+    <!-- src/redesign/theme.ts C.bg -->
+    <color name="app_background">#060908</color>
+</resources>

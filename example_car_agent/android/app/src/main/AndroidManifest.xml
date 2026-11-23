@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
@@ -9,6 +10,16 @@
 
     <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /> -->
+
+    <!-- Google Play: permissions the libraries declare but this app never uses. CAPTURE_*_OUTPUT are system-only; the battery
+         exemption is restricted by Play policy; there is no data-sync service; files stay in the app's own folders. -->
+    <uses-permission android:name="android.permission.CAPTURE_AUDIO_OUTPUT" tools:node="remove" />
+    <uses-permission android:name="android.permission.CAPTURE_MEDIA_OUTPUT" tools:node="remove" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
 
     <queries>
         <intent>
@@ -57,6 +68,10 @@
           android:name="android.support.FILE_PROVIDER_PATHS"
           android:resource="@xml/share_file_paths" />
       </provider>
+
+      <!-- The speech library's media-playback service is never started by this app (one less foreground service to declare
+           to Google Play). The wake word's microphone service stays. -->
+      <service android:name="com.davoice.tts.PlaybackService" tools:node="remove" />
 
     </application>
 </manifest>

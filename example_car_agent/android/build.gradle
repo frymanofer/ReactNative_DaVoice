@@ -1,12 +1,12 @@
 buildscript {
   ext {
-    buildToolsVersion = "34.0.0"
+    buildToolsVersion = "36.0.0"
     minSdkVersion = 29
-    compileSdkVersion = 34
-    targetSdkVersion = 34
+    compileSdkVersion = 36
+    targetSdkVersion = 36           // Google Play: new apps and updates must target Android 16 (API 36) from 2026-08-31
     ndkVersion = "28.2.13676358"
     kotlinVersion = "2.1.20"          // ← bump to 2.1.20
-    agpVersion = "8.6.1"
+    agpVersion = "8.12.0"           // the version React Native 0.82 is built with (needed for API 36)
   }
   repositories { google(); mavenCentral(); gradlePluginPortal() }
   dependencies {

@@ -13,8 +13,12 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		3624887F2FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */; };
+		9760B91D3BE21A5A3444988C /* hey_davoice_model_28_06042026.dm in Resources */ = {isa = PBXBuildFile; fileRef = E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */; };
+		038A7658AD31A6879731EBF0 /* hello_davoice_model_28_17082026.dm in Resources */ = {isa = PBXBuildFile; fileRef = 4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */; };
 		362488802FC8608200325B19 /* sv.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887E2FC8608200325B19 /* sv.dm */; };
 		362488812FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */; };
+		034B7AE07664924568F68F3A /* hey_davoice_model_28_06042026.dm in Resources */ = {isa = PBXBuildFile; fileRef = E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */; };
+		137E88636D0CE4A3229371AF /* hello_davoice_model_28_17082026.dm in Resources */ = {isa = PBXBuildFile; fileRef = 4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */; };
 		362488822FC8608200325B19 /* sv.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887E2FC8608200325B19 /* sv.dm */; };
 		36C8BB7F2F3CDF8E00E94A82 /* words_flattened.txt in Resources */ = {isa = PBXBuildFile; fileRef = 36C8BB7E2F3CDF8E00E94A82 /* words_flattened.txt */; };
 		36C8BE1B2F474C9400E94A82 /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
@@ -70,6 +74,8 @@
 		21F02327251F475799E93666 /* SceneDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SceneDelegate.h; path = ExampleApp/SceneDelegate.h; sourceTree = "<group>"; };
 		29F3884A3F33CBAE9F3F95D3 /* Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig"; path = "Target Support Files/Pods-ExampleAppShared-ExampleAppRelease/Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig"; sourceTree = "<group>"; };
 		3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hey_coach_model_28_22012026b.dm; path = ../assets/models/hey_coach_model_28_22012026b.dm; sourceTree = SOURCE_ROOT; };
+		E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hey_davoice_model_28_06042026.dm; path = ../assets/models/hey_davoice_model_28_06042026.dm; sourceTree = SOURCE_ROOT; };
+		4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hello_davoice_model_28_17082026.dm; path = ../assets/models/hello_davoice_model_28_17082026.dm; sourceTree = SOURCE_ROOT; };
 		3624887E2FC8608200325B19 /* sv.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = sv.dm; path = ../assets/models/sv.dm; sourceTree = SOURCE_ROOT; };
 		36C8BB7E2F3CDF8E00E94A82 /* words_flattened.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = words_flattened.txt; path = ../assets/stt_bias_conf/words_flattened.txt; sourceTree = SOURCE_ROOT; };
 		36C8BE2D2F474C9400E94A82 /* ExampleAppRelease.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ExampleAppRelease.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -141,6 +147,8 @@
 			isa = PBXGroup;
 			children = (
 				3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */,
+				E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */,
+				4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */,
 				3624887E2FC8608200325B19 /* sv.dm */,
 				CA19F0012FD0000000C0FFEE /* Inter-Regular.ttf */,
 				CA19F0042FD0000000C0FFEE /* Inter-Medium.ttf */,
@@ -337,6 +345,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				3624887F2FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */,
+				9760B91D3BE21A5A3444988C /* hey_davoice_model_28_06042026.dm in Resources */,
+				038A7658AD31A6879731EBF0 /* hello_davoice_model_28_17082026.dm in Resources */,
 				362488802FC8608200325B19 /* sv.dm in Resources */,
 				CA19F0022FD0000000C0FFEE /* Inter-Regular.ttf in Resources */,
 				CA19F0052FD0000000C0FFEE /* Inter-Medium.ttf in Resources */,
@@ -355,6 +365,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				362488812FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */,
+				034B7AE07664924568F68F3A /* hey_davoice_model_28_06042026.dm in Resources */,
+				137E88636D0CE4A3229371AF /* hello_davoice_model_28_17082026.dm in Resources */,
 				362488822FC8608200325B19 /* sv.dm in Resources */,
 				CA19F0032FD0000000C0FFEE /* Inter-Regular.ttf in Resources */,
 				CA19F0062FD0000000C0FFEE /* Inter-Medium.ttf in Resources */,
@@ -683,7 +695,7 @@
 				DEVELOPMENT_TEAM = RQ9FXT9864;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = ExampleApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice Car Agent";
+				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice: AI Car Voice Agent";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -695,7 +707,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.voicetest.caragent;
+				PRODUCT_BUNDLE_IDENTIFIER = io.davoice.voice2voice.caragent;
 				PRODUCT_NAME = ExampleApp;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -713,7 +725,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = RQ9FXT9864;
 				INFOPLIST_FILE = ExampleApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice Car Agent";
+				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice: AI Car Voice Agent";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -725,7 +737,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.voicetest.caragent;
+				PRODUCT_BUNDLE_IDENTIFIER = io.davoice.voice2voice.caragent;
 				PRODUCT_NAME = ExampleApp;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -743,7 +755,7 @@
 				DEVELOPMENT_TEAM = RQ9FXT9864;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = "ExampleApp copy-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice Car Agent";
+				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice: AI Car Voice Agent";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -773,7 +785,7 @@
 				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = RQ9FXT9864;
 				INFOPLIST_FILE = "ExampleApp copy-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice Car Agent";
+				INFOPLIST_KEY_CFBundleDisplayName = "DaVoice: AI Car Voice Agent";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

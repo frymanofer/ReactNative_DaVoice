@@ -1,0 +1,247 @@
+[
+  {
+    "text": "Hey Coach, open the window",
+    "phrase": "Hey Coach",
+    "out": "open the window"
+  },
+  {
+    "text": "hey coach open the window",
+    "phrase": "Hey Coach",
+    "out": "open the window"
+  },
+  {
+    "text": "Hey Coach.",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "hey coach",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "Hey, coach!",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "Hey, open the window",
+    "phrase": "Hey Coach",
+    "out": "open the window"
+  },
+  {
+    "text": "Open the window",
+    "phrase": "Hey Coach",
+    "out": "Open the window"
+  },
+  {
+    "text": "Coach, open the window",
+    "phrase": "Hey Coach",
+    "out": "open the window"
+  },
+  {
+    "text": "  Hey Coach,   abre o vidro  ",
+    "phrase": "Hey Coach",
+    "out": "abre o vidro"
+  },
+  {
+    "text": "Heyday is a song",
+    "phrase": "Hey Coach",
+    "out": "Heyday is a song"
+  },
+  {
+    "text": "",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "Coach",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "coach.",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "Hey",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "Hey?",
+    "phrase": "Hey Coach",
+    "out": ""
+  },
+  {
+    "text": "Hey Coach, hey coach, open the sunroof",
+    "phrase": "Hey Coach",
+    "out": "open the sunroof"
+  },
+  {
+    "text": "Hey couch, lock the car",
+    "phrase": "Hey Coach",
+    "out": "lock the car"
+  },
+  {
+    "text": "A coach lock the car",
+    "phrase": "Hey Coach",
+    "out": "lock the car"
+  },
+  {
+    "text": "Okay coach, open the trunk",
+    "phrase": "Hey Coach",
+    "out": "open the trunk"
+  },
+  {
+    "text": "Hi coach. Is the car locked?",
+    "phrase": "Hey Coach",
+    "out": "Is the car locked?"
+  },
+  {
+    "text": "Hey Koch close the doors",
+    "phrase": "Hey Coach",
+    "out": "close the doors"
+  },
+  {
+    "text": "coach lock the car",
+    "phrase": "Hey Coach",
+    "out": "lock the car"
+  },
+  {
+    "text": "Hi, open the window",
+    "phrase": "Hey Coach",
+    "out": "open the window"
+  },
+  {
+    "text": "Okay, open the window",
+    "phrase": "Hey Coach",
+    "out": "Okay, open the window"
+  },
+  {
+    "text": "A car is behind me",
+    "phrase": "Hey Coach",
+    "out": "A car is behind me"
+  },
+  {
+    "text": "Coaching tips please",
+    "phrase": "Hey Coach",
+    "out": "Coaching tips please"
+  },
+  {
+    "text": "Can you lock the car, coach?",
+    "phrase": "Hey Coach",
+    "out": "Can you lock the car, coach?"
+  },
+  {
+    "text": "Hey Coach, abre o porta-malas",
+    "phrase": "Hey Coach",
+    "out": "abre o porta-malas"
+  },
+  {
+    "text": "Ok",
+    "phrase": "Hey Coach",
+    "out": "Ok"
+  },
+  {
+    "text": "Hey DaVoice, open the window",
+    "phrase": "Hey Davoice",
+    "out": "open the window"
+  },
+  {
+    "text": "Hey the voice open the trunk",
+    "phrase": "Hey Davoice",
+    "out": "open the trunk"
+  },
+  {
+    "text": "hey da voice, lock the car",
+    "phrase": "Hey Davoice",
+    "out": "lock the car"
+  },
+  {
+    "text": "The voice, lock the car",
+    "phrase": "Hey Davoice",
+    "out": "lock the car"
+  },
+  {
+    "text": "Voice lock the car",
+    "phrase": "Hey Davoice",
+    "out": "lock the car"
+  },
+  {
+    "text": "DaVoice.",
+    "phrase": "Hey Davoice",
+    "out": ""
+  },
+  {
+    "text": "Hey, the voice.",
+    "phrase": "Hey Davoice",
+    "out": ""
+  },
+  {
+    "text": "Hey devoice close the windows",
+    "phrase": "Hey Davoice",
+    "out": "close the windows"
+  },
+  {
+    "text": "Hey DaVoice hey DaVoice set the temperature to 22",
+    "phrase": "Hey Davoice",
+    "out": "set the temperature to 22"
+  },
+  {
+    "text": "Hey DaVoice, abre o vidro",
+    "phrase": "Hey Davoice",
+    "out": "abre o vidro"
+  },
+  {
+    "text": "Open the window",
+    "phrase": "Hey Davoice",
+    "out": "Open the window"
+  },
+  {
+    "text": "Can you open the window, DaVoice?",
+    "phrase": "Hey Davoice",
+    "out": "Can you open the window, DaVoice?"
+  },
+  {
+    "text": "Hey",
+    "phrase": "Hey Davoice",
+    "out": ""
+  },
+  {
+    "text": "Hi DaVoice. Is the car locked?",
+    "phrase": "Hey Davoice",
+    "out": "Is the car locked?"
+  },
+  {
+    "text": "Voicemail please",
+    "phrase": "Hey Davoice",
+    "out": "Voicemail please"
+  },
+  {
+    "text": "Hello the voice, open the window",
+    "phrase": "Hello Davoice",
+    "out": "open the window"
+  },
+  {
+    "text": "Hallo DaVoice lock the car",
+    "phrase": "Hello Davoice",
+    "out": "lock the car"
+  },
+  {
+    "text": "Hello",
+    "phrase": "Hello Davoice",
+    "out": ""
+  },
+  {
+    "text": "Hello, open the trunk",
+    "phrase": "Hello Davoice",
+    "out": "open the trunk"
+  },
+  {
+    "text": "Hello voice",
+    "phrase": "Hello Davoice",
+    "out": ""
+  }
+]

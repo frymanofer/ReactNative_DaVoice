@@ -12,29 +12,29 @@
     "toolNotAllowed": "Not done: the user did not ask for this. Do not mention it; just answer what the user said.",
     "toolResultNote": "(This is the tool's result, not a message from the user. Now answer me in one short sentence.)",
     "noToolRetry": "Reply to what I said above, in plain words.",
-    "noReply": "Desculpe, não entendi. Pode repetir?",
-    "notDoneRest": "Não fiz o resto do pedido. Pode repetir?",
-    "done": "Pronto.",
+    "noReply": "Desculpe, não entendi o que você disse. Pode repetir, por favor?",
+    "notDoneRest": "Eu não consegui fazer o resto do pedido. Pode repetir, por favor?",
+    "done": "Pronto, já fiz isso para você.",
     "failed": "Desculpe, não deu certo.",
-    "notConfirmed": "Tudo bem, sem problema.",
+    "notConfirmed": "Sem problema, fica para uma próxima vez.",
     "notAuthorized": "Desculpe, você não tem permissão para isso.",
-    "invalidArgs": "Desculpe, não entendi todos os detalhes. Pode repetir?",
-    "scopeClarify": "Desculpe, não entendi. Pode repetir?",
-    "scopeAskedDone": "Não mudei nada. Se quiser, é só pedir.",
-    "scopeTooLong": "Pode me dizer isso de um jeito mais curto? Por exemplo: abre o vidro do motorista.",
+    "invalidArgs": "Desculpe, não entendi todos os detalhes. Pode repetir, por favor?",
+    "scopeClarify": "Desculpe, não entendi o que você disse. Pode repetir, por favor?",
+    "scopeAskedDone": "Eu não mudei nada no carro. Se quiser mudar alguma coisa, é só pedir.",
+    "scopeTooLong": "Pode me dizer isso de um jeito mais curto? Por exemplo: fecha a janela do motorista.",
     "scopeUnsupported": "Desculpe, isso eu não consigo controlar neste carro.",
     "scopeNoRemote": "Isso eu não consigo responder aqui. Posso ajudar com os vidros, as portas, o ar, a música, a navegação e o status do carro.",
     "scopeIgnore": "",
     "undoNothing": "Não tem nenhuma ação recente para desfazer.",
     "undoIrreversible": "Desculpe, isso não dá para desfazer.",
-    "undoDone": "Pronto, voltei como estava.",
-    "undoFailed": "Desculpe, não consegui desfazer.",
+    "undoDone": "Pronto, voltei tudo como estava antes.",
+    "undoFailed": "Desculpe, não consegui desfazer isso agora.",
     "undoLastFailed": "O último comando não foi feito, então não tem nada para desfazer.",
     "undoChangedSince": "Outra pessoa mudou isso depois, então deixei como está.",
     "unsupported": "Desculpe, isso não está disponível neste app.",
-    "guardConflict": "Desculpe, acho que não entendi direito. Pode repetir?",
+    "guardConflict": "Desculpe, acho que não entendi direito. Pode repetir, por favor?",
     "outOfRange": "Desculpe, {value} não dá: vai de {min} a {max}.",
-    "outOfRangeAsk": "Qual valor você quer? Vai de {min} a {max}.",
+    "outOfRangeAsk": "Qual valor você quer colocar agora? O valor vai de {min} a {max}.",
     "replyReminder": "(Responda em português do Brasil.)"
   },
   "webSearch": {
@@ -570,8 +570,8 @@
       "Um momento, deixa eu ver.",
       "Me dá um segundo para pensar nisso.",
       "Deixa eu verificar isso para você.",
-      "Só um instante.",
-      "Deixa eu descobrir."
+      "Me dá só um instante, por favor.",
+      "Um momento, deixa eu ver isso para você."
     ],
     "failed": "Desculpe, o Gemini não conseguiu responder agora. Tente de novo daqui a pouco.",
     "errors": {
@@ -1288,8 +1288,8 @@
         "^\\W*(?:(?:oi|olá|ola)\\W+)?tudo\\s+bem(?:\\s+com\\s+(?:você|voce|vc))?\\W*$"
       ],
       "replies": [
-        "Tô ótimo, obrigado por perguntar! Pronto pra rodar. E você?",
-        "Tudo ótimo por aqui! Pra onde vamos hoje?"
+        "Estou ótimo, obrigado por perguntar! Estou pronto para rodar com você. E você, como está se sentindo hoje?",
+        "Tudo ótimo por aqui, muito obrigado! Para onde vamos juntos hoje?"
       ]
     },
     {
@@ -1316,7 +1316,7 @@
       ],
       "replies": [
         "O que o semáforo disse para o carro? Não olha, que eu tô me trocando!",
-        "Por que o carro foi ao psicólogo? Porque estava sem direção!",
+        "Por que o carro foi ao psicólogo? Porque ele estava completamente sem direção!",
         "Eu ia contar uma piada sobre vaga de estacionamento, mas todas as boas já estão ocupadas."
       ]
     },
@@ -1326,8 +1326,8 @@
         "^\\W*(?:(?:muito\\s+)?obrigad[oa]|valeu|brigad[oa]|obg|vlw)(?:\\s+(?:pela\\s+ajuda|demais|mesmo|viu|cara|amigo|meu\\s+amigo))?\\W*$"
       ],
       "replies": [
-        "De nada!",
-        "Por nada!"
+        "De nada, fico feliz em ajudar você.",
+        "Por nada, é sempre um prazer ajudar."
       ]
     },
     {
@@ -1336,8 +1336,8 @@
         "^\\W*(?:tá\\s+bom|ta\\s+bom|beleza|ok|okay|certo|fechado|tranquilo|show|entendi)\\W*$"
       ],
       "replies": [
-        "Beleza!",
-        "Combinado!"
+        "Beleza, é só me chamar quando precisar.",
+        "Combinado, estou aqui se precisar de mim."
       ]
     },
     {
@@ -1346,8 +1346,8 @@
         "^\\W*(?:(?:ah|nossa|opa|eba|ok|oba)\\W+)?(?:(?:valeu|obrigad[oa]|brigad[oa]|obg|vlw)\\W+)?(?:(?:agora\\s+)?(?:ficou|tá|ta|está|esta)\\s+)?(?:(?:bem|muito|bem\\s+mais|muito\\s+mais)\\s+)?(?:melhor|melhorou|ótimo|otimo|perfeito|bom|boa|show|massa|top|legal|uma\\s+delícia|uma\\s+delicia|gostoso|agradável|agradavel)(?:\\s+agora)?(?:\\W+(?:valeu|obrigad[oa]|brigad[oa]|vlw)(?:\\s+(?:demais|mesmo))?)?\\W*$"
       ],
       "replies": [
-        "Que bom que ajudei!",
-        "Fico feliz em ajudar!"
+        "Que bom que eu consegui te ajudar!",
+        "Fico muito feliz em poder ajudar você!"
       ]
     },
     {
@@ -1357,8 +1357,8 @@
         "^\\W*(?:que\\s+tédio|que\\s+tedio|tá\\s+um\\s+tédio|ta\\s+um\\s+tedio)\\W*$"
       ],
       "replies": [
-        "Que tal uma música? É só me dizer um artista ou uma rádio.",
-        "Posso colocar uma música. É só falar um artista ou uma rádio."
+        "Vamos ouvir uma música para animar? É só me dizer um artista ou uma rádio.",
+        "Eu posso colocar uma música para você. É só falar um artista ou uma rádio."
       ]
     },
     {
@@ -1369,7 +1369,7 @@
       ],
       "replies": [
         "Faz uma pausa quando for seguro. Posso achar um café ou uma parada no caminho, é só pedir.",
-        "Se cuida! Se precisar de uma pausa, me pede pra achar uma parada ou um café."
+        "Se cuida, a sua segurança vem primeiro! Se precisar de uma pausa, me pede pra achar uma parada ou um café."
       ]
     },
     {
@@ -1380,8 +1380,8 @@
         "^\\W*(?:muito\\s+bem|bom\\s+trabalho|mandou\\s+bem|arrasou|parabéns|parabens)\\W*$"
       ],
       "replies": [
-        "Que fofo! Estou sempre aqui quando você precisar.",
-        "Obrigado! Fico feliz em te acompanhar na estrada."
+        "Que fofo, muito obrigado pelo carinho! Eu estou sempre aqui quando você precisar.",
+        "Muito obrigado, isso é muito gentil! Fico feliz em te acompanhar na estrada."
       ]
     },
     {
@@ -1390,8 +1390,8 @@
         "^\\W*(?:oi|olá|ola|oie|e\\s+aí|e\\s+ai|bom\\s+dia|boa\\s+tarde|boa\\s+noite)(?:\\s+(?:de\\s+novo|amigo))?\\W*$"
       ],
       "replies": [
-        "Oi! Em que posso ajudar?",
-        "Olá! Como posso ajudar?"
+        "Olá, que bom falar com você de novo! Em que eu posso te ajudar agora?",
+        "Olá, que bom falar com você de novo! Como posso te ajudar hoje?"
       ]
     },
     {
@@ -1400,8 +1400,8 @@
         "^\\W*(?:tchau|tchauzinho|até\\s+mais|ate\\s+mais|até\\s+logo|ate\\s+logo|falou)(?:\\s+(?:amigo|cara))?\\W*$"
       ],
       "replies": [
-        "Tchau! Boa viagem.",
-        "Até mais! Dirija com cuidado."
+        "Tchau, foi um prazer te ajudar! Tenha uma ótima viagem até lá.",
+        "Até mais, foi bom conversar com você! Dirija com cuidado na estrada."
       ]
     },
     {
@@ -1412,7 +1412,7 @@
       ],
       "replies": [
         "Sou o assistente do seu carro, mas adoro as nossas viagens juntos!",
-        "Claro! Você é o meu motorista favorito."
+        "Claro que sim, com certeza! Você é o meu motorista favorito."
       ]
     }
   ],

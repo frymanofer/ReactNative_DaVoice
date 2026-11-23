@@ -31,6 +31,6 @@ export function isBareDone(sentence: string): boolean {
 
 export const DID_NOT_CATCH: Record<string, string> = {
   en: "Sorry, I didn't catch that. Could you say it again?",
-  'pt-BR': 'Desculpe, não entendi. Pode repetir?',
+  'pt-BR': 'Desculpe, não entendi o que você disse. Pode repetir, por favor?',
   'pt-PT': 'Desculpe, não percebi. Pode repetir?',
 };

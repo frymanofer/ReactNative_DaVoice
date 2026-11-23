@@ -205,7 +205,10 @@ export interface InstanceConfig {
 // ];
 
 
-export const modelName = 'hey_coach_model_28_22012026b.dm';
+// The wake word: "Hey DaVoice" (default). Also bundled: 'hello_davoice_model_28_17082026.dm' ("Hello DaVoice") and the earlier
+// 'hey_coach_model_28_22012026b.dm' ("Hey Coach"); to switch, change modelName (android/app/src/main/assets and the iOS
+// Resources carry all three).
+export const modelName = 'hey_davoice_model_28_06042026.dm';
 //const modelName = 'hey_lookdeep' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
 //const modelName = 'ayuda_model_28_05022026' + (Platform.OS === 'ios' ? '.onnx' : '.dm');
 // Create an array of instance configurations
@@ -221,7 +224,8 @@ export const formatWakeWord = (fileName: string) => {
       .replace(/(_model.*|_\d+.*)(\.(onnx|dm))$/, '')
       .replace(/\.(onnx|dm)$/, '')
       .replace(/_/g, ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase());
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+      .replace(/\bDavoice\b/g, 'DaVoice'); // "Hey DaVoice"
 };
 
 export const AudioPermissionComponent = async () => {
@@ -633,7 +637,8 @@ export async function captureWakewordDetection({
 export function cleanDetectedWakeWord(keywordIndex: any) {
   console.log('detected keyword: ', keywordIndex);
   const keywordText = String(keywordIndex ?? '');
-  const keywordWords = keywordText.trim().split(/\s+/).filter(Boolean);
+  // 'Hey Davoice Model 28 06042026' from the engine, or the model's file name 'hey_davoice_model_28_06042026' (the dev button)
+  const keywordWords = keywordText.replace(/_/g, ' ').trim().split(/\s+/).filter(Boolean);
   const modelWordIndex = keywordWords.findIndex((w) => w.toLowerCase() === 'model');
   const cleanWakeWord =
     modelWordIndex >= 0

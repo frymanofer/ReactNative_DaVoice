@@ -55,7 +55,7 @@ const DISMISS_CORE: Record<Lang, string[]> = {
   pt: ['deixa pra la', 'deixa para la', 'deixa', 'deixa assim', 'esquece', 'esquece isso', 'cancela', 'cancelar', 'cancela isso', 'para',
     'pare', 'nada', 'nada nao', 'nao', 'nao precisa', 'nao obrigado', 'nao obrigada', 'agora nao', 'melhor nao', 'so isso', 'e so isso'],
 };
-const DISMISS_REPLY: Record<Lang, string[]> = { en: ['Okay.', 'No problem.'], pt: ['Tudo bem.', 'Sem problema.'] };
+const DISMISS_REPLY: Record<Lang, string[]> = { en: ['Okay.', 'No problem.'], pt: ['Tudo bem, então não vou fazer nada.', 'Sem problema, fica para uma próxima vez.'] };
 const YES: Record<Lang, string[]> = {
   en: ['yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'please', 'go ahead', 'do it', 'sounds good', 'go for it', 'please do',
     'sure thing', 'why not', 'let s do it', 'of course', 'absolutely', 'alright', 'all right', 'perfect', 'great', 'cool',

@@ -23,6 +23,9 @@ if (project.findProperty("skipHermesc") == "true") {
   }
 }
 
+def appVersionCode = ((project.findProperty("versionCode") ?: System.getenv("VERSION_CODE") ?: "1") as String).toInteger()
+def appVersionName = (project.findProperty("versionName") ?: System.getenv("VERSION_NAME") ?: "1.0") as String
+
 android {
   namespace "com.exampleapp"                 // <-- keep your package
   ndkVersion rootProject.ext.ndkVersion
@@ -30,11 +33,12 @@ android {
   compileSdkVersion rootProject.ext.compileSdkVersion  // <— use compileSdkVersion (AGP accepts both)
 
   defaultConfig {
-    applicationId "com.exampleapp.caragent"  // the car-agent example installs next to the full example
+    applicationId "io.davoice.voice2voice.caragent"  // the car-agent example installs next to the full example
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 1
-    versionName "1.0"
+    // Google Play needs a higher versionCode for every upload: ./gradlew bundleRelease -PversionCode=2 (CI passes its run number).
+    versionCode appVersionCode
+    versionName appVersionName
   }
 
   // The STT bias list (words_flattened.txt) from the same folder iOS bundles
@@ -52,6 +56,18 @@ android {
       keyAlias 'androiddebugkey'
       keyPassword 'android'
     }
+    // The Google Play upload key. Never in git: the four values come from ~/.gradle/gradle.properties on a Mac, or from the
+    // environment in CI (GitHub secrets). Without them a release build is signed with the debug key (fine for the phone,
+    // rejected by Google Play).
+    upload {
+      def v = { String name -> (project.findProperty(name) ?: System.getenv(name)) as String }
+      if (v('DAVOICE_UPLOAD_STORE_FILE')) {
+        storeFile file(v('DAVOICE_UPLOAD_STORE_FILE'))
+        storePassword v('DAVOICE_UPLOAD_STORE_PASSWORD')
+        keyAlias v('DAVOICE_UPLOAD_KEY_ALIAS')
+        keyPassword v('DAVOICE_UPLOAD_KEY_PASSWORD')
+      }
+    }
   }
 
   buildTypes {
@@ -62,7 +78,7 @@ android {
       buildConfigField "boolean", "LOGGING_ENABLED", "false"
     }
     release {
-      signingConfig signingConfigs.debug
+      signingConfig signingConfigs.upload.storeFile ? signingConfigs.upload : signingConfigs.debug
       minifyEnabled false
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
       buildConfigField "boolean", "LOGGING_ENABLED", "false"

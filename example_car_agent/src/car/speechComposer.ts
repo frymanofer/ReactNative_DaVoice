@@ -2,7 +2,7 @@
  * What the driver HEARS when one request did several car actions (2026-11-19, user: "I closed all the doors. I locked the car." sounds
  * robotic). The car tools' own sentences (carTools.ts `say`) that ran in a row become one natural sentence:
  *   "I closed all the doors. I locked the car."  ->  "All set. I closed all the doors and locked the car. Everything is secure."
- *   "Fechei todas as portas. Tranquei o carro."  ->  "Pronto! Fechei todas as portas e tranquei o carro. Está tudo seguro."
+ *   "Fechei todas as portas. Tranquei o carro."  ->  "Pronto, já está! Fechei todas as portas e tranquei o carro. Está tudo seguro."
  * Accuracy: nothing here decides an action. Only sentences of actions that really ran (recorded by the tool handlers in this turn) are
  * merged, word for word; anything else (a question, a refusal, an undo, a status answer that is not "I did X") is said as it was.
  * The conversation history the model sees keeps the original sentences (the wording it was trained on): only speech and the screen change.
@@ -49,20 +49,23 @@ export function pendingOfferCalls(): string[] | null {
 
 const OPENERS: Record<'en' | 'pt', string[]> = {
   en: ['All set.', 'Done.', 'You got it.'],
-  pt: ['Pronto!', 'Feito!', 'Tudo certo!'],
+  pt: ['Pronto, já fiz isso para você.', 'Certo, já resolvi isso para você.', 'Tudo certo, já cuidei disso para você.'],
 };
-const SECURE: Record<'en' | 'pt', string> = { en: 'Everything is secure.', pt: 'Está tudo seguro.' };
+const SECURE: Record<'en' | 'pt', string> = { en: 'Everything is secure.', pt: 'Agora o carro está todo seguro.' };
 const CLOSING_TOOLS = new Set(['close_doors', 'set_window', 'set_sunroof', 'set_trunk']);
 const LOOKUP_TOOLS = new Set(['get_vehicle_status', 'get_trip_eta', 'find_along_route']);
 
 // ---- a friendlier voice (2026-11-21, user: "more like Otto", VW's assistant): the same facts, word for word, with a warm opener and,
 // every other time, a short closing line that fits the action. Only for actions that really ran, only in the tuned languages.
 const FRIENDLY_OPENERS: Record<'en' | 'pt', string[]> = {
-  en: ['Sure!', 'You got it!', 'Done!', 'Alright!', 'There you go!'],
-  pt: ['Claro!', 'Pronto!', 'Feito!', 'Prontinho!', 'Tá feito!'],
+  en: ['Sure, you got it.', 'You got it!', 'Consider it done!', 'Alright, all set!', 'There you go!'],
+  pt: ['Claro, já fiz isso para você.', 'Pronto, já fiz isso para você.', 'Certo, já resolvi isso para você.', 'Tudo certo, já cuidei disso para você.', 'Feito, já está tudo certinho agora.'],
 };
+// pt-BR wording (2026-11-22, temporary until the pt-BR voice model is fixed): the speech library speaks one sentence at a time and the
+// pt-BR model drops or garbles short sentences said alone ("Claro!", "Tranquei o carro."). Every pt sentence here was synthesized 5
+// times with the app's model and voice and understood 5/5 by speech-to-text; keep new ones at about six words and test them the same way.
 /** What the car says while a request takes a moment (Otto's "Entendido."). */
-const ACKS: Record<'en' | 'pt', string[]> = { en: ['Got it.', 'On it.', 'One moment.'], pt: ['Entendido.', 'Já vou.', 'Só um instante.'] };
+const ACKS: Record<'en' | 'pt', string[]> = { en: ['Got it.', 'On it.', 'One moment.'], pt: ['Entendido, só um instante, por favor.', 'Só um instante, já vou fazer isso.', 'Pode deixar, só um instante, por favor.'] };
 let ackVariant = 0;
 /** A short acknowledgement for a request that takes a moment, or null (Basic languages keep their own flow). */
 export function carAck(language: string): string | null {
@@ -75,22 +78,22 @@ function friendlyTail(a: CarTurnAction, lang: 'en' | 'pt', driving = false): str
   const T = (en: string, pt: string) => (lang === 'pt' ? pt : en);
   const num = (v: unknown) => Number(v ?? 0);
   switch (a.tool) {
-    case 'unlock_car': return driving ? null : T('Come on in!', 'Pode entrar!');
-    case 'lock_car': return T("You're good to go.", 'Pode ficar tranquilo.');
-    case 'set_window': return g.position === 'close' ? null : T('Enjoy the fresh air.', 'Aproveita o ar fresquinho.');
-    case 'set_sunroof': return g.action === 'close' ? null : T('Enjoy the view!', 'Aproveita a vista!');
-    case 'comfort_feeling': return g.feeling === 'hot' ? T("It'll cool down in a minute.", 'Já já refresca.') : T("It'll feel cozier in a minute.", 'Já já fica mais quentinho.');
+    case 'unlock_car': return driving ? null : T('Come on in!', 'Pode entrar, o carro já está aberto.');
+    case 'lock_car': return T("You're good to go.", 'Pode ficar tranquilo, está tudo seguro.');
+    case 'set_window': return g.position === 'close' ? null : T('Enjoy the fresh air.', 'Aproveite o vento fresco da estrada.');
+    case 'set_sunroof': return g.action === 'close' ? null : T('Enjoy the view!', 'Aproveite a vista lá de cima.');
+    case 'comfort_feeling': return g.feeling === 'hot' ? T("It'll cool down in a minute.", 'O carro vai refrescar em um minutinho.') : T("It'll feel cozier in a minute.", 'Já já o carro fica mais quentinho.');
     case 'set_temperature':
       if (g.temperature !== undefined && g.temperature !== null) return null;
-      return num(g.change) > 0 ? T("It'll warm up soon.", 'Já já esquenta.') : num(g.change) < 0 ? T("It'll cool down soon.", 'Já já refresca.') : null;
+      return num(g.change) > 0 ? T("It'll warm up soon.", 'O carro vai esquentar em um minutinho.') : num(g.change) < 0 ? T("It'll cool down soon.", 'O carro vai refrescar em um minutinho.') : null;
     case 'set_seat_climate':
       if (g.level === 'off') return null;
-      return g.feature === 'ventilation' ? T('That should cool you down.', 'Vai refrescar.') : T('Nice and cozy.', 'Fica quentinho rapidinho.');
-    case 'set_steering_wheel_heater': return g.on === false ? null : T('Warm hands coming up.', 'Mãos quentinhas já já.');
-    case 'navigate_to': return T("Let's go!", 'Vamos lá!');
+      return g.feature === 'ventilation' ? T('That should cool you down.', 'A ventilação do banco vai refrescar você.') : T('Nice and cozy.', 'O assento vai ficar quentinho rapidinho.');
+    case 'set_steering_wheel_heater': return g.on === false ? null : T('Warm hands coming up.', 'O volante vai ficar quentinho rapidinho.');
+    case 'navigate_to': return T("Let's go!", 'Vamos lá, tenha uma ótima viagem!');
     case 'play_media':
-    case 'tune_radio': return T('Enjoy!', 'Aproveita!');
-    case 'set_defrost': return g.on === false ? null : T("You'll see clearly in a moment.", 'Já já o vidro desembaça.');
+    case 'tune_radio': return T('Enjoy the music!', 'Aproveite a música durante a viagem.');
+    case 'set_defrost': return g.on === false ? null : T("You'll see clearly in a moment.", 'O vidro vai desembaçar em um minutinho.');
     default: return null;
   }
 }
@@ -121,7 +124,7 @@ export function spokenSay(a: CarTurnAction, language: string): string {
   // an undo (carTools.ts "Undone. <the tool's sentence>"): said as putting it back, the sentence said like any other
   const undo = /^(Undone|Desfeito)\. (.+)$/s.exec(s);
   if (undo && (language === 'en' || language === 'pt-BR')) {
-    return `${language === 'en' ? 'Okay, I put it back.' : 'Pronto, voltei como estava.'} ${spokenSay({ ...a, say: undo[2] }, language)}`;
+    return `${language === 'en' ? 'Okay, I put it back.' : 'Pronto, voltei tudo como estava antes.'} ${spokenSay({ ...a, say: undo[2] }, language)}`;
   }
   const g = a.args ?? {};
   const change = Number(g.change ?? 0);
@@ -169,6 +172,42 @@ export function spokenSay(a: CarTurnAction, language: string): string {
     return s;
   }
   return s;
+}
+
+/** pt-BR: a short tool sentence said ON ITS OWN is said longer (tested wording, see FRIENDLY_OPENERS); a merged sentence stays as it is.
+ * "vidros" is said as "janelas" here (the pt-BR model's "vidros" is heard as "vídeos"). */
+const PT_LONGER: [RegExp, string][] = [
+  [/^Tranquei o carro\.$/, 'Tranquei todas as portas do carro.'],
+  [/^Destranquei o carro\.$/, 'Destranquei todas as portas do carro.'],
+  [/^Abri todas as portas\.$/, 'Abri todas as portas do carro.'],
+  [/^Fechei todas as portas\.$/, 'Fechei todas as portas para você.'],
+  [/^Abri todos os vidros\.$/, 'Abri todas as janelas do carro para você.'],
+  [/^Fechei todos os vidros\.$/, 'Fechei todas as janelas do carro.'],
+  [/^Abri o teto solar\.$/, 'Deixei o teto solar aberto para você.'],
+  [/^Fechei o teto solar\.$/, 'Fechei o teto solar para você.'],
+  [/^Inclinei o teto solar\.$/, 'Deixei o teto solar inclinado, como você pediu.'],
+  [/^Tocando (.+)\.$/, 'Agora tocando $1 para você.'],
+  [/^Sintonizei a rádio (\S+)\.$/, 'Sintonizei a rádio $1 para você.'],
+  [/^(Liguei|Desliguei) o desembaçador traseiro\.$/, '$1 o desembaçador traseiro para você.'],
+];
+/** "A. B! C" -> ["A.", "B!", "C"]: a sentence ends at a word ending in . ! or ? ("2,1 km." and "87.5" stay whole). */
+function sentencesOf(text: string): string[] {
+  const out: string[] = [];
+  let cur: string[] = [];
+  for (const w of text.split(/\s+/)) {
+    if (!w) continue;
+    cur.push(w);
+    if (/[.!?]$/.test(w)) {
+      out.push(cur.join(' '));
+      cur = [];
+    }
+  }
+  if (cur.length) out.push(cur.join(' '));
+  return out;
+}
+function ptLonger(sentence: string): string {
+  for (const [re, to] of PT_LONGER) if (re.test(sentence)) return sentence.replace(re, to);
+  return sentence;
 }
 
 /** "I closed all the doors." -> "closed all the doors" (en); "Fechei todas as portas." -> "fechei todas as portas" (pt); else null. */
@@ -264,7 +303,8 @@ export function composeCarSpeech(text: string, actions: CarTurnAction[], languag
     }
   }
   // two confirmed actions in a Basic language both say "Erledigt.": once is enough
-  return out.filter((t, i) => i === 0 || t !== out[i - 1]).join(' ');
+  const said = out.filter((t, i) => i === 0 || t !== out[i - 1]).join(' ');
+  return language === 'pt-BR' ? sentencesOf(said).map(ptLonger).join(' ') : said;
 }
 
 /** For tests: start the openers from the first one. */

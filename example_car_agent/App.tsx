@@ -50,8 +50,17 @@ import {
   resetAIChatSession as resetAIChatSessionBase,
   speakNextAIChatSentence as speakNextAIChatSentenceBase,
   splitCompletedSentences,
-  stripWakeWordPrefix,
 } from './src/aichat';
+import { setWakewordAudioRoutingConfig } from 'react-native-wakeword';
+import { ConversationController, type ConversationDeps, type ConversationPhase } from './src/conversation/controller';
+import {
+  DEFAULT_CONVERSATION_SETTINGS,
+  endOfSpeechMs,
+  routingConfigForConversation,
+  type ConversationSettings,
+} from './src/conversation/settings';
+import { loadConversationSettings, saveConversationSettings } from './src/conversation/store';
+import { dropWakePhrase } from './src/conversation/wakePhrase';
 import {
   APP_LANGUAGES,
   AppLanguage,
@@ -116,6 +125,7 @@ import { enrollmentSentences } from './src/speaker_verification/enrollmentSenten
 import WakeWordScreen from './src/redesign/WakeWordScreen';
 import AgentLoadingScreen from './src/redesign/AgentLoadingScreen';
 import CarAgentScreen from './src/redesign/CarAgentScreen';
+import { WithSettingsGear } from './src/redesign/SettingsGear';
 import { setSpeakerGate } from './src/speaker_verification/currentSpeaker';
 import { CAR_TOOL_NAMES, carTools, noteCarUserText } from './src/car/carTools';
 import { getCarState } from './src/car/CarState';
@@ -159,6 +169,7 @@ import {
   formatWakeWord,
   initializeWakewordBootstrap,
   instanceConfigs,
+  modelName,
   prepareWakewordSpeechSession,
   resumeWakewordDetection,
   shareWakewordRecordings,
@@ -208,6 +219,8 @@ function App(): React.JSX.Element {
   const svStopRef = useRef<null | (() => Promise<void>)>(null);
   const [showSVPrompt, setShowSVPrompt] = useState(false);
   const [svPromptHasSavedEnrollment, setSvPromptHasSavedEnrollment] = useState(false);
+  // why the speaker screen is shown again (a voice signature that could not be recorded)
+  const [svPromptNotice, setSvPromptNotice] = useState('');
   const [showSVStatusScreen, setShowSVStatusScreen] = useState(false);
   const [svStatusCanContinue, setSvStatusCanContinue] = useState(false);
   const [svStatusPhase, setSvStatusPhase] = useState<'idle' | 'onboarding' | 'verifying'>('idle');
@@ -273,6 +286,8 @@ function App(): React.JSX.Element {
   const speakText = (text: string, speaker: number = SPEAKER, speed?: number) => {
     // [E2E] marker for latency measurement (wake word -> transcript -> reply -> speech): logcat ReactNativeJS timestamps.
     console.log(`[E2E] speak ${text.length} chars: ${text.slice(0, 60)}`);
+    // interrupt mode: speech heard under the reply that only repeats these words is echo (src/conversation/bargeIn.ts)
+    if (aiChatInFlightRef.current) spokenThisTurnRef.current += ` ${text}`;
     return Speech.speak(applyTTSTextPolicy(text), speaker, speed);
   };
   // Both Portuguese models (brv1 and Portugal) read "Rich" badly; say "Ritchie".
@@ -587,6 +602,33 @@ function App(): React.JSX.Element {
   const aiChatSpeechChainRef = useRef<Promise<void>>(Promise.resolve());
   const aiChatSpeechPendingRef = useRef(0);
   const processAIChatTurnRef = useRef<((text: string) => Promise<void>) | null>(null);
+  // --- Conversation mode (src/conversation; the settings sheet on the car screen): take turns or interrupt, wake word
+  // or just talk, and each mode's timeouts. The controller owns the microphone between requests.
+  const [conversationSettings, setConversationSettings] = useState<ConversationSettings>(DEFAULT_CONVERSATION_SETTINGS);
+  const conversationSettingsRef = useRef<ConversationSettings>(DEFAULT_CONVERSATION_SETTINGS);
+  const conversationSettingsLoadRef = useRef<Promise<ConversationSettings> | null>(null);
+  if (!conversationSettingsLoadRef.current) conversationSettingsLoadRef.current = loadConversationSettings();
+  const [conversationPhase, setConversationPhase] = useState<ConversationPhase>('off');
+  // What the agent has said in the current request (speakText), for the interrupt mode's echo check.
+  const spokenThisTurnRef = useRef('');
+  // The controller is created once; its audio commands go to this render's functions.
+  const conversationDepsRef = useRef<Omit<ConversationDeps, 'setTimer' | 'clearTimer' | 'log'> | null>(null);
+  const conversationRef = useRef<ConversationController | null>(null);
+  if (!conversationRef.current) {
+    conversationRef.current = new ConversationController(
+      {
+        openMic: (ms, why) => conversationDepsRef.current?.openMic(ms, why),
+        closeMic: (why) => conversationDepsRef.current?.closeMic(why),
+        armWakeWord: (why) => conversationDepsRef.current?.armWakeWord(why),
+        disarmWakeWord: (why) => conversationDepsRef.current?.disarmWakeWord(why),
+        stopReply: (why) => conversationDepsRef.current?.stopReply(why),
+        onPhase: (phase) => conversationDepsRef.current?.onPhase?.(phase),
+        log: (message) => console.log(message),
+      },
+      DEFAULT_CONVERSATION_SETTINGS,
+    );
+  }
+  const conversation = conversationRef.current;
   // DEV ONLY (2026-11-12, S20 tests without someone saying the wake word): the wake-word callback, run by a __DEV__ button.
   const devWakeWordRef = useRef<(() => Promise<void>) | null>(null);   // DEV in-app script (runDevInAppScript)
   const getLocalLLMProvider = (): LocalLLMProvider => {
@@ -605,7 +647,9 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (!isFullAIChatMode || selectedAppModeRef.current !== 'local_ai_chat') return;
     if (aiChatInFlightRef.current) return;
-    const partial = aiChatLiveTranscript.trim();
+    // the wake phrase pre-fetched in front of the request never reaches the model (src/conversation/wakePhrase.ts)
+    const wakePrefix = pendingWakeWordPrefixRef.current;
+    const partial = (wakePrefix ? dropWakePhrase(aiChatLiveTranscript, wakePrefix) : aiChatLiveTranscript).trim();
     if (!partial) return;
     void getLocalLLMProvider().prefillForTurn(aiChatMessages, partial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -685,30 +729,36 @@ function App(): React.JSX.Element {
     }
   }
 
-  async function restartFullAIChatMicrophone(reason: string) {
+  // preFetchMs: keep that much audio from before the recognizer opened (after a wake word). quiet: the agent is still
+  // talking (interrupt mode), so the status line is left alone.
+  async function restartFullAIChatMicrophone(reason: string, preFetchMs = 0, quiet = false) {
     if (Platform.OS !== 'android') {
-      console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in ${reason}`);
-      await Speech.unPauseSpeechRecognition(-1);
+      console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1, ${preFetchMs}) in ${reason}`);
+      await Speech.unPauseSpeechRecognition(-1, preFetchMs);
       console.log(`[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in ${reason}`);
       return;
     }
 
     setSpeechSessionUIActive(true);
-    setAiChatStatus('Starting microphone...');
-    setCurrentSpeechSentence('Starting microphone...');
+    if (!quiet) {
+      setAiChatStatus('Starting microphone...');
+      setCurrentSpeechSentence('Starting microphone...');
+    }
     suppressAndroidPartialResultsRef.current = true;
     resetSpeechTranscriptState();
 
     try {
-      console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in ${reason}`);
-      await Speech.unPauseSpeechRecognition(-1);
+      console.log(`[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1, ${preFetchMs}) in ${reason}`);
+      await Speech.unPauseSpeechRecognition(-1, preFetchMs);
       console.log(`[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in ${reason}`);
 
       await sleep(300);
       const recognizing = await Speech.isRecognizing();
       console.log('[AIChat] microphone restart result', { reason, recognizing });
-      setAiChatStatus('Listening...');
-      setCurrentSpeechSentence('Listening...');
+      if (!quiet) {
+        setAiChatStatus('Listening...');
+        setCurrentSpeechSentence('Listening...');
+      }
     } catch (error) {
       console.log('[AIChat] failed to restart speech recognition:', { reason, error });
       setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
@@ -718,6 +768,124 @@ function App(): React.JSX.Element {
       }, 400);
     }
   }
+
+  // Interrupt mode, the stop word or a tap: the reply ends now. Its later sentences, its finish and its microphone
+  // reopen are dropped (a new request id); the screen keeps what was said.
+  function endReplyNow(why: string) {
+    if (!aiChatInFlightRef.current && !aiChatAwaitingSpeechFinishRef.current) return;
+    console.log(`[Conversation] reply stopped: ${why}`);
+    aiChatRequestIdRef.current += 1;
+    aiChatStreamingActiveRef.current = false;
+    aiChatStreamGenerationDoneRef.current = false;
+    aiChatStreamSpeakingRef.current = false;
+    aiChatPendingSentenceBufferRef.current = '';
+    aiChatSpeechQueueRef.current = [];
+    aiChatSpeechPendingRef.current = 0;
+    aiChatAwaitingSpeechFinishRef.current = false;
+    aiChatInFlightRef.current = false;
+    lastProcessedRef.current = '';
+    setIsAIChatLoading(false);
+    if (aiChatFullReplyRef.current) {
+      setAiChatResponse(aiChatFullReplyRef.current);
+      aiChatFullReplyRef.current = '';
+    }
+    setAiChatStatus('Stopped. Listening...');
+  }
+
+  conversationDepsRef.current = {
+    openMic: async (preFetchMs, why) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      resetSpeechTranscriptState();
+      await restartFullAIChatMicrophone(`conversation: ${why}`, preFetchMs, aiChatInFlightRef.current);
+    },
+    closeMic: async () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      resetSpeechTranscriptState();
+      // A real pause (2026-11-22 phone: Speech.stop/cancel only ended the Android session, and the recognizer's own
+      // restart reopened it 0.4 s later, so it heard "can you lock the car" while waiting for the wake word).
+      try {
+        await Speech.pauseSpeechRecognition();
+      } catch (error) {
+        console.log('[Conversation] pauseSpeechRecognition failed (ignored):', error);
+      }
+    },
+    armWakeWord: async () => {
+      await myInstanceRef.current?.unPauseDetection();
+    },
+    disarmWakeWord: async () => {
+      await myInstanceRef.current?.pauseDetection(false);
+    },
+    stopReply: async (why) => {
+      endReplyNow(why);
+      try {
+        await Speech.stopSpeaking();
+      } catch (error) {
+        console.log('[Conversation] stopSpeaking failed (ignored):', error);
+      }
+    },
+    onPhase: (phase) => {
+      setConversationPhase(phase);
+      if (phase === 'asleep') {
+        setAiChatStatus(conversationSettingsRef.current.wakeWord ? `Say “${wakeWords}” before each request.` : `Say “${wakeWords}” to continue.`);
+        setAiChatLiveTranscript('');
+      }
+    },
+  };
+
+  // A request ended: the conversation mode decides what's next (listen again, or back to the wake word).
+  const reopenAfterReply = async () => {
+    const c = conversationRef.current!;
+    if (c.phase === 'off') {
+      await restartFullAIChatMicrophone('reply finished (outside the conversation)');
+      return;
+    }
+    c.replyFinished(spokenThisTurnRef.current);
+    await c.idle();
+  };
+
+  // New conversation settings: the end-of-speech silence, the controller's timeouts and, when interrupting is turned
+  // on or off, echo cancellation (the iOS routing JSON for STT, TTS and the wake word; Android's AEC switch).
+  const applyConversationAudio = async (settings: ConversationSettings) => {
+    const routing = routingConfigForConversation(defaultAudioRoutingConfig, settings);
+    try {
+      await setWakewordAudioRoutingConfig(routing as any);
+    } catch (error) {
+      console.log('[Conversation] setWakewordAudioRoutingConfig failed (ignored):', error);
+    }
+    try {
+      await Speech.setAudioRoutingConfig(routing as any);
+    } catch (error) {
+      console.log('[Conversation] Speech.setAudioRoutingConfig failed (ignored):', error);
+    }
+    if (Platform.OS === 'android') {
+      try {
+        await Speech.setAECEnabled(settings.interrupt);
+      } catch (error) {
+        console.log('[Conversation] setAECEnabled failed (ignored):', error);
+      }
+    }
+  };
+  const applyConversationSettings = (next: ConversationSettings, opts: { save: boolean; audio: boolean }) => {
+    const previous = conversationSettingsRef.current;
+    conversationSettingsRef.current = next;
+    setConversationSettings(next);
+    silenceThresholdMsRef.current = endOfSpeechMs(next);
+    conversationRef.current?.update(next);
+    console.log('[Conversation] settings', JSON.stringify(next));
+    if (opts.audio && previous.interrupt !== next.interrupt) void applyConversationAudio(next);
+    if (opts.save) void saveConversationSettings(next);
+  };
+  useEffect(() => {
+    // the saved settings; the audio routing is set from them at start-up (initializeWakewordBootstrap)
+    void conversationSettingsLoadRef.current?.then((saved) => applyConversationSettings(saved, { save: false, audio: false }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const finishAIChatSpeechFlow = async () => {
     // Everything was spoken: show the reply with its original formatting.
@@ -736,7 +904,7 @@ function App(): React.JSX.Element {
       aiChatInFlightRef.current = false;
       setIsAIChatLoading(false);
       resetSpeechTranscriptState();
-      await restartFullAIChatMicrophone('finishAIChatSpeechFlow');
+      await reopenAfterReply();
     } else {
       return finishAIChatSpeechFlowBase({
         Speech,
@@ -751,6 +919,7 @@ function App(): React.JSX.Element {
         setIsAIChatLoading,
         resetSpeechTranscriptState,
         setAiChatStatus,
+        reopenMicrophone: reopenAfterReply,
       });
     }
   };
@@ -1259,12 +1428,14 @@ function App(): React.JSX.Element {
   }
 
   const processAIChatTurn = async (rawText: string) => {
-    const sanitizedInput =
-      AI_CHAT_STRIP_WAKE_WORD_PREFIX &&
-      typeof pendingWakeWordPrefixRef.current === 'string' &&
-      pendingWakeWordPrefixRef.current.length > 0
-        ? stripWakeWordPrefix(rawText, pendingWakeWordPrefixRef.current)
-        : rawText;
+    const wakePrefix = pendingWakeWordPrefixRef.current;
+    // The wake-word mode (src/conversation): a transcript led by the wake phrase (pre-fetched audio) goes on without it.
+    const dropWake =
+      typeof wakePrefix === 'string' &&
+      wakePrefix.length > 0 &&
+      (AI_CHAT_STRIP_WAKE_WORD_PREFIX || conversationSettingsRef.current.wakeWord);
+    const sanitizedInput = dropWake ? dropWakePhrase(rawText, wakePrefix) : rawText;
+    if (dropWake && !sanitizedInput) return; // only the wake phrase so far: the next words complete the request
     pendingWakeWordPrefixRef.current = null;
     const userText = sanitizedInput.trim();
     if (!userText || aiChatInFlightRef.current) return;
@@ -1297,6 +1468,8 @@ function App(): React.JSX.Element {
 
     console.log('[AIChat] user transcript:', userText);
     aiChatInFlightRef.current = true;
+    spokenThisTurnRef.current = '';
+    conversation.turnStarted();
     lastAIChatSubmitAtRef.current = now;
     lastAIChatSubmittedTextRef.current = userText;
     lastProcessedRef.current = userText;
@@ -1599,6 +1772,7 @@ function App(): React.JSX.Element {
         aiChatFullReplyRef.current = spokenReply.trim() ? spokenReply : aiReply;
         aiChatStreamGenerationDoneRef.current = true;
         aiChatAwaitingSpeechFinishRef.current = true;
+        conversation.replySpeaking();
         await speakNextAIChatSentence();
       } else {
         aiChatStreamingActiveRef.current = false;
@@ -1607,6 +1781,7 @@ function App(): React.JSX.Element {
         setCurrentSpeechSentence(`${replySpeakerLabel}: ${aiReply}`);
         setAiChatStatus(`Speaking ${replySpeakerLabel} reply...`);
         aiChatAwaitingSpeechFinishRef.current = true;
+        conversation.replySpeaking();
         await speakText(normalizeTextForSpeech(aiReply), SPEAKER, getSelectedSpeakerSpeed());
       }
     } catch (error) {
@@ -1641,6 +1816,7 @@ function App(): React.JSX.Element {
       setCurrentSpeechSentence(`${errorSpeakerLabel}: ${friendlyMessage}`);
       setAiChatStatus('Speaking demo status update...');
       aiChatAwaitingSpeechFinishRef.current = true;
+      conversation.replySpeaking();
       try {
         await speakText(
           normalizeTextForSpeech(friendlyMessage),
@@ -1658,13 +1834,7 @@ function App(): React.JSX.Element {
           lastProcessedRef.current = '';
           aiChatInFlightRef.current = false;
           setIsAIChatLoading(false);
-          if (Platform.OS === 'android') {
-            await restartFullAIChatMicrophone('processAIChatTurn.finally');
-          } else {
-            console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
-            await Speech.unPauseSpeechRecognition(-1);
-            console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in processAIChatTurn.finally');
-          }
+          await reopenAfterReply();
         }
       }
     }
@@ -1704,6 +1874,14 @@ function App(): React.JSX.Element {
     clearSpeechSentenceUI,
     silenceThresholdMsRef,
     setAiChatTranscript,
+    // interrupt mode: words the agent isn't saying stop the reply and start the user's next request
+    onSpeechWhileBusy: (text: string) => {
+      if (!conversation.heardWhileBusy(text, spokenThisTurnRef.current)) return false;
+      endReplyNow('the user interrupted');
+      return true;
+    },
+    onUserSpeech: () => conversation.userSpeech(),
+    isConversationAsleep: () => conversation.phase === 'asleep',
   });
   let callbackTimes = 0;
   useEffect(() => {
@@ -1744,6 +1922,12 @@ function App(): React.JSX.Element {
         // Before the wake-word test, detection only interrupts current narration.
         if (suppressNarrationWakewordStopRef.current) return;
         await stopCurrentNarration();
+        return;
+      }
+      // In the conversation (src/conversation): the wake word wakes it from sleep or stops the agent.
+      if (conversationRef.current?.active) {
+        pendingWakeWordPrefixRef.current = cleanDetectedWakeWord(keywordIndex).cleanWakeWord;
+        conversationRef.current.wakeWord();
         return;
       }
       const isFirstCall = isFirstKeywordCallbackRef.current;
@@ -1912,7 +2096,7 @@ function App(): React.JSX.Element {
       //  Restart detection after timeout
 
     };
-    devWakeWordRef.current = () => keywordCallback('hey_coach_model_28_22012026b');   // DEV ONLY: the button below
+    devWakeWordRef.current = () => keywordCallback(modelName.replace(/\.(dm|onnx)$/, ''));   // DEV ONLY: the button below
 
     const updateVoiceProps = async () => {
       const inst = myInstanceRef.current;
@@ -1941,9 +2125,11 @@ function App(): React.JSX.Element {
           }, 60000);
         }
 
+        const savedConversation = (await conversationSettingsLoadRef.current) ?? DEFAULT_CONVERSATION_SETTINGS;
         const { speechInitCompleted, failureReason } = await initializeWakewordBootstrap({
           PlatformOS: Platform.OS,
-          defaultAudioRoutingConfig,
+          // interrupt mode turns echo cancellation on (src/conversation/settings.ts)
+          defaultAudioRoutingConfig: routingConfigForConversation(defaultAudioRoutingConfig, savedConversation),
           setMessage,
           keywordCallback,
           listenerRef,
@@ -1995,7 +2181,9 @@ function App(): React.JSX.Element {
         const startupFlow = await runSpeakerVerificationStartupFlow({
           beforeEnrollment: async () => {
             creatingSpeakerSignatureRef.current = true;
-            await myInstanceRef.current?.pauseDetection(false);//Platform.OS === 'android' ? true : false);
+            // Android: the wake word gives the microphone up while the signature is recorded (as for voice-clone recording); with
+            // its own recorder still open the enrollment heard 3 speech frames in 8 s on the S20 (2026-11-22) and timed out
+            await myInstanceRef.current?.pauseDetection(Platform.OS === 'android');
           },
           afterEnrollment: async () => {
             try {
@@ -2022,6 +2210,7 @@ function App(): React.JSX.Element {
           setSvRunning,
           svStopRef,
           svContinueResolverRef,
+          setSvPromptNotice,
         });
         svChoice = startupFlow.svChoice;
 
@@ -2132,6 +2321,7 @@ function App(): React.JSX.Element {
     if (isGoingBackRef.current) return;
     isGoingBackRef.current = true;
     try {
+      conversation.leave();
       beginSpeechUiEpoch();
       resetSpeechTranscriptState();
       resetAIChatSession();
@@ -2277,7 +2467,12 @@ function App(): React.JSX.Element {
         : 'Full AI Chat is active. Start speaking.',
     );
 
-    if (Platform.OS === 'android') {
+    // Wake word before each request: recognition stays paused and the conversation starts asleep (controller.enter); the wake
+    // word that opened this screen is not a request.
+    const waitForWakeWord = conversationSettingsRef.current.wakeWord;
+    if (waitForWakeWord) {
+      pendingWakeWordPrefixRef.current = null;
+    } else if (Platform.OS === 'android') {
       // TEMPORARY AUDIO-SESSION TEST: keep wakeword active while STT starts.
       const inst = myInstanceRef.current;
       // if (inst) {
@@ -2290,7 +2485,7 @@ function App(): React.JSX.Element {
           waitForIdle(),
           sleep(250),
         ]);
-        await restartFullAIChatMicrophone('enterFullAIChatMode');
+        await restartFullAIChatMicrophone('enterFullAIChatMode', conversationEntryPreFetchMs());
       } catch (error) {
         console.log('[AIChat] failed to enter Full AI Chat mode:', error);
         setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
@@ -2309,7 +2504,7 @@ function App(): React.JSX.Element {
         await waitForIdle();
         resetSpeechTranscriptState();
         console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
-        await Speech.unPauseSpeechRecognition(-1);
+        await Speech.unPauseSpeechRecognition(-1, conversationEntryPreFetchMs());
         console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in exitTTSTestMode');
         await sleep(300);
       } catch (error) {
@@ -2317,7 +2512,13 @@ function App(): React.JSX.Element {
         setAiChatStatus('Microphone did not reopen. Please tap Back and try again.');
       }
     }
+    // Android with echo cancellation for the interrupt mode (iOS has it in the routing JSON)
+    if (Platform.OS === 'android' && conversationSettingsRef.current.interrupt) void applyConversationAudio(conversationSettingsRef.current);
+    conversation.enter();
   };
+
+  // Just talk: the recognizer opens with the car screen (the wake word mode opens it only on the next wake word).
+  const conversationEntryPreFetchMs = () => 0;
 
   const leaveFullAIChatMode = async () => {
     await goBackToModeSelection();
@@ -2408,6 +2609,8 @@ function App(): React.JSX.Element {
     </View>
   );
 
+  // Every screen below is drawn by renderScreen(); the settings gear floats over the setup screens (the car screen has its own).
+  const renderScreen = (): React.JSX.Element => {
   // A language that isn't bundled: its download screen, until the language pack is on the device.
   if (!appLanguage && languagePackDownload) {
     const { language, progress, error, installed } = languagePackDownload;
@@ -2523,7 +2726,12 @@ function App(): React.JSX.Element {
           language={appLanguageRef.current ?? 'en'}
           voice={selectedTTSVoiceRef.current}
           wakePhrase={wakeWords}
-          heard={aiChatLiveTranscript || aiChatTranscript}
+          heard={
+            // while the request is being said after the wake word, show it without the wake phrase (as the agent gets it)
+            pendingWakeWordPrefixRef.current && conversationSettingsRef.current.wakeWord
+              ? dropWakePhrase(aiChatLiveTranscript || aiChatTranscript, pendingWakeWordPrefixRef.current)
+              : aiChatLiveTranscript || aiChatTranscript
+          }
           reply={aiChatResponse}
           working={isAIChatLoading}
           ignored={aiChatIgnored}
@@ -2534,6 +2742,10 @@ function App(): React.JSX.Element {
           onResetChat={resetAIChatSession}
           onChangeModel={() => setIsModelPickerVisible(true)}
           onChangeConfidence={changeLocalConfidence}
+          conversation={conversationSettings}
+          onChangeConversation={(next) => applyConversationSettings(next, { save: true, audio: true })}
+          conversationPhase={conversationPhase}
+          onTapToTalk={() => conversation.tapToTalk()}
           onSendText={__DEV__ ? (text) => { void processAIChatTurnRef.current?.(text); } : undefined}
           onRunTestScript={__DEV__ ? () => { void runDevInAppScript(); } : undefined}
         />
@@ -2717,6 +2929,7 @@ function App(): React.JSX.Element {
     return (
       <SpeakerScreen
         hasSaved={svPromptHasSavedEnrollment}
+        notice={svPromptNotice}
         onUseSaved={() => answer('use_existing')}
         onCreate={() => answer('redo_onboarding')}
         onSkip={() => answer('skip')}
@@ -3153,6 +3366,20 @@ function App(): React.JSX.Element {
           : null
       }
     />
+  );
+  };
+
+  const screen = renderScreen();
+  // no gear on the car screen (it has one, with the model settings too) or while the microphone records a voice sample or clone
+  const carScreenShown = shouldShowFullAIChatScreen && selectedAppModeRef.current === 'local_ai_chat' && localDemo === 'car';
+  if (carScreenShown || showSVStatusScreen || showVoiceCloneScreen) return screen;
+  return (
+    <WithSettingsGear
+      value={conversationSettings}
+      onChange={(next) => applyConversationSettings(next, { save: true, audio: true })}
+      wakePhrase={wakeWords}>
+      {screen}
+    </WithSettingsGear>
   );
 }
 

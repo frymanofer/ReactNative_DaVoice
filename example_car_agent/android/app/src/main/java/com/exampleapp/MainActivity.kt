@@ -3,15 +3,13 @@ package com.exampleapp
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
 import android.util.Log
-import androidx.annotation.RequiresApi
+import android.view.View
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -25,6 +23,16 @@ class MainActivity : ReactActivity() {
     // Pass null to avoid fragment restore issues
     super.onCreate(null)
 
+    // Edge to edge (gradle.properties edgeToEdgeEnabled; always on for apps targeting Android 15+ on Android 15+ phones): the
+    // screens draw under the status bar themselves (statusBarHeight()), but nothing may sit under the navigation bar or the
+    // keyboard, so the content stops above them.
+    val content = findViewById<View>(android.R.id.content)
+    ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
+      val bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.ime())
+      v.setPadding(bottom.left, 0, bottom.right, bottom.bottom)
+      insets
+    }
+
     Log.d("MainActivity", "onCreate — checking voice intent & permissions")
 
     // If launched by a voice assistant (optional)
@@ -34,9 +42,8 @@ class MainActivity : ReactActivity() {
       }
     }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      requestDisableBatteryOptimization()
-    }
+    // No "ignore battery optimizations" request: Google Play allows it only for a few kinds of app, and the wake word's microphone
+    // service keeps the app running while it listens.
 
     // Only RECORD_AUDIO is a runtime permission
     ensureRecordAudioPermission()
@@ -76,19 +83,6 @@ class MainActivity : ReactActivity() {
       } else {
         Log.e("MainActivity", "RECORD_AUDIO permission denied")
       }
-    }
-  }
-
-  @RequiresApi(Build.VERSION_CODES.M)
-  private fun requestDisableBatteryOptimization() {
-    val pm = getSystemService(POWER_SERVICE) as PowerManager
-    val pkg = packageName
-    if (!pm.isIgnoringBatteryOptimizations(pkg)) {
-      val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-        data = Uri.parse("package:$pkg")
-      }
-      // This shows a system dialog; keep it only if your app truly needs it.
-      startActivity(intent)
     }
   }
 

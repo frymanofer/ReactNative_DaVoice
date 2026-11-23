@@ -1,6 +1,6 @@
 {
   "name": "ExampleApp",
-  "displayName": "DaVoice Car Agent",
+  "displayName": "DaVoice: AI Car Voice Agent",
   "android": {
     "packageName": "com.exampleapp"
   },
