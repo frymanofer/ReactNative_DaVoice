@@ -45,7 +45,8 @@ android {
   // it from, so both platforms use one file.
   sourceSets {
     main {
-      assets.srcDirs += ['../../assets/stt_bias_conf']
+      // car3d/: the 3D car viewer for screen 8 (file:///android_asset/car3d_viewer.html); iOS bundles the same file.
+      assets.srcDirs += ['../../assets/stt_bias_conf', '../../assets/car3d']
     }
   }
 
