@@ -49,6 +49,7 @@ import {
   normalizeTextForSpeech,
   resetAIChatSession as resetAIChatSessionBase,
   speakNextAIChatSentence as speakNextAIChatSentenceBase,
+  splitCompletedSentences,
   stripWakeWordPrefix,
 } from './src/aichat';
 import {
@@ -93,7 +94,12 @@ import { deleteUnusedModelFiles } from './src/local_llm/ModelManager';
 import { LOCAL_LLM_CAR_TOOLS, LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL } from './src/local_llm/constants';
 import { DEFAULT_CONFIDENCE, type ConfidenceSettings, type TurnConfidence, type TurnOutcome } from './src/local_llm/confidence';
 import ConfidenceControls from './src/redesign/ConfidenceControls';
-import { beginCarTurn, carTurnActions, composeCarSpeech } from './src/car/speechComposer';
+import { beginCarTurn, carAck, carTurnActions, composeCarSpeech, pendingOfferCalls } from './src/car/speechComposer';
+import { carTurnInput, noteCarReply, noteCarSpoken } from './src/car/followUp';
+
+/** How long a car request may take before the car says "Got it." (Otto's "Entendido."). */
+const CAR_ACK_AFTER_MS = 1200;
+import { basicMessage, basicReplyFix, isBasicLanguage, normalizeYesNo } from './src/car/basicLanguage';
 import { REMOTE_ANSWERS_ONLINE } from './src/aichat/remote';
 import { isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
@@ -111,7 +117,11 @@ import WakeWordScreen from './src/redesign/WakeWordScreen';
 import AgentLoadingScreen from './src/redesign/AgentLoadingScreen';
 import CarAgentScreen from './src/redesign/CarAgentScreen';
 import { setSpeakerGate } from './src/speaker_verification/currentSpeaker';
-import { CAR_TOOL_NAMES, carTools } from './src/car/carTools';
+import { CAR_TOOL_NAMES, carTools, noteCarUserText } from './src/car/carTools';
+import { getCarState } from './src/car/CarState';
+
+/** Music or the radio is playing (not muted): "stop" means the music (src/car/followUp.ts). */
+const carMusicOn = () => { const s = getCarState(); return (s.media !== null || s.radio !== null) && !s.muted; };
 // MCP_SERVER_URL / MCP_SERVER_TOKEN for Local AI Chat, from the git-ignored
 // local.config.ts (web search and USDA keys are read in src/agent/LocalAgent.ts).
 import * as LocalConfig from './local.config';
@@ -509,14 +519,20 @@ function App(): React.JSX.Element {
   const [lastTurnInfo, setLastTurnInfo] = useState<{ outcome?: TurnOutcome; confidence?: TurnConfidence }>({});
   // Local AI Chat demo (2026-11-10): calories (Personal Agent) or car (Automotive Agent); each has its own pack, tools, card and model.
   const [localDemo, setLocalDemoState] = useState<LocalDemo>(currentLocalDemo());
+  // The sentences the app composed for this request (src/car/speechComposer.ts): said as they are. Its "Done!" / "Pronto!" opener is a
+  // sentence of its own and must not be taken for the model's bare "Done." (2026-11-21: it became "Sorry, I didn't catch that.").
+  const appComposedSentencesRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     // Car-agent example: always the car demo (the Automotive Agent, its pack, tools and card).
     setLocalDemo('car').then(() => setLocalDemoState('car')).catch(() => undefined);
     // Car demo: the model's bare "Done." is never a confirmation (the app says what it did) -> "didn't catch that".
     setAIChatSentenceRewriter((sentence) =>
-      selectedAppModeRef.current === 'local_ai_chat' && currentLocalDemo() === 'car' && isBareDone(sentence)
-        ? DID_NOT_CATCH[appLanguageRef.current] ?? DID_NOT_CATCH.en
-        : sentence,
+      appComposedSentencesRef.current.has(sentence.trim())
+        ? sentence
+        : selectedAppModeRef.current === 'local_ai_chat' && currentLocalDemo() === 'car' && isBareDone(sentence)
+        ? DID_NOT_CATCH[appLanguageRef.current] ?? basicMessage(appLanguageRef.current ?? 'en', 'didNotCatch') ?? DID_NOT_CATCH.en
+        // Basic language: a sentence the model said in Portuguese becomes "say it again?" in the user's language
+        : (selectedAppModeRef.current === 'local_ai_chat' && currentLocalDemo() === 'car' && basicReplyFix(sentence, appLanguageRef.current ?? 'en')) || sentence,
     );
     return () => setAIChatSentenceRewriter(null);
   }, []);
@@ -1326,10 +1342,20 @@ function App(): React.JSX.Element {
       let nextHistory: GeminiChatMessage[] | null = null;
 
       const localModel = useLocalLLM ? await getSelectedModel() : null;
-      if (useLocalLLM && isNoiseFragment(userText)) {
+      // The car demo: what goes to the agent for these words (src/car/followUp.ts: an answer to the agent's own question goes with the
+      // request it answers, a yes to a pending offer), or the app's own short reply ("never mind" -> "Okay.").
+      let carInput: { text: string } | { reply: string } | null = null;
+      // "ja ja" / "sí sí" answering a Basic-language question is a yes, not noise
+      if (useLocalLLM && isNoiseFragment(userText) && !(currentLocalDemo() === 'car' && normalizeYesNo(userText, appLanguageRef.current ?? 'en'))) {
         // STT noise ("The.", "But.", "Alma Alma."): not sent to the model (2026-11-10 phone).
         console.log(`[AIChat] noise fragment, asking to repeat: ${userText}`);
-        aiReply = DID_NOT_CATCH[appLanguageRef.current] ?? DID_NOT_CATCH.en;
+        aiReply = DID_NOT_CATCH[appLanguageRef.current] ?? basicMessage(appLanguageRef.current ?? 'en', 'didNotCatch') ?? DID_NOT_CATCH.en;
+      } else if (
+        useLocalLLM && currentLocalDemo() === 'car' &&
+        'reply' in (carInput = carTurnInput(userText, appLanguageRef.current ?? 'en', pendingOfferCalls(), { musicOn: carMusicOn(), state: getCarState(), lastActed: carTurnActions().length > 0 }))
+      ) {
+        console.log(`[AIChat][CAR] the app's own reply: "${userText}" -> ${carInput.reply}`);
+        aiReply = carInput.reply;
       } else if (localModel && !isModelReady(localModel.id)) {
         // The model is still downloading or loading. Say so right away
         // instead of holding the turn (and the mic) until it is ready.
@@ -1364,12 +1390,31 @@ function App(): React.JSX.Element {
         // sends a short filler to say, so the wait isn't silent. Fillers
         // aren't part of the reply or the history.
         setLastTurnInfo({});
+        // Basic language (src/car/basicLanguage.ts): a plain "ja" / "sí" / "oui" to the agent's question reaches the agent as "yes"
+        const agentText = carInput && 'text' in carInput ? carInput.text : userText;
+        if (agentText !== userText) console.log(`[AIChat][CAR] "${userText}" -> agent: "${agentText}"`);
+        noteCarUserText(agentText);
         beginCarTurn();
+        appComposedSentencesRef.current = new Set();
         let heldSpeech = '';
         const composeSpeech = currentLocalDemo() === 'car';
+        // Like VW's Otto ("Entendido."): a request that takes a moment gets a short "Got it." so the driver is not left in silence.
+        // Nothing is said when anything else was said first (a reply, a filler) or the request ended (ignored speech ends at once).
+        let acked = false;
+        let saidFiller = false;
+        const ackTimer = composeSpeech
+          ? setTimeout(() => {
+              if (aiChatRequestIdRef.current !== requestId || !aiChatInFlightRef.current || spokenReply.trim() || heldSpeech.trim() || saidFiller) return;
+              const ack = carAck(appLanguageRef.current ?? 'en');
+              if (!ack) return;
+              acked = true;
+              console.log(`[AIChat][SPEECH] acknowledgement: ${ack}`);
+              sayWhileWaitingOnline(ack);
+            }, CAR_ACK_AFTER_MS)
+          : null;
         const turn = await getLocalLLMProvider().generateReplyStream(
           aiChatMessages,
-          userText,
+          agentText,
           async (delta, done) => {
             if (done || !delta || aiChatRequestIdRef.current !== requestId) return;
             aiReply += delta;
@@ -1393,6 +1438,7 @@ function App(): React.JSX.Element {
             if (event.type === 'filler' && event.reason === 'remote' && !REMOTE_ANSWERS_ONLINE) {
               // No remote model set up: the reply itself says so; no "let me check" first.
             } else if (event.type === 'filler') {
+              saidFiller = true;
               // Search fillers start the reply's speech queue; tool fillers
               // ("Sure, let me log that."), lookups and MCP tools are queued
               // like a sentence.
@@ -1414,13 +1460,19 @@ function App(): React.JSX.Element {
             }
           },
         );
+        if (ackTimer) clearTimeout(ackTimer);
         if (heldSpeech.trim()) {
-          const composed = composeCarSpeech(heldSpeech, carTurnActions(), appLanguageRef.current ?? 'en');
+          const composed = composeCarSpeech(heldSpeech, carTurnActions(), appLanguageRef.current ?? 'en', { acked, driving: getCarState().driving });
           if (composed !== heldSpeech.trim()) console.log(`[AIChat][SPEECH] "${heldSpeech.trim()}" -> "${composed}"`);
+          // only what the composer added (a sentence the model itself said is checked as before)
+          const held = new Set(splitCompletedSentences(`${heldSpeech.trim()} `).completed);
+          appComposedSentencesRef.current = new Set(splitCompletedSentences(`${composed} `).completed.filter((s) => !held.has(s)));
           spokenReply += (spokenReply.trim() ? ' ' : '') + composed;
           await enqueueAIChatSpeechFromDelta(composed, spokenReply);
         }
         setLastTurnInfo({ ...(turn.outcome ? { outcome: turn.outcome } : {}), ...(turn.confidence ? { confidence: turn.confidence } : {}) });
+        // a question in the reply ("Which window should I open?"): the next short answer goes with this request (src/car/followUp.ts)
+        if (currentLocalDemo() === 'car') noteCarReply(agentText, aiReply, appLanguageRef.current ?? 'en');
         if (turn.scope?.outcome === 'ignore' && !aiReply.trim()) {
           // Command scope IGNORE (2026-11-15 brief): background talk, not for the assistant. No reply bubble, nothing said; the heard
           // text stays on screen (marked) but out of the history. The finally block below gives the microphone back.
@@ -1539,6 +1591,8 @@ function App(): React.JSX.Element {
             : message
         )
       );
+      // what the driver hears now is what "Say that again" repeats (src/car/followUp.ts)
+      if (useLocalLLM && currentLocalDemo() === 'car') noteCarSpoken(spokenReply.trim() || aiReply);
 
       if (shouldUseStreaming && aiChatStreamingActiveRef.current) {
         // Sentences appear as they are spoken; the full text when speech ends.
@@ -1721,7 +1775,7 @@ function App(): React.JSX.Element {
 
       const { keywordText, cleanWakeWord } = cleanDetectedWakeWord(keywordIndex);
       pendingWakeWordPrefixRef.current = cleanWakeWord;
-      setMessage(`WakeWord '${cleanWakeWord}' DETECTED`);
+      setMessage(`Heard “${cleanWakeWord}”`);
       setIsFlashing(true);
 
       /***** SPEAKER VERIFICATION CODE ONLY *****/
@@ -2391,6 +2445,8 @@ function App(): React.JSX.Element {
         name,
         sizeMB: Math.round(languagePackSizeBytes(language.id) / 1e6),
         installed: !isDownloadableLanguage(language.id) || !!downloadedLanguagePacks[language.id],
+        // the car agent: tuned (en, pt-BR) or Basic (asks before every action; src/car/basicLanguage.ts)
+        tuned: !isBasicLanguage(language.id),
       };
     });
     return (

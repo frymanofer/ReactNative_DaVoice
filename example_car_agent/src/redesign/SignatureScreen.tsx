@@ -46,7 +46,6 @@ export default function SignatureScreen({ collected, target, sentences }: Props)
         style={styles.heading}
         eyebrow="Step 3 of 5 · Voice signature"
         title="Read this aloud"
-        subtitle="Use your natural voice. The next sentence appears by itself."
       />
       <View style={styles.card} accessibilityLiveRegion="polite">
         <Text style={styles.cardLabel}>

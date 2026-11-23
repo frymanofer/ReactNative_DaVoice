@@ -1,0 +1,591 @@
+[
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Is the car locked?",
+    "expect": {
+     "reply": "No, the car is unlocked. Want me to lock it?"
+    }
+   },
+   {
+    "user": "Yes please",
+    "expect": {
+     "text": "Lock the car"
+    },
+    "heard": "Sure! I locked the car."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Is the car locked?",
+    "expect": {
+     "reply": "No, the car is unlocked. Want me to lock it?"
+    }
+   },
+   {
+    "user": "No",
+    "expect": {
+     "reply": "Okay."
+    }
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Is the car locked?",
+    "expect": {
+     "reply": "No, the car is unlocked. Want me to lock it?"
+    }
+   },
+   {
+    "user": "Lock it",
+    "expect": {
+     "text": "Lock the car"
+    },
+    "heard": "Sure! I locked the car."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "close",
+    "rear_right": "close"
+   }
+  },
+  "steps": [
+   {
+    "user": "Is my window open?",
+    "expect": {
+     "reply": "Yes, the driver's window is open. Want me to close it?"
+    }
+   },
+   {
+    "user": "Close it",
+    "expect": {
+     "text": "Close the driver's window"
+    },
+    "heard": "Sure! I closed the driver's window."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Is my seat heater on?",
+    "expect": {
+     "reply": "No, the driver's seat heater is off. Want me to turn it on?"
+    }
+   },
+   {
+    "user": "Turn it on",
+    "expect": {
+     "text": "Heat the driver's seat"
+    },
+    "heard": "Sure! I set the driver's seat heater to high."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Is the car locked?",
+    "expect": {
+     "reply": "No, the car is unlocked. Want me to lock it?"
+    }
+   },
+   {
+    "user": "Open the sunroof",
+    "expect": {
+     "text": "Open the sunroof"
+    },
+    "heard": "Sure! I opened the sunroof."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Is the car locked?",
+    "expect": {
+     "reply": "No, the car is unlocked. Want me to lock it?"
+    }
+   },
+   {
+    "user": "Say that again",
+    "expect": {
+     "reply": "No, the car is unlocked. Want me to lock it?"
+    }
+   },
+   {
+    "user": "Yes",
+    "expect": {
+     "text": "Lock the car"
+    },
+    "heard": "Sure! I locked the car."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Volume up",
+    "expect": {
+     "text": "Volume up"
+    },
+    "heard": "Sure! I turned the volume up to 15."
+   },
+   {
+    "user": "Say that again",
+    "expect": {
+     "reply": "Sure! I turned the volume up to 15."
+    }
+   },
+   {
+    "user": "What?",
+    "expect": {
+     "reply": "Sure! I turned the volume up to 15."
+    }
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "What?",
+    "expect": {
+     "text": "What?"
+    }
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "steps": [
+   {
+    "user": "Where are we going?",
+    "expect": {
+     "reply": "There's no active route. Where do you want to go?"
+    }
+   },
+   {
+    "user": "The airport",
+    "expect": {
+     "text": "Navigate to the airport"
+    },
+    "heard": "Sure! Navigating to the airport."
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "O carro tá trancado?",
+    "expect": {
+     "reply": "Não, o carro está destrancado. Quer que eu tranque?"
+    }
+   },
+   {
+    "user": "Pode",
+    "expect": {
+     "text": "Tranca o carro"
+    },
+    "heard": "Claro! Tranquei o carro."
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "O carro tá trancado?",
+    "expect": {
+     "reply": "Não, o carro está destrancado. Quer que eu tranque?"
+    }
+   },
+   {
+    "user": "Pode trancar",
+    "expect": {
+     "text": "Tranca o carro"
+    },
+    "heard": "Claro! Tranquei o carro."
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "close",
+    "rear_right": "close"
+   }
+  },
+  "steps": [
+   {
+    "user": "O meu vidro tá aberto?",
+    "expect": {
+     "reply": "Sim, o vidro do motorista está aberto. Quer que eu feche?"
+    }
+   },
+   {
+    "user": "Fecha",
+    "expect": {
+     "text": "Fecha o vidro do motorista"
+    },
+    "heard": "Claro! Fechei o vidro do motorista."
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "O aquecimento do meu banco tá ligado?",
+    "expect": {
+     "reply": "Não, o aquecimento do banco do motorista está desligado. Quer que eu ligue?"
+    }
+   },
+   {
+    "user": "Liga",
+    "expect": {
+     "text": "Esquenta o banco do motorista"
+    },
+    "heard": "Claro! Liguei o aquecimento."
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "O carro tá trancado?",
+    "expect": {
+     "reply": "Não, o carro está destrancado. Quer que eu tranque?"
+    }
+   },
+   {
+    "user": "Não",
+    "expect": {
+     "reply": "Tudo bem."
+    }
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "Esquenta os bancos",
+    "expect": {
+     "reply": "Qual banco: o seu, o do carona ou os dois?"
+    }
+   },
+   {
+    "user": "Os dois",
+    "expect": {
+     "text": "Esquenta o banco do motorista e esquenta o banco do passageiro"
+    },
+    "heard": "Claro!"
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "Liga o aquecimento dos bancos",
+    "expect": {
+     "reply": "Qual banco: o seu, o do carona ou os dois?"
+    }
+   },
+   {
+    "user": "O meu",
+    "expect": {
+     "text": "Esquenta o banco do motorista"
+    },
+    "heard": "Claro!"
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "Refresca os bancos",
+    "expect": {
+     "reply": "Qual banco: o seu, o do carona ou os dois?"
+    }
+   },
+   {
+    "user": "O do carona",
+    "expect": {
+     "text": "Refresca o banco do passageiro"
+    },
+    "heard": "Claro!"
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "steps": [
+   {
+    "user": "Aumenta o volume",
+    "expect": {
+     "text": "Aumenta o volume"
+    },
+    "heard": "Claro! Aumentei o volume para 15."
+   },
+   {
+    "user": "Repete",
+    "expect": {
+     "reply": "Claro! Aumentei o volume para 15."
+    }
+   },
+   {
+    "user": "O que você disse?",
+    "expect": {
+     "reply": "Claro! Aumentei o volume para 15."
+    }
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "car": {
+   "musicOn": true
+  },
+  "steps": [
+   {
+    "user": "Next song",
+    "expect": {
+     "reply": "This is not available in this demo, to make it available please contact info@davoice.io"
+    }
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "car": {
+   "musicOn": true
+  },
+  "steps": [
+   {
+    "user": "Skip",
+    "expect": {
+     "reply": "This is not available in this demo, to make it available please contact info@davoice.io"
+    }
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "car": {
+   "musicOn": false
+  },
+  "steps": [
+   {
+    "user": "Next song",
+    "expect": {
+     "text": "Next song"
+    },
+    "heard": "Sorry, I did not get that."
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "car": {
+   "musicOn": true
+  },
+  "steps": [
+   {
+    "user": "Pula",
+    "expect": {
+     "reply": "Isso não está disponível nesta demonstração. Para disponibilizar, entre em contato com info@davoice.io"
+    }
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "car": {
+   "musicOn": true
+  },
+  "steps": [
+   {
+    "user": "Próxima música",
+    "expect": {
+     "reply": "Isso não está disponível nesta demonstração. Para disponibilizar, entre em contato com info@davoice.io"
+    }
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "car": {
+   "musicOn": false,
+   "lastActed": false
+  },
+  "steps": [
+   {
+    "user": "Turn it off",
+    "expect": {
+     "reply": "What should I turn off?"
+    }
+   },
+   {
+    "user": "The music",
+    "expect": {
+     "text": "Turn off the music"
+    },
+    "heard": "Sure! I muted the sound."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "car": {
+   "musicOn": false,
+   "lastActed": true
+  },
+  "steps": [
+   {
+    "user": "Turn it off",
+    "expect": {
+     "text": "Turn it off"
+    },
+    "heard": "You got it! I turned off the driver's seat heater."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "car": {
+   "musicOn": true,
+   "lastActed": false
+  },
+  "steps": [
+   {
+    "user": "Turn it off",
+    "expect": {
+     "text": "Turn it off"
+    },
+    "heard": "You got it! I muted the sound."
+   }
+  ]
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "car": {
+   "musicOn": false,
+   "lastActed": false
+  },
+  "steps": [
+   {
+    "user": "Turn it on",
+    "expect": {
+     "reply": "What should I turn on?"
+    }
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "car": {
+   "musicOn": false,
+   "lastActed": false
+  },
+  "steps": [
+   {
+    "user": "Desliga",
+    "expect": {
+     "reply": "O que você quer que eu desligue?"
+    }
+   },
+   {
+    "user": "O ar",
+    "expect": {
+     "text": "Desliga o ar"
+    },
+    "heard": "Pronto!"
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "car": {
+   "musicOn": false,
+   "lastActed": true
+  },
+  "steps": [
+   {
+    "user": "Desliga",
+    "expect": {
+     "text": "Desliga"
+    },
+    "heard": "Pronto! Desliguei o aquecimento do banco do motorista."
+   }
+  ]
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "car": {
+   "musicOn": false,
+   "lastActed": false
+  },
+  "steps": [
+   {
+    "user": "Liga",
+    "expect": {
+     "reply": "O que você quer que eu ligue?"
+    }
+   }
+  ]
+ }
+]

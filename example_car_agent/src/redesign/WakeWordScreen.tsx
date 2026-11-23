@@ -105,6 +105,17 @@ export default function WakeWordScreen(p: Props) {
             style={styles.menuItem}>
             <Text style={styles.menuText}>Share recordings</Text>
           </TouchableOpacity>
+          {!p.session && p.onSimulateWakeWord && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => {
+                setMenuOpen(false);
+                p.onSimulateWakeWord?.();
+              }}
+              style={styles.menuItem}>
+              <Text style={styles.menuText}>Skip wake word (test)</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -141,24 +152,12 @@ export default function WakeWordScreen(p: Props) {
           <View style={styles.texts} accessibilityLiveRegion="polite">
             {p.listening ? (
               <>
-                <Text style={styles.lead}>Listening for the wake word</Text>
+                <Text style={styles.lead}>Say</Text>
                 <Text style={styles.phrase} numberOfLines={1} adjustsFontSizeToFit>{`“${p.wakePhrase}”`}</Text>
-                <Text style={styles.after}>then say what you want the car to do</Text>
               </>
             ) : (
-              <>
-                <Text style={styles.lead}>{`Wake word · “${p.wakePhrase}”`}</Text>
-                <Text style={styles.status}>{p.message}</Text>
-              </>
+              <Text style={styles.status}>{p.message}</Text>
             )}
-          </View>
-
-          <View style={styles.chips}>
-            <Text style={styles.chip} numberOfLines={1}>{`Voice · ${p.voice}`}</Text>
-            <Text style={styles.chip} numberOfLines={1}>{p.language}</Text>
-            <Text style={[styles.chip, p.driverOnly && styles.chipOn]} numberOfLines={1}>
-              {p.driverOnly ? 'Driver only' : 'Anyone'}
-            </Text>
           </View>
         </>
       )}
@@ -168,14 +167,6 @@ export default function WakeWordScreen(p: Props) {
         {p.session?.onContinue && <SecondaryButton style={{ flex: 2 }} label="Continue" onPress={p.session.onContinue} />}
         {!p.session && p.onSkipNarration && (
           <SecondaryButton style={{ flex: 1 }} label="Skip narration" onPress={p.onSkipNarration} />
-        )}
-        {!p.session && p.onSimulateWakeWord && (
-          <SecondaryButton
-            style={{ flex: 1 }}
-            textStyle={{ color: C.tag, fontSize: 15 }}
-            label="Simulate wake word"
-            onPress={p.onSimulateWakeWord}
-          />
         )}
       </View>
     </View>

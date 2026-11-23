@@ -1,0 +1,812 @@
+[
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Is the car locked?",
+  "expect": {
+   "reply": "No, the car is unlocked. Want me to lock it?",
+   "offer": "Lock the car"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "locked": true,
+   "doorLocks": {
+    "front_left": true,
+    "front_right": true,
+    "rear_left": true,
+    "rear_right": true
+   }
+  },
+  "user": "Is the car locked?",
+  "expect": {
+   "reply": "Yes, the car is locked.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Did I lock the car?",
+  "expect": {
+   "reply": "No, the car is unlocked. Want me to lock it?",
+   "offer": "Lock the car"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Is the car unlocked?",
+  "expect": {
+   "reply": "Yes, the car is unlocked. Want me to lock it?",
+   "offer": "Lock the car"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "doorLocks": {
+    "front_left": true,
+    "front_right": true,
+    "rear_left": true,
+    "rear_right": false
+   }
+  },
+  "user": "Are the doors locked?",
+  "expect": {
+   "reply": "Not completely: the rear right door is unlocked. Want me to lock the car?",
+   "offer": "Lock the car"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "half",
+    "rear_right": "close"
+   }
+  },
+  "user": "Are the windows closed?",
+  "expect": {
+   "reply": "No, the driver's window and the rear left window are open. Want me to close them?",
+   "offer": "Close all the windows"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "close",
+    "rear_right": "close"
+   }
+  },
+  "user": "Are the windows closed?",
+  "expect": {
+   "reply": "No, the driver's window is open. Want me to close it?",
+   "offer": "Close the driver's window"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Are the windows closed?",
+  "expect": {
+   "reply": "Yes, all the windows are closed.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "half",
+    "rear_right": "close"
+   }
+  },
+  "user": "Is my window open?",
+  "expect": {
+   "reply": "Yes, the driver's window is open. Want me to close it?",
+   "offer": "Close the driver's window"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "half",
+    "rear_right": "close"
+   }
+  },
+  "user": "Is the passenger window open?",
+  "expect": {
+   "reply": "No, the passenger window is closed.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "half",
+    "rear_right": "close"
+   }
+  },
+  "user": "Did I leave the windows open?",
+  "expect": {
+   "reply": "Yes, the driver's window and the rear left window are open. Want me to close them?",
+   "offer": "Close all the windows"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "half",
+    "rear_right": "close"
+   }
+  },
+  "user": "Are the rear windows up?",
+  "expect": {
+   "reply": "No, the rear left window is open. Want me to close it?",
+   "offer": "Close the rear left window"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "open",
+    "rear_left": "open",
+    "rear_right": "open"
+   }
+  },
+  "user": "Are all the windows open?",
+  "expect": {
+   "reply": "Yes, all the windows are open. Want me to close them?",
+   "offer": "Close all the windows"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Is the sunroof open?",
+  "expect": {
+   "reply": "No, the sunroof is closed.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "sunroof": "tilt"
+  },
+  "user": "Is the sunroof open?",
+  "expect": {
+   "reply": "Yes, the sunroof is tilted open. Want me to close it?",
+   "offer": "Close the sunroof"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Is my seat heater on?",
+  "expect": {
+   "reply": "No, the driver's seat heater is off. Want me to turn it on?",
+   "offer": "Heat the driver's seat"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "seatHeater": {
+    "driver": "off",
+    "passenger": "high",
+    "rear_left": "off",
+    "rear_right": "off"
+   }
+  },
+  "user": "Is the passenger seat heater on?",
+  "expect": {
+   "reply": "Yes, the passenger seat heater is on high.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Is my seat ventilation on?",
+  "expect": {
+   "reply": "No, the driver's seat ventilation is off. Want me to turn it on?",
+   "offer": "Cool the driver's seat"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "What's the temperature in here?",
+  "expect": {
+   "reply": "It's set to 21°C.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "What's the temperature outside?",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {
+   "temperature": {
+    "driver": 20,
+    "passenger": 23,
+    "rear": 21,
+    "unit": "celsius"
+   }
+  },
+  "user": "What is the temperature set to?",
+  "expect": {
+   "reply": "The driver's side is set to 20°C and the passenger side to 23°C.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "What's the volume?",
+  "expect": {
+   "reply": "The volume is at 12.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "muted": true
+  },
+  "user": "What's the volume?",
+  "expect": {
+   "reply": "The sound is muted.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Can you tell me the volume?",
+  "expect": {
+   "reply": "The volume is at 12.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "What's the fan speed?",
+  "expect": {
+   "reply": "The fan is at level 3.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "media": "Coldplay"
+  },
+  "user": "What's playing?",
+  "expect": {
+   "reply": "You're listening to Coldplay.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "What's playing?",
+  "expect": {
+   "reply": "Nothing's playing right now.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "radio": "FM 101.5"
+  },
+  "user": "What station is this?",
+  "expect": {
+   "reply": "You're listening to FM 101.5.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Where are we going?",
+  "expect": {
+   "reply": "There's no active route. Where do you want to go?",
+   "offer": null,
+   "askDestination": true
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "destination": "airport"
+  },
+  "user": "Where are we headed?",
+  "expect": {
+   "reply": "We're heading to the airport.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "destination": "home"
+  },
+  "user": "Where are we going?",
+  "expect": {
+   "reply": "We're heading home.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "doors": {
+    "front_left": "closed",
+    "front_right": "closed",
+    "rear_left": "open",
+    "rear_right": "closed"
+   }
+  },
+  "user": "Are the doors open?",
+  "expect": {
+   "reply": "Yes, the rear left door is open. Want me to close it?",
+   "offer": "Close the doors"
+  }
+ },
+ {
+  "lang": "en",
+  "state": {
+   "locked": true,
+   "doorLocks": {
+    "front_left": true,
+    "front_right": true,
+    "rear_left": true,
+    "rear_right": true
+   }
+  },
+  "user": "Hey, is the car locked?",
+  "expect": {
+   "reply": "Yes, the car is locked.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Can you open the window?",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Could you lock the car?",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Lock the car",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Open the sunroof",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "close",
+    "rear_right": "close"
+   }
+  },
+  "user": "Close the windows",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "What's the temperature? Set it to 22",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Is it cold outside?",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "How do I open the trunk?",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "What's the weather like?",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "close",
+    "rear_right": "close"
+   }
+  },
+  "user": "Would you mind closing the window?",
+  "expect": null
+ },
+ {
+  "lang": "en",
+  "state": {},
+  "user": "Please lock the car",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "O carro tá trancado?",
+  "expect": {
+   "reply": "Não, o carro está destrancado. Quer que eu tranque?",
+   "offer": "Tranca o carro"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "locked": true,
+   "doorLocks": {
+    "front_left": true,
+    "front_right": true,
+    "rear_left": true,
+    "rear_right": true
+   }
+  },
+  "user": "O carro tá trancado?",
+  "expect": {
+   "reply": "Sim, o carro está trancado.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Eu tranquei o carro?",
+  "expect": {
+   "reply": "Não, o carro está destrancado. Quer que eu tranque?",
+   "offer": "Tranca o carro"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "O carro tá aberto?",
+  "expect": {
+   "reply": "Sim, o carro está destrancado. Quer que eu tranque?",
+   "offer": "Tranca o carro"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "doorLocks": {
+    "front_left": true,
+    "front_right": false,
+    "rear_left": true,
+    "rear_right": true
+   }
+  },
+  "user": "As portas estão trancadas?",
+  "expect": {
+   "reply": "Não totalmente: a porta do passageiro está destrancada. Quer que eu tranque o carro?",
+   "offer": "Tranca o carro"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "half",
+    "rear_right": "close"
+   }
+  },
+  "user": "Os vidros estão fechados?",
+  "expect": {
+   "reply": "Não, o vidro do motorista e o vidro traseiro esquerdo estão abertos. Quer que eu feche?",
+   "offer": "Fecha todos os vidros"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "close",
+    "rear_right": "close"
+   }
+  },
+  "user": "Os vidros estão fechados?",
+  "expect": {
+   "reply": "Não, o vidro do motorista está aberto. Quer que eu feche?",
+   "offer": "Fecha o vidro do motorista"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "half",
+    "rear_right": "close"
+   }
+  },
+  "user": "O meu vidro tá aberto?",
+  "expect": {
+   "reply": "Sim, o vidro do motorista está aberto. Quer que eu feche?",
+   "offer": "Fecha o vidro do motorista"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Fechei os vidros?",
+  "expect": {
+   "reply": "Sim, todos os vidros estão fechados.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "sunroof": "open"
+  },
+  "user": "O teto solar tá aberto?",
+  "expect": {
+   "reply": "Sim, o teto solar está aberto. Quer que eu feche?",
+   "offer": "Fecha o teto solar"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "O aquecimento do meu banco tá ligado?",
+  "expect": {
+   "reply": "Não, o aquecimento do banco do motorista está desligado. Quer que eu ligue?",
+   "offer": "Esquenta o banco do motorista"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "seatHeater": {
+    "driver": "off",
+    "passenger": "medium",
+    "rear_left": "off",
+    "rear_right": "off"
+   }
+  },
+  "user": "O aquecimento do banco do passageiro tá ligado?",
+  "expect": {
+   "reply": "Sim, o aquecimento do banco do passageiro está ligado no médio.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Qual a temperatura aqui dentro?",
+  "expect": {
+   "reply": "Está em 21°C.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "temperature": {
+    "driver": 20,
+    "passenger": 23,
+    "rear": 21,
+    "unit": "celsius"
+   }
+  },
+  "user": "Em quanto tá a temperatura?",
+  "expect": {
+   "reply": "O lado do motorista está em 20°C e o do passageiro em 23°C.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Qual é o volume?",
+  "expect": {
+   "reply": "O volume está em 12.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "muted": true
+  },
+  "user": "Tá em quanto o volume?",
+  "expect": {
+   "reply": "O som está no mudo.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Qual a velocidade da ventilação?",
+  "expect": {
+   "reply": "A ventilação está no nível 3.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "radio": "FM 101,5"
+  },
+  "user": "O que tá tocando?",
+  "expect": {
+   "reply": "Você está ouvindo a rádio FM 101,5.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "media": "Anitta"
+  },
+  "user": "O que tá tocando?",
+  "expect": {
+   "reply": "Você está ouvindo Anitta.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "O que tá tocando?",
+  "expect": {
+   "reply": "Não tem nada tocando agora.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "destination": "aeroporto"
+  },
+  "user": "Pra onde a gente tá indo?",
+  "expect": {
+   "reply": "Estamos indo para o aeroporto.",
+   "offer": null
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Pra onde a gente tá indo?",
+  "expect": {
+   "reply": "Não há nenhuma rota ativa. Para onde você quer ir?",
+   "offer": null,
+   "askDestination": true
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "doors": {
+    "front_left": "open",
+    "front_right": "closed",
+    "rear_left": "closed",
+    "rear_right": "closed"
+   }
+  },
+  "user": "Será que eu deixei a porta aberta?",
+  "expect": {
+   "reply": "Sim, a porta do motorista está aberta. Quer que eu feche?",
+   "offer": "Fecha as portas"
+  }
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Tranca o carro",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Fecha o vidro",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "O som tá alto",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Deixa o vidro aberto",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Como tá o tempo hoje?",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "Qual a temperatura lá fora?",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {
+   "windows": {
+    "front_left": "open",
+    "front_right": "close",
+    "rear_left": "close",
+    "rear_right": "close"
+   }
+  },
+  "user": "Você pode fechar o vidro?",
+  "expect": null
+ },
+ {
+  "lang": "pt-BR",
+  "state": {},
+  "user": "O carro tá trancado? Tranca ele",
+  "expect": null
+ }
+]

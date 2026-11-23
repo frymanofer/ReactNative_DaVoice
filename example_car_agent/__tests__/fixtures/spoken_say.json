@@ -1,0 +1,479 @@
+[
+ [
+  "en",
+  "set_temperature",
+  "I set the whole cabin to 22°C.",
+  {
+   "temperature": 22
+  },
+  "I set the temperature to 22°C."
+ ],
+ [
+  "en",
+  "set_temperature",
+  "I raised the whole cabin to 23°C.",
+  {
+   "change": 2
+  },
+  "I turned the temperature up to 23°C."
+ ],
+ [
+  "en",
+  "set_temperature",
+  "I lowered the whole cabin to 20°C.",
+  {
+   "change": -1
+  },
+  "I turned the temperature down to 20°C."
+ ],
+ [
+  "en",
+  "set_temperature",
+  "The whole cabin is already at 21°C.",
+  {
+   "temperature": 21
+  },
+  "The temperature is already at 21°C."
+ ],
+ [
+  "en",
+  "set_temperature",
+  "I set the driver's side to 20°C.",
+  {
+   "temperature": 20,
+   "zone": "driver"
+  },
+  "I set the driver's side to 20°C."
+ ],
+ [
+  "en",
+  "set_fan_speed",
+  "I set the fan to level 4.",
+  {
+   "change": 1
+  },
+  "I turned the fan up to level 4."
+ ],
+ [
+  "en",
+  "set_fan_speed",
+  "I set the fan to level 2.",
+  {
+   "change": -1
+  },
+  "I turned the fan down to level 2."
+ ],
+ [
+  "en",
+  "set_fan_speed",
+  "I set the fan to level 7.",
+  {
+   "level": 7
+  },
+  "I set the fan to level 7."
+ ],
+ [
+  "en",
+  "set_seat_climate",
+  "I set the heater in the driver's seat to high.",
+  {
+   "seat": "driver",
+   "feature": "heater",
+   "level": "high"
+  },
+  "I set the driver's seat heater to high."
+ ],
+ [
+  "en",
+  "set_seat_climate",
+  "I set the ventilation in the passenger seat to low.",
+  {
+   "seat": "passenger",
+   "feature": "ventilation",
+   "level": "low"
+  },
+  "I set the passenger seat ventilation to low."
+ ],
+ [
+  "en",
+  "set_seat_climate",
+  "I turned off the heater in the driver's seat.",
+  {
+   "seat": "driver",
+   "feature": "heater",
+   "level": "off"
+  },
+  "I turned off the driver's seat heater."
+ ],
+ [
+  "en",
+  "set_seat_climate",
+  "The heater in the driver's seat is already on high.",
+  {
+   "seat": "driver",
+   "feature": "heater",
+   "level": "high"
+  },
+  "The driver's seat heater is already on high."
+ ],
+ [
+  "en",
+  "set_defrost",
+  "I turned the rear defogger on.",
+  {
+   "target": "rear",
+   "on": true
+  },
+  "I turned on the rear defogger."
+ ],
+ [
+  "en",
+  "set_defrost",
+  "I turned the windshield defrost off.",
+  {
+   "target": "windshield",
+   "on": false
+  },
+  "I turned off the windshield defrost."
+ ],
+ [
+  "en",
+  "navigate_to",
+  "Navigating to home: about 24 minutes, 18 km.",
+  {
+   "destination": "home"
+  },
+  "Navigating home: about 24 minutes, 18 km."
+ ],
+ [
+  "en",
+  "navigate_to",
+  "Navigating to airport: about 24 minutes, 18 km.",
+  {
+   "destination": "airport"
+  },
+  "Navigating to the airport: about 24 minutes, 18 km."
+ ],
+ [
+  "en",
+  "navigate_to",
+  "Navigating to gas_station: about 24 minutes, 18 km.",
+  {
+   "destination": "gas_station"
+  },
+  "Navigating to the gas station: about 24 minutes, 18 km."
+ ],
+ [
+  "en",
+  "navigate_to",
+  "Navigating to work: about 24 minutes, 18 km.",
+  {
+   "destination": "work"
+  },
+  "Navigating to work: about 24 minutes, 18 km."
+ ],
+ [
+  "en",
+  "navigate_to",
+  "Navigating to Madrid: about 24 minutes, 18 km.",
+  {
+   "destination": "Madrid"
+  },
+  "Navigating to Madrid: about 24 minutes, 18 km."
+ ],
+ [
+  "en",
+  "navigate_to",
+  "Navigating to mom's house: about 24 minutes, 18 km.",
+  {
+   "destination": "mom's house"
+  },
+  "Navigating to mom's house: about 24 minutes, 18 km."
+ ],
+ [
+  "en",
+  "navigate_to",
+  "Navigating to the airport: about 24 minutes, 18 km.",
+  {
+   "destination": "the airport"
+  },
+  "Navigating to the airport: about 24 minutes, 18 km."
+ ],
+ [
+  "en",
+  "get_trip_eta",
+  "You'll get to home in about 24 minutes, 18 km to go.",
+  {},
+  "You'll get home in about 24 minutes, 18 km to go."
+ ],
+ [
+  "en",
+  "get_trip_eta",
+  "You'll get to airport in about 24 minutes, 18 km to go.",
+  {},
+  "You'll get to the airport in about 24 minutes, 18 km to go."
+ ],
+ [
+  "en",
+  "lock_car",
+  "I can't lock the car while doors are open. Close them first?",
+  {},
+  "I can't lock the car while doors are open. Want me to close them first?"
+ ],
+ [
+  "en",
+  "lock_car",
+  "I can't lock it while the front left door is open. Close it first?",
+  {},
+  "I can't lock it while the front left door is open. Want me to close it first?"
+ ],
+ [
+  "en",
+  "set_temperature",
+  "I didn't change it: the temperature must be between 16 and 30.",
+  {
+   "temperature": 35
+  },
+  "Sorry, the temperature only goes from 16 to 30."
+ ],
+ [
+  "en",
+  "set_volume",
+  "I didn't change it: volume must be between 0 and 30.",
+  {
+   "action": "set",
+   "level": 40
+  },
+  "Sorry, the volume only goes from 0 to 30."
+ ],
+ [
+  "en",
+  "tune_radio",
+  "I didn't change it: fm must be between 87.5 and 108.",
+  {
+   "band": "fm",
+   "frequency": 120
+  },
+  "Sorry, FM only goes from 87.5 to 108."
+ ],
+ [
+  "en",
+  "set_trunk",
+  "I can't do that while the car is moving.",
+  {},
+  "Sorry, I can't do that while we're moving."
+ ],
+ [
+  "en",
+  "lock_car",
+  "I locked the car.",
+  {},
+  "I locked the car."
+ ],
+ [
+  "pt-BR",
+  "set_temperature",
+  "Coloquei a cabine toda em 22°C.",
+  {
+   "temperature": 22
+  },
+  "Coloquei a temperatura em 22°C."
+ ],
+ [
+  "pt-BR",
+  "set_temperature",
+  "Subi a cabine toda para 23°C.",
+  {
+   "change": 2
+  },
+  "Subi a temperatura para 23°C."
+ ],
+ [
+  "pt-BR",
+  "set_temperature",
+  "Baixei a cabine toda para 20°C.",
+  {
+   "change": -1
+  },
+  "Baixei a temperatura para 20°C."
+ ],
+ [
+  "pt-BR",
+  "set_temperature",
+  "A cabine toda já está em 21°C.",
+  {
+   "temperature": 21
+  },
+  "A temperatura já está em 21°C."
+ ],
+ [
+  "pt-BR",
+  "set_fan_speed",
+  "Coloquei a ventilação no nível 4.",
+  {
+   "change": 1
+  },
+  "Aumentei a ventilação para o nível 4."
+ ],
+ [
+  "pt-BR",
+  "set_fan_speed",
+  "Coloquei a ventilação no nível 2.",
+  {
+   "change": -1
+  },
+  "Baixei a ventilação para o nível 2."
+ ],
+ [
+  "pt-BR",
+  "set_fan_speed",
+  "Coloquei a ventilação no nível 7.",
+  {
+   "level": 7
+  },
+  "Coloquei a ventilação no nível 7."
+ ],
+ [
+  "pt-BR",
+  "set_seat_climate",
+  "Coloquei o aquecimento do banco do motorista no alto.",
+  {
+   "seat": "driver",
+   "feature": "heater",
+   "level": "high"
+  },
+  "Liguei o aquecimento do banco do motorista no alto."
+ ],
+ [
+  "pt-BR",
+  "set_seat_climate",
+  "Coloquei a ventilação do banco do passageiro no baixo.",
+  {
+   "seat": "passenger",
+   "feature": "ventilation",
+   "level": "low"
+  },
+  "Liguei a ventilação do banco do passageiro no baixo."
+ ],
+ [
+  "pt-BR",
+  "navigate_to",
+  "Indo para casa: cerca de 24 minutos, 18 km.",
+  {
+   "destination": "home"
+  },
+  "Indo para casa: cerca de 24 minutos, 18 km."
+ ],
+ [
+  "pt-BR",
+  "navigate_to",
+  "Indo para aeroporto: cerca de 24 minutos, 18 km.",
+  {
+   "destination": "aeroporto"
+  },
+  "Indo para o aeroporto: cerca de 24 minutos, 18 km."
+ ],
+ [
+  "pt-BR",
+  "navigate_to",
+  "Indo para trabalho: cerca de 24 minutos, 18 km.",
+  {
+   "destination": "work"
+  },
+  "Indo para o trabalho: cerca de 24 minutos, 18 km."
+ ],
+ [
+  "pt-BR",
+  "navigate_to",
+  "Indo para praia: cerca de 24 minutos, 18 km.",
+  {
+   "destination": "praia"
+  },
+  "Indo para a praia: cerca de 24 minutos, 18 km."
+ ],
+ [
+  "pt-BR",
+  "navigate_to",
+  "Indo para São Paulo: cerca de 24 minutos, 18 km.",
+  {
+   "destination": "São Paulo"
+  },
+  "Indo para São Paulo: cerca de 24 minutos, 18 km."
+ ],
+ [
+  "pt-BR",
+  "navigate_to",
+  "Indo para o shopping: cerca de 24 minutos, 18 km.",
+  {
+   "destination": "o shopping"
+  },
+  "Indo para o shopping: cerca de 24 minutos, 18 km."
+ ],
+ [
+  "pt-BR",
+  "get_trip_eta",
+  "Você chega em casa em cerca de 24 minutos; faltam 18 km.",
+  {},
+  "Você chega em casa em cerca de 24 minutos; faltam 18 km."
+ ],
+ [
+  "pt-BR",
+  "get_trip_eta",
+  "Você chega em aeroporto em cerca de 24 minutos; faltam 18 km.",
+  {},
+  "Você chega no aeroporto em cerca de 24 minutos; faltam 18 km."
+ ],
+ [
+  "pt-BR",
+  "get_trip_eta",
+  "Você chega em estação da Luz em cerca de 24 minutos; faltam 18 km.",
+  {},
+  "Você chega na estação da Luz em cerca de 24 minutos; faltam 18 km."
+ ],
+ [
+  "pt-BR",
+  "get_trip_eta",
+  "Você chega em Campinas em cerca de 24 minutos; faltam 18 km.",
+  {},
+  "Você chega em Campinas em cerca de 24 minutos; faltam 18 km."
+ ],
+ [
+  "pt-BR",
+  "set_temperature",
+  "Não mudei: a temperatura precisa ficar entre 16 e 30.",
+  {
+   "temperature": 35
+  },
+  "Desculpe, a temperatura só vai de 16 a 30."
+ ],
+ [
+  "pt-BR",
+  "tune_radio",
+  "Não mudei: fm precisa ficar entre 87.5 e 108.",
+  {
+   "band": "fm"
+  },
+  "Desculpe, FM só vai de 87.5 a 108."
+ ],
+ [
+  "pt-BR",
+  "set_trunk",
+  "Não posso fazer isso com o carro em movimento.",
+  {},
+  "Desculpe, não dá pra fazer isso com o carro em movimento."
+ ],
+ [
+  "pt-BR",
+  "lock_car",
+  "Não consigo trancar com portas abertas. Quer que eu feche primeiro?",
+  {},
+  "Não consigo trancar com portas abertas. Quer que eu feche primeiro?"
+ ],
+ [
+  "de",
+  "set_temperature",
+  "Erledigt.",
+  {},
+  "Erledigt."
+ ]
+]

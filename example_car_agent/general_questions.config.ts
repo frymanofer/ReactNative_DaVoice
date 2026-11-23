@@ -23,8 +23,8 @@ export const GENERAL_QUESTIONS_MESSAGE: Record<string, string> = {
 
 /** (c) Said before the car model's own attempt, and when it has no answer. */
 export const GENERAL_QUESTIONS_LOCAL_INTRO: Record<string, string> = {
-  en: 'Since there is no remote agent configured, I will try to answer that.',
-  'pt-BR': 'Como não há um agente remoto configurado, vou tentar responder.',
+  en: "There's no online assistant set up here, but let me try.",
+  'pt-BR': 'Não tem um assistente online configurado aqui, mas deixa eu tentar.',
 };
 /** (c) A general question is first looked up on Wikipedia (the app's language); when the car model cannot answer from the page, the
  * page's own first sentences are said after this lead (nothing made up). */

@@ -27,7 +27,7 @@ export default function ConfidenceControls({ value, onChange, disabled }: Props)
       <View style={styles.row}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.label}>Local confidence</Text>
-          <Text style={styles.value}>{value.enabled ? `On · ${formatThreshold(value.threshold)}` : 'Off · every command is checked by the safety rules only'}</Text>
+          <Text style={styles.value}>{value.enabled ? `On · ${formatThreshold(value.threshold)}` : 'Off'}</Text>
         </View>
         <Switch
           accessibilityLabel="Local confidence on or off"
@@ -39,7 +39,7 @@ export default function ConfidenceControls({ value, onChange, disabled }: Props)
         />
       </View>
       <ThresholdSlider value={value.threshold} disabled={disabled} dim={off} onChange={(threshold) => set({ threshold })} />
-      <Text style={[styles.caption, off && styles.dim]}>Below the threshold the action does not run:</Text>
+      <Text style={[styles.caption, off && styles.dim]}>Below the threshold:</Text>
       <View style={[styles.segments, off && styles.dim]} accessibilityRole="radiogroup">
         {CONFIDENCE_FALLBACKS.map((f) => {
           const on = value.fallback === f.value;
@@ -59,10 +59,6 @@ export default function ConfidenceControls({ value, onChange, disabled }: Props)
       </View>
       <Text style={[styles.caption, off && styles.dim]}>
         {CONFIDENCE_FALLBACKS.find((f) => f.value === value.fallback)?.detail ?? ''}
-      </Text>
-      <Text style={styles.note}>
-        The score is the model's own estimate, not a guaranteed probability that the action is right. Unsafe or unsupported commands are
-        blocked whatever this setting is.
       </Text>
     </View>
   );
@@ -142,7 +138,6 @@ const styles = StyleSheet.create({
   label: { fontFamily: F.bold, fontSize: 14, color: C.text },
   value: { fontFamily: F.medium, fontSize: 12, color: C.text2 },
   caption: { fontFamily: F.medium, fontSize: 12, color: C.tag },
-  note: { fontFamily: F.regular, fontSize: 11, lineHeight: 15, color: C.text2 },
   dim: { opacity: 0.45 },
   sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   track: { flex: 1, height: 32, justifyContent: 'center' },

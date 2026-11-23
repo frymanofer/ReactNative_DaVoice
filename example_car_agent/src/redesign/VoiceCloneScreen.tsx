@@ -105,13 +105,13 @@ export default function VoiceCloneScreen(p: Props) {
     ? clipping
       ? 'Too loud: move the phone a little further away.'
       : p.recordSeconds < p.recommendedSeconds
-        ? `Keep reading: about ${p.recommendedSeconds} seconds is best.`
+        ? 'Keep reading…'
         : 'Good. Stop when you finish the sentence.'
-    : `Recording stops by itself after ${p.maxSeconds} seconds.`;
+    : '';
   const volumeHint =
     p.volumePercent === 100
-      ? 'Same loudness as the recording.'
-      : `${Math.abs(p.volumePercent - 100)}% ${p.volumePercent > 100 ? 'louder' : 'quieter'} than the recording.`;
+      ? ''
+      : `${p.volumePercent > 100 ? '+' : '−'}${Math.abs(p.volumePercent - 100)}%`;
   const canGoDown = !p.busy && p.volumePercent > p.minVolumePercent;
   const canGoUp = !p.busy && p.volumePercent < p.maxVolumePercent;
 
@@ -147,11 +147,7 @@ export default function VoiceCloneScreen(p: Props) {
             returnKeyType="done"
             editable={!p.busy}
           />
-          <Text style={styles.hint}>
-            {p.replaces
-              ? `Replaces your cloned voice "${p.replaces}".`
-              : 'Shown under this name in the voice list. Letters, digits, spaces and dashes.'}
-          </Text>
+          {!!p.replaces && <Text style={styles.hint}>{`Replaces "${p.replaces}"`}</Text>}
         </View>
 
         <View
@@ -286,7 +282,7 @@ export default function VoiceCloneScreen(p: Props) {
             <Text style={styles.resultTitle}>{`Voice "${p.result.voice}" is ready`}</Text>
             {p.result.weak && (
               <Text style={styles.resultWarning}>
-                {`The recording has little clear speech, so the voice may not sound its best. For a better voice, record again for about ${p.recommendedSeconds} seconds in a quiet room.`}
+                {'Little clear speech. Record again in a quiet room for a better voice.'}
               </Text>
             )}
             <TouchableOpacity accessibilityRole="button" activeOpacity={0.8} onPress={p.onListen} style={styles.listen}>
@@ -296,7 +292,6 @@ export default function VoiceCloneScreen(p: Props) {
           </View>
         )}
 
-        <Text style={styles.folder}>{`Cloned voices folder: ${p.folder}`}</Text>
       </ScrollView>
 
       {!!p.error && (
@@ -452,7 +447,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.carbon,
   },
   listenText: { fontFamily: F.semibold, fontSize: 15, color: C.text },
-  folder: { fontFamily: F.regular, fontSize: 11, lineHeight: 15, color: '#6B7672', paddingHorizontal: 4 },
   errorBar: {
     marginHorizontal: 16,
     marginTop: 8,

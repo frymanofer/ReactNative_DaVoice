@@ -29,7 +29,11 @@ export type HoodLanguage = {
   name: string;
   sizeMB: number;
   installed: boolean;
+  /** Car agent: true = the model is tuned for this language; false = Basic (every action is asked first); unset = not shown. */
+  tuned?: boolean;
 };
+
+const tunedLabel = (l: HoodLanguage) => (l.tuned === undefined ? '' : l.tuned ? ' · Tuned' : ' · Basic');
 
 type Props = {
   languages: HoodLanguage[];
@@ -43,10 +47,8 @@ export default function LanguageHoodScreen({ languages, defaultId, onInstall }: 
     languages.some((l) => l.id === defaultId) ? defaultId : languages[0]?.id,
   );
   const current = languages.find((l) => l.id === picked) ?? languages[0];
-  const rackOrder = [
-    ...languages.filter((l) => l.id === defaultId),
-    ...languages.filter((l) => l.id !== defaultId),
-  ];
+  // The rack follows the app's language order (src/appflow.ts, best quality first); the default is preselected, not moved up.
+  const rackOrder = languages;
 
   const spin = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
@@ -136,7 +138,6 @@ export default function LanguageHoodScreen({ languages, defaultId, onInstall }: 
           />
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: d(202), alignItems: 'center' }}>
             <Text style={[styles.title, { fontSize: d(18), letterSpacing: d(18) * 0.06 }]}>CHOOSE YOUR LANGUAGE</Text>
-            <Text style={[styles.subtitle, { fontSize: d(12), marginTop: d(3) }]}>Select a voice pack to install on the engine</Text>
           </View>
 
           {/* Selected language on the engine */}
@@ -179,7 +180,7 @@ export default function LanguageHoodScreen({ languages, defaultId, onInstall }: 
               <Text style={[styles.engineCode, { fontSize: d(24), letterSpacing: d(24) * 0.03 }]}>{current.code}</Text>
               <Text style={[styles.engineName, { fontSize: d(12) }]}>{current.shortName}</Text>
               <Text style={[styles.engineSize, { fontSize: d(11) }]}>
-                {current.installed ? 'Installed' : `${current.sizeMB} MB`}
+                {`${current.installed ? 'Installed' : `${current.sizeMB} MB`}${tunedLabel(current)}`}
               </Text>
             </View>
           </View>
@@ -190,7 +191,9 @@ export default function LanguageHoodScreen({ languages, defaultId, onInstall }: 
               {`${languages.length} LANGUAGES`}
             </Text>
             <Text style={[styles.caption, { fontSize: d(12), lineHeight: d(12) * 1.4, marginTop: d(6) }]}>
-              Scroll the module rack to pick one. It installs once and runs offline.
+              {languages.some((l) => l.tuned === false)
+                ? 'Tuned: full car agent. Basic: asks before every action.'
+                : 'Installs once and runs offline.'}
             </Text>
           </View>
 
@@ -224,7 +227,7 @@ export default function LanguageHoodScreen({ languages, defaultId, onInstall }: 
                         <Text style={{ color: C.mint }}> • </Text>
                         {lang.shortName}
                       </Text>
-                      <Text style={styles.tileSize}>{lang.installed ? 'Installed' : `${lang.sizeMB} MB`}</Text>
+                      <Text style={styles.tileSize} numberOfLines={1}>{`${lang.installed ? 'Installed' : `${lang.sizeMB} MB`}${tunedLabel(lang)}`}</Text>
                       <View style={styles.tileIcon}>
                         {on ? <CheckIcon size={16} color={C.mint} /> : <DownloadIcon size={16} color={C.mintLight} />}
                       </View>

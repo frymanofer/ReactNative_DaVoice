@@ -44,18 +44,14 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
 }
 
 /** After the voice signature: the user speaks and sees, live, whether the agent recognises the voice. */
-export default function VoiceTestScreen({ wakePhrase, result, sinceLast, canContinue, onContinue }: Props) {
+export default function VoiceTestScreen({ result, sinceLast, canContinue, onContinue }: Props) {
   // Results arrive several times a second and are "no match" in every pause, so the headline holds a match for a
   // moment (the parent re-renders with each new result and with the "since last" clock). The tiles show the raw result.
   const lastMatchAt = useRef(0);
   if (result?.isMatch) lastMatchAt.current = Date.now();
   const match = !!result && (result.isMatch || Date.now() - lastMatchAt.current < MATCH_HOLD_MS);
   const headline = match ? "It's you" : 'Listening…';
-  const detail = match
-    ? 'The agent recognises this voice.'
-    : result
-      ? 'No match right now. It stays like this for silence, noise and other voices.'
-      : 'Say something to test your voice signature.';
+  const detail = match ? '' : result ? 'No match' : '';
 
   return (
     <PanelScreen traces={{ left: true, double: true }}>
@@ -63,7 +59,7 @@ export default function VoiceTestScreen({ wakePhrase, result, sinceLast, canCont
         style={styles.heading}
         eyebrow="Step 3 of 5 · Voice signature"
         title="Test your voice"
-        subtitle={`Say “${wakePhrase}” or any sentence. Then let someone else try.`}
+        subtitle="Say anything. Then let someone else try."
       />
       <View style={styles.statusWrap} accessibilityLiveRegion="polite">
         <View style={[styles.badge, match && styles.badgeMatch]}>
@@ -84,7 +80,7 @@ export default function VoiceTestScreen({ wakePhrase, result, sinceLast, canCont
       <Footer>
         <PrimaryButton
           style={{ flex: 1 }}
-          label={canContinue ? 'Continue' : 'Waiting for the first result…'}
+          label={canContinue ? 'Continue' : 'Waiting…'}
           disabled={!canContinue}
           onPress={onContinue}
         />

@@ -22,9 +22,9 @@ export default function AgentLoadingScreen({ modelName, stages, activeIndex, sec
     <PanelScreen large traces={false}>
       <Heading
         style={{ paddingTop: 28, paddingBottom: 22, gap: 8 }}
-        eyebrow="Step 5 of 5 · First start only"
+        eyebrow="Step 5 of 5"
         title="Starting the car agent"
-        subtitle={`${modelName || 'DaVoice Automotive Agent'} · on-device`}
+        subtitle={modelName || undefined}
       />
       <View style={styles.card}>
         {stages.map((stage, i) => {
@@ -66,7 +66,7 @@ export default function AgentLoadingScreen({ modelName, stages, activeIndex, sec
         {error ? (
           <PrimaryButton style={{ flex: 2 }} label="Retry" onPress={onRetry} />
         ) : (
-          <PrimaryButton style={{ flex: 2 }} label="Opens when ready" onPress={() => {}} disabled />
+          <PrimaryButton style={{ flex: 2 }} label="Loading…" onPress={() => {}} disabled />
         )}
       </Footer>
     </PanelScreen>

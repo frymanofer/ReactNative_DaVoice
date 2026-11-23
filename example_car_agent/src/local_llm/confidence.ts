@@ -9,6 +9,7 @@
  * With the filter OFF the threshold is ignored. Either way the core's deterministic checks (scope, call guards, never-act, seat rule)
  * still apply, and the score of each action is shown. The score is model-derived, NOT a guaranteed probability of being right.
  */
+import { basicMessage } from '../car/basicLanguage';
 
 export type ConfidenceFallback = 'clarify' | 'remote' | 'decline';
 
@@ -75,7 +76,13 @@ const MESSAGES: Record<'en' | 'pt-BR', { clarify: string; decline: string; noRem
 
 /** What the agent core gets (configure {"confidence": ...}); the threshold is sent even when OFF, so switching ON restores it. */
 export function toCoreConfidence(s: ConfidenceSettings, language: string): Record<string, unknown> {
-  const m = language.toLowerCase().startsWith('pt') ? MESSAGES['pt-BR'] : MESSAGES.en;
+  const tuned = language.toLowerCase().startsWith('pt') ? MESSAGES['pt-BR'] : MESSAGES.en;
+  // Basic languages (src/car/basicLanguage.ts) have their own sentences
+  const m = {
+    clarify: basicMessage(language, 'lowClarify') ?? tuned.clarify,
+    decline: basicMessage(language, 'lowDecline') ?? tuned.decline,
+    noRemote: basicMessage(language, 'lowNoRemote') ?? tuned.noRemote,
+  };
   return { enabled: s.enabled, min: snapThreshold(s.threshold), fallback: s.fallback, messages: m };
 }
 

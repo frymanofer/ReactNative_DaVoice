@@ -16,10 +16,11 @@
     "notDoneRest": "Não fiz o resto do pedido. Pode repetir?",
     "done": "Pronto.",
     "failed": "Desculpe, não deu certo.",
-    "notConfirmed": "Tudo bem, não vou fazer isso.",
+    "notConfirmed": "Tudo bem, sem problema.",
     "notAuthorized": "Desculpe, você não tem permissão para isso.",
     "invalidArgs": "Desculpe, não entendi todos os detalhes. Pode repetir?",
     "scopeClarify": "Desculpe, não entendi. Pode repetir?",
+    "scopeAskedDone": "Não mudei nada. Se quiser, é só pedir.",
     "scopeTooLong": "Pode me dizer isso de um jeito mais curto? Por exemplo: abre o vidro do motorista.",
     "scopeUnsupported": "Desculpe, isso eu não consigo controlar neste carro.",
     "scopeNoRemote": "Isso eu não consigo responder aqui. Posso ajudar com os vidros, as portas, o ar, a música, a navegação e o status do carro.",
@@ -1264,7 +1265,7 @@
         "\\b(?:quais\\s+(?:são|sao)|me\\s+diz|lista)\\s+(?:as\\s+)?suas\\s+(?:opções|opcoes|opçoes|opcões|funções|funcoes|funçoes|funcões|habilidades)\\W*$"
       ],
       "replies": [
-        "Eu controlo o carro: navegação, ar-condicionado, vidros, teto solar, portas, bancos, rádio e música, e digo como está o carro. Também posso passar uma pergunta geral para um modelo maior. Pergunte o que eu posso fazer no carro para ver a lista completa."
+        "Eu cuido do carro pra você: navegação, ar-condicionado, vidros, teto solar, portas, bancos, música e rádio, e também digo como está o carro. Pergunte o que eu posso fazer no carro para ver a lista completa."
       ]
     },
     {
@@ -1273,7 +1274,8 @@
         "^\\W*(?:(?:ei|oi|olá|ola)\\s+\\w+\\W+)?(?:quem|o\\s+que)\\s+(?:é|e)\\s+(?:você|voce|vc)\\W*$",
         "^\\W*(?:você|voce)\\s+é\\s+quem\\W*$",
         "^\\W*(?:(?:ei|oi)\\W+)?(?:(?:(?:você|voce|vc)|pode|(?:você|voce|vc)\\s+pode)\\s+)?me\\s+(?:diz|dizer|fala|falar|conta|contar)\\s+quem\\s+(?:você|voce|vc)\\s+(?:é|e)\\W*$",
-        "^\\W*com\\s+quem\\s+eu\\s+(?:estou|to|tô)\\s+falando\\W*$"
+        "^\\W*com\\s+quem\\s+eu\\s+(?:estou|to|tô)\\s+falando\\W*$",
+        "^\\W*(?:(?:ei|oi|olá|ola)\\W+)?(?:qual\\s+(?:é\\s+|e\\s+)?o\\s+(?:seu|teu)\\s+nome|como\\s+(?:você|voce|vc)\\s+se\\s+chama|(?:você|voce|vc)\\s+tem\\s+(?:um\\s+)?nome)\\W*$"
       ],
       "replies": [
         "Eu sou o seu agente de IA, ajustado pela DaVoice.io."
@@ -1286,7 +1288,8 @@
         "^\\W*(?:(?:oi|olá|ola)\\W+)?tudo\\s+bem(?:\\s+com\\s+(?:você|voce|vc))?\\W*$"
       ],
       "replies": [
-        "Estou bem e pronto para começar, espero que você também."
+        "Tô ótimo, obrigado por perguntar! Pronto pra rodar. E você?",
+        "Tudo ótimo por aqui! Pra onde vamos hoje?"
       ]
     },
     {
@@ -1304,6 +1307,20 @@
       ]
     },
     {
+      "id": "joke",
+      "patterns": [
+        "^\\W*(?:(?:ei|oi|ok|então|entao)\\W+)?(?:(?:me|nos)\\s+)?(?:conta|conte|fala|diz|manda)\\s+(?:uma|outra|mais\\s+uma)\\s+piada(?:\\s+(?:aí|ai|pra\\s+mim|por\\s+favor))?\\W*$",
+        "^\\W*(?:(?:você|voce|vc)\\s+)?(?:sabe|conhece|tem)\\s+(?:alguma|uma)\\s+piada\\W*$",
+        "^\\W*(?:uma|outra)\\s+piada(?:\\s+por\\s+favor)?\\W*$",
+        "^\\W*me\\s+faz(?:\\s+dar)?\\s+rir\\W*$"
+      ],
+      "replies": [
+        "O que o semáforo disse para o carro? Não olha, que eu tô me trocando!",
+        "Por que o carro foi ao psicólogo? Porque estava sem direção!",
+        "Eu ia contar uma piada sobre vaga de estacionamento, mas todas as boas já estão ocupadas."
+      ]
+    },
+    {
       "id": "thanks",
       "patterns": [
         "^\\W*(?:(?:muito\\s+)?obrigad[oa]|valeu|brigad[oa]|obg|vlw)(?:\\s+(?:pela\\s+ajuda|demais|mesmo|viu|cara|amigo|meu\\s+amigo))?\\W*$"
@@ -1311,6 +1328,48 @@
       "replies": [
         "De nada!",
         "Por nada!"
+      ]
+    },
+    {
+      "id": "ack",
+      "patterns": [
+        "^\\W*(?:tá\\s+bom|ta\\s+bom|beleza|ok|okay|certo|fechado|tranquilo|show|entendi)\\W*$"
+      ],
+      "replies": [
+        "Beleza!",
+        "Combinado!"
+      ]
+    },
+    {
+      "id": "feedback",
+      "patterns": [
+        "^\\W*(?:(?:ah|nossa|opa|eba|ok|oba)\\W+)?(?:(?:valeu|obrigad[oa]|brigad[oa]|obg|vlw)\\W+)?(?:(?:agora\\s+)?(?:ficou|tá|ta|está|esta)\\s+)?(?:(?:bem|muito|bem\\s+mais|muito\\s+mais)\\s+)?(?:melhor|melhorou|ótimo|otimo|perfeito|bom|boa|show|massa|top|legal|uma\\s+delícia|uma\\s+delicia|gostoso|agradável|agradavel)(?:\\s+agora)?(?:\\W+(?:valeu|obrigad[oa]|brigad[oa]|vlw)(?:\\s+(?:demais|mesmo))?)?\\W*$"
+      ],
+      "replies": [
+        "Que bom que ajudei!",
+        "Fico feliz em ajudar!"
+      ]
+    },
+    {
+      "id": "bored",
+      "patterns": [
+        "^\\W*(?:(?:ai|aff|nossa)\\W+)?(?:eu\\s+)?(?:tô|to|estou|tou)\\s+(?:muito\\s+|tão\\s+|tao\\s+|meio\\s+)?entediad[oa]\\W*$",
+        "^\\W*(?:que\\s+tédio|que\\s+tedio|tá\\s+um\\s+tédio|ta\\s+um\\s+tedio)\\W*$"
+      ],
+      "replies": [
+        "Que tal uma música? É só me dizer um artista ou uma rádio.",
+        "Posso colocar uma música. É só falar um artista ou uma rádio."
+      ]
+    },
+    {
+      "id": "tired",
+      "patterns": [
+        "^\\W*(?:(?:ai|aff|nossa)\\W+)?(?:eu\\s+)?(?:tô|to|estou|tou)\\s+(?:muito\\s+|tão\\s+|tao\\s+|meio\\s+|morrendo\\s+de\\s+)?(?:cansad[oa]|exaust[oa]|com\\s+sono|sono)\\W*$",
+        "^\\W*(?:preciso\\s+de\\s+uma\\s+pausa|preciso\\s+descansar)\\W*$"
+      ],
+      "replies": [
+        "Faz uma pausa quando for seguro. Posso achar um café ou uma parada no caminho, é só pedir.",
+        "Se cuida! Se precisar de uma pausa, me pede pra achar uma parada ou um café."
       ]
     },
     {

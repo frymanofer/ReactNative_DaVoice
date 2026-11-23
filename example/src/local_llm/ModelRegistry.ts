@@ -2,6 +2,7 @@ import RNFS from 'react-native-fs';
 import type { LocalLLMModelConfig, ModelId } from './types';
 import { currentLocalDemo, setCurrentLocalDemo } from './demo';
 import type { LocalDemo } from './demo';
+import { DEFAULT_CONFIDENCE, parseConfidenceSettings, type ConfidenceSettings } from './confidence';
 import {
   BUILTIN_LOCAL_LLM_MODELS,
   LOCAL_LLM_DEFAULT_MODEL,
@@ -24,8 +25,8 @@ interface RegistryFile {
   /** The Local AI Chat demo (2026-11-10: calories / car) and each demo's own model choice. */
   demo?: LocalDemo;
   selectedByDemo?: Partial<Record<LocalDemo, ModelId>>;
-  /** The car demo's minimum confidence (0 = off): see LOCAL_LLM_CONFIDENCE_CHOICES. */
-  localConfidence?: number;
+  /** The car demo's Local confidence (src/local_llm/confidence.ts). 2026-11-17 files hold a number (0 = off); read with parseConfidenceSettings. */
+  localConfidence?: ConfidenceSettings;
 }
 
 function registryDir(): string {
@@ -53,7 +54,7 @@ async function readRegistry(): Promise<RegistryFile> {
         defaultModelId: LOCAL_LLM_DEFAULT_MODEL,
         demo: parsed.demo === 'calories' || parsed.demo === 'car' ? parsed.demo : 'car',
         selectedByDemo: parsed.selectedByDemo ?? {},
-        localConfidence: typeof parsed.localConfidence === 'number' ? parsed.localConfidence : 0,
+        localConfidence: parseConfidenceSettings(parsed.localConfidence),
       };
     }
   } catch (error) {
@@ -176,12 +177,12 @@ export async function removeCustomModel(id: ModelId): Promise<void> {
   }));
 }
 
-/** The car demo's minimum confidence for a local action (0 = off, the default). Below it the agent core does not run the model's call:
- * the request goes to the remote assistant, or the user hears that this command needs one (core 2026-11-17, configure "confidence"). */
-export async function getLocalConfidence(): Promise<number> {
-  return (await readRegistry()).localConfidence ?? 0;
+/** The car demo's Local confidence (src/local_llm/confidence.ts): OFF by default, threshold 0.90, fallback CLARIFY. Persisted. */
+export async function getLocalConfidence(): Promise<ConfidenceSettings> {
+  return (await readRegistry()).localConfidence ?? { ...DEFAULT_CONFIDENCE };
 }
 
-export async function setLocalConfidence(value: number): Promise<void> {
-  await writeRegistry((r) => ({ ...r, localConfidence: value }));
+export async function setLocalConfidence(value: ConfidenceSettings): Promise<void> {
+  const v = parseConfidenceSettings(value);
+  await writeRegistry((r) => ({ ...r, localConfidence: v }));
 }

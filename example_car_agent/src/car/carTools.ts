@@ -14,6 +14,13 @@
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import { toolReply } from 'react-native-davoice-llm';
 import { noteCarSay } from './speechComposer';
+import { groundMediaQuery } from './mediaQuery';
+
+// what the agent was given this turn (App.tsx): the handlers check copied titles against it
+let lastUserText = '';
+export function noteCarUserText(text: string): void {
+  lastUserText = text;
+}
 
 import { getTTSLanguage } from '../tts';
 import carToolsJson from './carToolDefinitions.json'; // not "carTools.json": Metro resolves './carTools' to a .json before a .ts
@@ -24,6 +31,7 @@ import type { CarState, Level, Seat, WindowPosition } from './CarState';
 import carToolsH3dJson from './carToolDefinitions.h3d.json';
 import { adj, be, name, placeName, resolve } from './positions';
 import { restoreCalls } from './undo';
+import { addPending, basicAnswer, basicCannot, basicDone, basicDriving, confirmQuestion, isBasicLanguage, takeConfirmed } from './basicLanguage';
 import type { Lang, Name, Obj, Pos } from './positions';
 
 type Args = Record<string, any>;
@@ -138,23 +146,44 @@ function lockDoors(door: unknown, lock: boolean): Outcome {
         L(`I ${lock ? 'locked' : 'unlocked'} ${n.text}.`, `${lock ? 'Tranquei' : 'Destranquei'} ${n.text}.`));
 }
 
+/** The place find_along_route found last: "yes" to its offer navigates there (2.1 km away, not the demo's usual 24 minutes). */
+let lastFound: string | null = null;
+/** The route's time and distance, said again by get_trip_eta (2026-11-21: after "take me there" (3 minutes) the ETA said 24 minutes). */
+let trip = { minutes: 24, km: 18 };
+const EN_NEAREST: Record<string, string> = { gas_station: 'the nearest gas station', ev_charger: 'the nearest EV charger', parking: 'the nearest parking spot', restaurant: 'the nearest restaurant', coffee: 'the nearest coffee shop', rest_area: 'the nearest rest area' };
+const PT_NEAREST: Record<string, string> = { gas_station: 'o posto de combustível mais próximo', ev_charger: 'o carregador mais próximo', parking: 'o estacionamento mais próximo', restaurant: 'o restaurante mais próximo', coffee: 'o café mais próximo', rest_area: 'a parada mais próxima' };
+
 const HANDLERS: Record<string, Handler> = {
   navigate_to: ({ destination }) => {
     const d = String(destination);
     const shown = d === 'home' ? L('home', 'casa') : d === 'work' ? L('work', 'trabalho') : d;
     updateCar((s) => ({ ...s, destination: shown }));
+    if (lastFound !== null && d === lastFound) {
+      trip = { minutes: 3, km: 2.1 };
+      return done(L(`navigating to ${shown}`, `navegando para ${shown}`), { minutes: 3, km: 2.1 },
+        L(`Navigating to ${shown}: about 3 minutes, 2.1 km.`, `Indo para ${shown}: cerca de 3 minutos, 2,1 km.`));
+    }
+    trip = { minutes: 24, km: 18 };
     return done(L(`navigating to ${shown}`, `navegando para ${shown}`), { minutes: 24, km: 18 },
       L(`Navigating to ${shown}: about 24 minutes, 18 km.`, `Indo para ${shown}: cerca de 24 minutos, 18 km.`));
   },
-  find_along_route: ({ place_type }) =>
-    done(L(`found a ${words(String(place_type))} 2.1 km ahead`, `${PT_PLACE[place_type] ?? place_type} encontrado a 2,1 km`), { name: 'Nearest match', km: 2.1 },
-      L(`I found ${EN_PLACE[place_type] ?? words(String(place_type))} 2.1 km ahead.`, `Encontrei ${PT_PLACE_SAY[place_type] ?? place_type} a 2,1 km.`)),
+  // 2026-11-21 (reply review): the found place comes with an offer: a plain "yes" (or "take me there") navigates there (the agent core
+  // runs the offered call; "me leva lá" alone had navigated to "lateral"). The question is said by the speech composer.
+  find_along_route: ({ place_type }) => {
+    const p = String(place_type);
+    lastFound = L(EN_NEAREST[p] ?? `the nearest ${words(p)}`, PT_NEAREST[p] ?? `${words(p)} mais próximo`);
+    return done(L(`found a ${words(p)} 2.1 km ahead`, `${PT_PLACE[p] ?? p} encontrado a 2,1 km`),
+      { name: 'Nearest match', km: 2.1, offer: { calls: [{ name: 'navigate_to', arguments: { destination: lastFound } }] } },
+      L(`I found ${EN_PLACE[p] ?? words(p)} 2.1 km ahead.`, `Encontrei ${PT_PLACE_SAY[p] ?? p} a 2,1 km.`));
+  },
   get_trip_eta: () => {
     const s = getCarState();
     if (!s.destination) return answer(L('no active route', 'nenhuma rota ativa'), { navigating: false },
       L("There's no active route. Where do you want to go?", 'Não há nenhuma rota ativa. Para onde você quer ir?'));
-    return answer(L(`arriving in 24 min`, `chegada em 24 min`), { destination: s.destination, minutes_left: 24, km_left: 18 },
-      L(`You'll get to ${s.destination} in about 24 minutes, 18 km to go.`, `Você chega em ${s.destination} em cerca de 24 minutos; faltam 18 km.`));
+    const { minutes, km } = trip;
+    const ptKm = String(km).replace('.', ',');
+    return answer(L(`arriving in ${minutes} min`, `chegada em ${minutes} min`), { destination: s.destination, minutes_left: minutes, km_left: km },
+      L(`You'll get to ${s.destination} in about ${minutes} minutes, ${km} km to go.`, `Você chega em ${s.destination} em cerca de ${minutes} minutos; faltam ${ptKm} km.`));
   },
   set_route_avoid: ({ avoid }) => {
     if (getCarState().avoid.includes(String(avoid))) return already(L('route unchanged', 'rota sem mudança'), L(`The route already avoids ${words(String(avoid))}.`, `A rota já evita ${PT_AVOID[avoid] ?? avoid}.`));
@@ -379,8 +408,11 @@ const HANDLERS: Record<string, Handler> = {
     updateCar((s) => ({ ...s, ambient: { on: on !== false, color: color ? String(color) : s.ambient.color } }));
     return done(L(`ambient lighting ${on === false ? 'off' : 'on'}${color && on !== false ? `, ${color}` : ''}`, `luz ambiente ${on === false ? 'apagada' : 'acesa'}${color && on !== false ? `, ${color}` : ''}`));
   },
-  play_media: ({ query }) => {
-    updateCar((s) => ({ ...s, media: String(query), radio: null, muted: false }));
+  play_media: (args) => {
+    // the driver's own words when the model copied the title wrong ("Perma Woman" for "Pretty Woman", mediaQuery.ts)
+    const query = groundMediaQuery(String(args.query ?? ''), lastUserText);
+    if (query !== args.query) console.log(`[Car] play_media query "${args.query}" -> "${query}" (the driver's words)`);
+    updateCar((s) => ({ ...s, media: query, radio: null, muted: false }));
     return done(L(`playing ${query}`, `tocando ${query}`), {}, L(`Playing ${query}.`, `Tocando ${query}.`));
   },
   tune_radio: ({ band, frequency }) => {
@@ -509,10 +541,21 @@ function toTool(t: any): ToolDefinition {
       const run = HANDLERS[t.name];
       // The agent runs a recorded restoring call ("desfaz"): same checks, a sentence that says it was undone, nothing recorded again.
       const undoing = context?.undo === true;
+      // Basic language (basicLanguage.ts): not tuned, so every state change is asked first and runs only after the user's yes
+      const language = getTTSLanguage();
+      const basic = isBasicLanguage(language);
       try {
         if (!run) throw new Refused(L("Sorry, this car doesn't have that function.", 'Desculpe, este carro não tem essa função.'));
         if (getCarState().driving && NOT_WHILE_DRIVING[t.name]?.(args)) {
-          throw new Refused(L("I can't do that while the car is moving.", 'Não posso fazer isso com o carro em movimento.'));
+          throw new Refused(basic ? basicDriving(language) : L("I can't do that while the car is moving.", 'Não posso fazer isso com o carro em movimento.'));
+        }
+        if (basic && !undoing && !READ_ONLY_TOOLS.has(t.name) && !takeConfirmed(t.name, args)) {
+          const asked = addPending([{ name: t.name, arguments: args }]);
+          const question = confirmQuestion([{ name: t.name, arguments: args }], language);
+          console.log(`[Car] ASK ${t.name} ${JSON.stringify(args)} (basic ${language}): ${question}`);
+          noteCarSay(t.name, question, false);
+          // the offer holds every call asked in this request (the core keeps one offer per request): one yes runs them all
+          return toolReply({ ok: false, refused: 'waiting for the user to confirm', confirm: true, offer: { calls: asked } }, question);
         }
         // vehicle policy: an undo never unlocks the car while it moves
         if (undoing && t.name === 'unlock_car' && getCarState().driving) {
@@ -522,23 +565,33 @@ function toTool(t: any): ToolDefinition {
         const out = run(args);
         const { summary } = out;
         let { result, say } = out;
+        // an offer of a successful result (find_along_route): the tuned languages only (a Basic language's yes needs its own question)
+        const offerCalls = (result as any)?.offer?.calls as OfferCall[] | undefined;
+        if (offerCalls && (basic || undoing)) {
+          const { offer: _dropped, ...rest } = result as any;
+          result = rest;
+        }
         if (undoResults && !undoing) {
           const undo = restoreCalls(before, getCarState());
           if (undo !== undefined) result = { ...result, undo };
         }
         if (undoing && say) say = L(`Undone. ${say}`, `Desfeito. ${say}`);
+        // Basic language: the user just confirmed this exact action, so a short "done" in their language; lookups say their answer
+        if (basic) say = READ_ONLY_TOOLS.has(t.name) ? basicAnswer(t.name, args, language, getCarState()) ?? say : basicDone(language);
         recordCarAction(t.name, args, summary);
         console.log(`[Car] ${t.name} ${JSON.stringify(args)} -> ${summary}`);
         // The app says what it did (2026-11-10: a sentence naming the action, not "Done") and the turn ends there: no second
         // model round (~5 s on a phone CPU). Lookups the app can answer (ETA, vehicle status) are said the same way; the rest
         // (messages) stay with the model.
         // what the driver hears is composed from these when one request did several actions (speechComposer.ts); undo stays as it is
+        // what kind of sentence it is: only an action that changed the car gets the friendly words (speechComposer.ts)
+        const kind = READ_ONLY_TOOLS.has(t.name) ? 'answer' : (result as any)?.already ? 'already' : 'did';
         if (say) {
-          noteCarSay(t.name, say, !undoing);
+          noteCarSay(t.name, say, !undoing, { args, kind, ...(offerCalls && !basic && !undoing ? { offer: offerCalls.map((c) => c.name) } : {}) });
           return toolReply({ ok: true, ...result }, say);
         }
         if (typeof result?.status === 'string' && result.status.startsWith('Done: ')) {
-          noteCarSay(t.name, `${cap(summary)}.`, !undoing);
+          noteCarSay(t.name, `${cap(summary)}.`, !undoing, { args, kind });
           return toolReply({ ok: true, ...result }, `${cap(summary)}.`);
         }
         return { ok: true, ...result };
@@ -553,9 +606,19 @@ function toTool(t: any): ToolDefinition {
           // undo (core g29zk): a state-changing call that did not go through is still the last action, so "desfaz" right after it says
           // nothing was done instead of restoring an older action ({"ok": false} + "undo": false)
           const failedUndo = undoResults && !undoing && !READ_ONLY_TOOLS.has(t.name) ? { undo: false } : {};
-          const offered = error.offer && !undoing ? { offer: error.offer } : {};
-          const refusal = /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`);
-          noteCarSay(t.name, refusal, false);
+          let offered: { offer?: { calls: OfferCall[] } } = error.offer && !undoing ? { offer: error.offer } : {};
+          let refusal = /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`);
+          if (basic) {
+            // the tool's own sentences are English / Portuguese: a refusal with an offer becomes the question for that offer
+            if (offered.offer) {
+              const calls = addPending(offered.offer.calls);
+              offered = { offer: { calls } };
+              refusal = confirmQuestion(calls, language);
+            } else {
+              refusal = reason === basicDriving(language) ? reason : basicCannot(language);
+            }
+          }
+          noteCarSay(t.name, refusal, false, offered.offer ? { offer: offered.offer.calls.map((c) => c.name) } : {});
           return toolReply({ ok: false, refused: reason, ...failedUndo, ...offered }, refusal);
         }
         throw new Error(`Not done: ${reason}`);

@@ -59,7 +59,6 @@ export default function VoiceScreen(p: Props) {
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.cloneTitle}>Clone a new voice</Text>
-            <Text style={styles.cloneSub}>Record ~20 s or upload a file</Text>
           </View>
           <Chevron dir="right" color={C.mint} size={20} />
         </TouchableOpacity>
@@ -144,7 +143,7 @@ export default function VoiceScreen(p: Props) {
           </View>
           {p.cloned.length === 0 ? (
             <View style={styles.emptyCloned}>
-              <Text style={styles.emptyText}>None yet — clone one above</Text>
+              <Text style={styles.emptyText}>None yet</Text>
             </View>
           ) : (
             <View style={styles.clonedRow}>

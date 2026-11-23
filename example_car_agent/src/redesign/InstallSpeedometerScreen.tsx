@@ -219,7 +219,7 @@ export default function InstallSpeedometerScreen(props: Props) {
           <View style={styles.buttons}>
             {installed ? (
               <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={props.onContinue} style={[styles.primary, styles.primaryDone]}>
-                <Text style={styles.primaryTextDone}>Ready to drive — choose a voice</Text>
+                <Text style={styles.primaryTextDone}>Continue</Text>
                 <Svg width={20} height={20} viewBox="0 0 24 24">
                   <Path d="M5 12h14M13 6l6 6-6 6" stroke={C.onPrimary} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
                 </Svg>
@@ -235,7 +235,7 @@ export default function InstallSpeedometerScreen(props: Props) {
               </View>
             ) : (
               <TouchableOpacity accessibilityRole="button" activeOpacity={0.8} onPress={props.onCancel} style={styles.secondary}>
-                <Text style={styles.secondaryText}>Cancel installation</Text>
+                <Text style={styles.secondaryText}>Cancel</Text>
               </TouchableOpacity>
             )}
           </View>

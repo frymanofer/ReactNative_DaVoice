@@ -5,6 +5,7 @@ import type { GeminiChatMessage } from './index';
 import { LOCAL_LLM_LAYER2, LOCAL_LLM_LOW_CONFIDENCE_MESSAGE, LOCAL_LLM_NO_REMOTE_MESSAGE, LOCAL_LLM_NOT_IN_DEMO_MESSAGE } from '../local_llm/constants';
 import { DID_NOT_CATCH, isTooShortForDecline } from './fragments';
 import { getTTSLanguage } from '../tts';
+import { basicMessage } from '../car/basicLanguage';
 import { GEMINI_API_KEY } from '../../local.config';
 import { GENERAL_QUESTIONS_MESSAGE, GENERAL_QUESTIONS_MODE } from '../../general_questions.config';
 
@@ -54,23 +55,23 @@ export async function answerRemoteRequest(
     // A fragment of speech the model declined is noise, not an unsupported feature (2026-11-10 phone: "Alma Alma.").
     if (isTooShortForDecline(request.userText ?? request.query ?? '')) {
       console.log('[AIChat][REMOTE] declined fragment: asking to repeat');
-      return { text: DID_NOT_CATCH[language] ?? DID_NOT_CATCH.en };
+      return { text: DID_NOT_CATCH[language] ?? basicMessage(language, 'didNotCatch') ?? DID_NOT_CATCH.en };
     }
     console.log('[AIChat][REMOTE] not available in this demo (the model declined)');
-    return { text: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en };
+    return { text: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? basicMessage(language, 'notInDemo') ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en };
   }
   // The on-device model was not sure enough of its car action (Local confidence, core reason "low-confidence") and no remote model is set
   // up: nothing ran, and the user hears that this command needs the remote agent.
   if ((request.reason as string) === 'low-confidence' && !REMOTE_ANSWERS_ONLINE) {   // a reason newer than the published typings
     const language = getTTSLanguage();
     console.log('[AIChat][REMOTE] low confidence, no remote model set up: telling the user');
-    return { text: LOCAL_LLM_LOW_CONFIDENCE_MESSAGE[language] ?? LOCAL_LLM_LOW_CONFIDENCE_MESSAGE.en };
+    return { text: LOCAL_LLM_LOW_CONFIDENCE_MESSAGE[language] ?? basicMessage(language, 'lowNoRemote') ?? LOCAL_LLM_LOW_CONFIDENCE_MESSAGE.en };
   }
   // No remote assistant (general_questions.config.ts 'message' / 'local', or 'gemini' without a key): say so instead of answering.
   if (!REMOTE_ANSWERS_ONLINE) {
     const language = getTTSLanguage();
     console.log(`[AIChat][REMOTE] no remote assistant (${GENERAL_QUESTIONS_MODE}, reason ${request.reason ?? '-'}): telling the user`);
-    return { text: GENERAL_QUESTIONS_MESSAGE[language] ?? GENERAL_QUESTIONS_MESSAGE.en ?? LOCAL_LLM_NO_REMOTE_MESSAGE.en };
+    return { text: GENERAL_QUESTIONS_MESSAGE[language] ?? basicMessage(language, 'noRemote') ?? GENERAL_QUESTIONS_MESSAGE.en ?? LOCAL_LLM_NO_REMOTE_MESSAGE.en };
   }
   try {
     return await askGemini(request);

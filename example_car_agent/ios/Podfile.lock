@@ -11,7 +11,7 @@ PODS:
   - KeyWordRNBridge (1.0.42):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
-  - LLMRNBridge (1.0.18):
+  - LLMRNBridge (1.0.20):
     - React-Core
   - onnxruntime-c (1.20.0)
   - onnxruntime-objc (1.20.0):
@@ -2652,7 +2652,7 @@ SPEC CHECKSUMS:
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 8642d8f14a548ab718ec112e9bebdfdd154138b5
   KeyWordRNBridge: 7c6c91776a20c4a453507e65f840f325cad4692e
-  LLMRNBridge: 2ebfa112aac52f71de5413a22a14396f88266d0b
+  LLMRNBridge: f1f45cefed2dc4d27bfe51dded6149b2c6ed489e
   onnxruntime-c: 07cfff40dda7e1c54a4350bb2ad226c63150fce3
   onnxruntime-objc: b22c5d4517e9804e47c66f1f122ec4a6aa923f86
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669

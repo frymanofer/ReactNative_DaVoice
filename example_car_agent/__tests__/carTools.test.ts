@@ -171,6 +171,17 @@ describe('other operations name what they did, or that nothing changed', () => {
     expect(say('get_vehicle_status', { item: 'range' })).toBe('You have about 312 km of range left.');
     expect(say('get_trip_eta', {})).toBe("There's no active route. Where do you want to go?");
   });
+  test('the ETA says the route it has: the found place nearby, then a usual destination (2026-11-21)', () => {
+    say('find_along_route', { place_type: 'gas_station' });
+    say('navigate_to', { destination: 'the nearest gas station' });
+    expect(say('get_trip_eta', {})).toBe("You'll get to the nearest gas station in about 3 minutes, 2.1 km to go.");
+    say('navigate_to', { destination: 'airport' });
+    expect(say('get_trip_eta', {})).toBe("You'll get to airport in about 24 minutes, 18 km to go.");
+    mockLang = 'pt-BR';
+    say('find_along_route', { place_type: 'coffee' });
+    say('navigate_to', { destination: 'o café mais próximo' });
+    expect(say('get_trip_eta', {})).toBe('Você chega em o café mais próximo em cerca de 3 minutos; faltam 2,1 km.');
+  });
   // Unsupported capabilities (no tool in the car: trunk, hazards ...) are refused by the core's capability guard with the pack's
   // "not available" reply (the DaVoice training tools cap*); every catalog tool here has a handler.
 });

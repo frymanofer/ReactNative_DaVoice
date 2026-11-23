@@ -13,12 +13,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { getCarActions, getCarState, onCarChange, resetCar, setDriving } from '../car/CarState';
-import type { CarAction, CarState } from '../car/CarState';
+import type { CarState } from '../car/CarState';
 import CarDrawing, { CAR_ASPECT } from './CarDrawing';
 import { CarbonFill, Chevron, EMBLEM, statusBarHeight } from './chrome';
 import { C, F, PRIMARY_GRADIENT, LIFT, MESSAGE_CARD } from './theme';
 import ConfidenceControls from './ConfidenceControls';
-import { OUTCOME_LABEL, formatScore, type ConfidenceSettings, type TurnConfidence, type TurnOutcome } from '../local_llm/confidence';
+import type { ConfidenceSettings, TurnConfidence, TurnOutcome } from '../local_llm/confidence';
 
 type Props = {
   language: string;
@@ -52,11 +52,8 @@ const SUGGESTIONS_EN = [
   'Defrost the windshield', 'Volume 20',
 ];
 
-function callText(action: CarAction): string {
-  const args = Object.entries(action.args)
-    .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-    .join(', ');
-  return `${action.tool}(${args})`;
+function scoreShort(c: TurnConfidence | undefined): string {
+  return c && c.value !== null ? `score ${c.value.toFixed(2)}` : 'low score';
 }
 
 function banner(s: CarState): { text: string; meta: string } | null {
@@ -113,10 +110,10 @@ export default function CarAgentScreen(p: Props) {
   const title = p.working
     ? 'Working…'
     : p.ignored
-      ? 'Not for me — ignored'
+      ? 'Ignored'
       : latest
         ? `${blocked ? 'Blocked: ' : ''}${latest.summary.charAt(0).toUpperCase()}${latest.summary.slice(1)}`
-        : 'Ready for a command';
+        : 'Ready';
 
   const pool = pt ? SUGGESTIONS_PT : SUGGESTIONS_EN;
   const k = (actions.length * 3) % pool.length;
@@ -148,7 +145,6 @@ export default function CarAgentScreen(p: Props) {
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.headerTitle}>Car Agent</Text>
-          <Text style={styles.headerSub}>On-device</Text>
         </View>
         <View style={styles.segment} accessibilityRole="radiogroup" accessibilityLabel="Vehicle state">
           {([false, true] as const).map((driving) => {
@@ -168,13 +164,15 @@ export default function CarAgentScreen(p: Props) {
       </View>
 
       <View style={styles.bannerRow}>
-        <View style={[styles.banner, pop ? styles.bannerOn : styles.bannerOff]} accessibilityLiveRegion="polite">
-          <View style={[styles.bannerDot, { backgroundColor: pop ? C.mint : C.titanium }]} />
-          <Text style={styles.bannerText} numberOfLines={1}>
-            {pop ? pop.text : `${s.driving ? 'Driving' : 'Parked'} · all on-device`}
-          </Text>
-          {!!pop?.meta && <Text style={styles.bannerMeta} numberOfLines={1}>{pop.meta}</Text>}
-        </View>
+        {pop ? (
+          <View style={[styles.banner, styles.bannerOn]} accessibilityLiveRegion="polite">
+            <View style={[styles.bannerDot, { backgroundColor: C.mint }]} />
+            <Text style={styles.bannerText} numberOfLines={1}>{pop.text}</Text>
+            {!!pop.meta && <Text style={styles.bannerMeta} numberOfLines={1}>{pop.meta}</Text>}
+          </View>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
         <IconButton
           label="Reset car and chat"
           onPress={() => {
@@ -209,24 +207,13 @@ export default function CarAgentScreen(p: Props) {
       </View>
 
       <View style={[styles.lastCard, { borderColor: blocked ? 'rgba(245, 158, 11, 0.8)' : latest || p.heard ? C.mint : '#1F2B27' }]} accessibilityLiveRegion="polite">
-        <Text style={styles.heard} numberOfLines={1}>
-          You: <Text style={styles.heardText}>{p.heard ? `“${p.heard}”` : '—'}</Text>
-        </Text>
+        {!!p.heard && <Text style={styles.heardText} numberOfLines={1}>{`“${p.heard}”`}</Text>}
         <Text style={[styles.lastTitle, blocked && !p.working && { color: C.warning2 }]} numberOfLines={1}>{title}</Text>
-        <Text style={styles.call} numberOfLines={1}>
-          {latest ? callText(latest) : `Say “${p.wakePhrase}”, then speak`}
-        </Text>
         {!!p.reply && !p.ignored && (
-          <Text style={styles.reply} numberOfLines={2}>{`${p.voice}: ${p.reply}`}</Text>
+          <Text style={styles.reply} numberOfLines={2}>{p.reply}</Text>
         )}
-        {!p.working && !!p.lastTurn?.outcome && (
-          <Text style={styles.turnInfo} numberOfLines={1} accessibilityLabel={`${OUTCOME_LABEL[p.lastTurn.outcome]}. ${formatScore(p.lastTurn.confidence)}`}>
-            <Text style={[styles.turnOutcome, p.lastTurn.outcome === 'executed' ? { color: C.mint } : { color: C.warning2 }]}>
-              {OUTCOME_LABEL[p.lastTurn.outcome]}
-            </Text>
-            {p.lastTurn.confidence?.low ? ' · held back by Local confidence' : ''}
-            {formatScore(p.lastTurn.confidence) ? ` · ${formatScore(p.lastTurn.confidence)}` : ''}
-          </Text>
+        {!p.working && !!p.lastTurn?.confidence?.low && (
+          <Text style={styles.turnInfo} numberOfLines={1}>{`Held back · ${scoreShort(p.lastTurn.confidence)}`}</Text>
         )}
       </View>
 
@@ -262,7 +249,7 @@ export default function CarAgentScreen(p: Props) {
       ) : (
         <View style={[styles.inputRow, styles.voiceHint]}>
           <MicIcon />
-          <Text style={styles.voiceHintText} numberOfLines={1}>{`Say “${p.wakePhrase}”, then speak`}</Text>
+          <Text style={styles.voiceHintText} numberOfLines={1}>{`“${p.wakePhrase}” + your command`}</Text>
         </View>
       )}
 
@@ -339,7 +326,6 @@ const styles = StyleSheet.create({
   iconPlain: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerEmblem: { width: 32, height: 32, borderRadius: 16, boxShadow: '0 0 8px rgba(52, 211, 153, 0.5)' },
   headerTitle: { fontFamily: F.bold, fontSize: 15, color: C.text },
-  headerSub: { fontFamily: F.regular, fontSize: 11, color: C.text2 },
   segment: { flexDirection: 'row', padding: 3, borderRadius: 12, borderWidth: 1, borderColor: '#2A3632', backgroundColor: C.carbon },
   segmentItem: { height: 38, paddingHorizontal: 11, borderRadius: 9, justifyContent: 'center' },
   segmentOn: { backgroundColor: C.emerald },
@@ -348,7 +334,6 @@ const styles = StyleSheet.create({
   bannerRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginHorizontal: 12, height: 44 },
   banner: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
   bannerOn: { borderColor: C.mint, backgroundColor: 'rgba(16, 185, 129, 0.12)', boxShadow: '0 0 12px rgba(16, 185, 129, 0.3)' },
-  bannerOff: { borderColor: '#34423D', backgroundColor: '#141C19' },
   bannerDot: { width: 8, height: 8, borderRadius: 4 },
   bannerText: { flex: 1, fontFamily: F.semibold, fontSize: 13, color: C.text },
   bannerMeta: { fontFamily: F.regular, fontSize: 12, color: C.text2, maxWidth: '40%' },
@@ -370,7 +355,7 @@ const styles = StyleSheet.create({
   lastCard: {
     marginHorizontal: 12,
     marginTop: 6,
-    minHeight: 96,
+    minHeight: 72,
     paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 14,
@@ -380,10 +365,8 @@ const styles = StyleSheet.create({
     boxShadow: LIFT,
     gap: 3,
   },
-  heard: { fontFamily: F.regular, fontSize: 13, color: C.tag },
-  heardText: { fontFamily: F.medium, color: C.text },
+  heardText: { fontFamily: F.medium, fontSize: 13, color: C.text2 },
   lastTitle: { fontFamily: F.extrabold, fontSize: 17, color: '#FFFFFF' },
-  call: { fontFamily: 'monospace', fontSize: 11, color: C.tag },
   reply: { fontFamily: F.medium, fontSize: 14, lineHeight: 19, color: '#A7F3D0' },
   devArea: { marginHorizontal: 12, marginTop: 8, marginBottom: 16, gap: 8 },
   chipRow: { flexDirection: 'row', gap: 6 },
@@ -420,8 +403,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6)',
   },
   sheetTitle: { fontFamily: F.bold, fontSize: 11, letterSpacing: 2, color: C.mint },
-  turnInfo: { fontFamily: F.medium, fontSize: 12, color: C.text2 },
-  turnOutcome: { fontFamily: F.bold, fontSize: 12 },
+  turnInfo: { fontFamily: F.medium, fontSize: 12, color: C.warning2 },
   settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingLabel: { fontFamily: F.semibold, fontSize: 14, color: C.text },
   settingValue: { fontFamily: F.regular, fontSize: 12, color: C.text2 },

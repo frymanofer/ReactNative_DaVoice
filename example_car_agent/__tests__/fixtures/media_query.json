@@ -1,0 +1,132 @@
+[
+  {
+    "query": "Perma Woman",
+    "user": "Play Pretty Woman",
+    "expect": "Pretty Woman"
+  },
+  {
+    "query": "Perma Woman",
+    "user": "Can you play pretty woman on the radio please?",
+    "expect": "Pretty Woman"
+  },
+  {
+    "query": "woman",
+    "user": "Can you play pretty woman on the radio please?",
+    "expect": "Pretty Woman"
+  },
+  {
+    "query": "Pretty Woman",
+    "user": "Play Pretty Woman",
+    "expect": "Pretty Woman"
+  },
+  {
+    "query": "pretty woman",
+    "user": "Play pretty woman",
+    "expect": "pretty woman"
+  },
+  {
+    "query": "Pretty Woman by Roy Orbison",
+    "user": "Play Pretty Woman by Roy Orbison",
+    "expect": "Pretty Woman by Roy Orbison"
+  },
+  {
+    "query": "Pretty Woman",
+    "user": "Play Pretty Woman by Roy Orbison",
+    "expect": "Pretty Woman by Roy Orbison"
+  },
+  {
+    "query": "Oh, Pretty Woman",
+    "user": "Play Oh, Pretty Woman",
+    "expect": "Oh, Pretty Woman"
+  },
+  {
+    "query": "Bohemian Rapsody",
+    "user": "Play Bohemian Rhapsody",
+    "expect": "Bohemian Rhapsody"
+  },
+  {
+    "query": "relaxing music",
+    "user": "Play something relaxing",
+    "expect": "relaxing music"
+  },
+  {
+    "query": "jazz music",
+    "user": "Play some jazz",
+    "expect": "jazz music"
+  },
+  {
+    "query": "jazz",
+    "user": "Play some jazz",
+    "expect": "jazz"
+  },
+  {
+    "query": "The Beatles",
+    "user": "Play the Beatles",
+    "expect": "The Beatles"
+  },
+  {
+    "query": "Taylor Swift",
+    "user": "Play Taylor Swift",
+    "expect": "Taylor Swift"
+  },
+  {
+    "query": "Perma",
+    "user": "Play Pretty",
+    "expect": "Perma"
+  },
+  {
+    "query": "Hotel California",
+    "user": "Turn on some music",
+    "expect": "Hotel California"
+  },
+  {
+    "query": "Hotel California",
+    "user": "",
+    "expect": "Hotel California"
+  },
+  {
+    "query": "Let Me Play",
+    "user": "Play Let Me Play",
+    "expect": "Let Me Play"
+  },
+  {
+    "query": "Pretty Woman",
+    "user": "Play Pretty Woman, please.",
+    "expect": "Pretty Woman"
+  },
+  {
+    "query": "Perma Woman",
+    "user": "Toca Pretty Woman",
+    "expect": "Pretty Woman"
+  },
+  {
+    "query": "Perma Woman",
+    "user": "Toca pretty woman no rádio por favor",
+    "expect": "Pretty Woman"
+  },
+  {
+    "query": "música do filme Uma Linda Mulher",
+    "user": "Toca a música do filme Uma Linda Mulher",
+    "expect": "música do filme Uma Linda Mulher"
+  },
+  {
+    "query": "Anitta",
+    "user": "Coloca Anitta pra mim",
+    "expect": "Anitta"
+  },
+  {
+    "query": "Garota de Ipanema",
+    "user": "Quero ouvir Garota de Ipanema",
+    "expect": "Garota de Ipanema"
+  },
+  {
+    "query": "Garota Ipanema",
+    "user": "Quero ouvir garota de ipanema",
+    "expect": "Garota Ipanema"
+  },
+  {
+    "query": "Ivete",
+    "user": "Toca Ivete Sangalo",
+    "expect": "Ivete Sangalo"
+  }
+]

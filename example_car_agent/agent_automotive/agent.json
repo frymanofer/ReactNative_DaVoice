@@ -16,10 +16,11 @@
     "notDoneRest": "I didn't do the rest of that. Can you say it again?",
     "done": "Done.",
     "failed": "Sorry, that didn't work.",
-    "notConfirmed": "Okay, I won't do that.",
+    "notConfirmed": "Okay, no problem.",
     "notAuthorized": "Sorry, you're not allowed to do that.",
     "invalidArgs": "Sorry, I didn't get all the details for that. Could you say it again?",
     "scopeClarify": "Sorry, I didn't catch that. Could you say it again?",
+    "scopeAskedDone": "I didn't change anything. If you want me to, just ask.",
     "scopeTooLong": "Could you say that a bit shorter? For example: open the driver's window.",
     "scopeUnsupported": "Sorry, I can't control that in this car.",
     "scopeNoRemote": "I can't answer that here. I can help with the windows, doors, climate, music, navigation and the car's status.",
@@ -869,7 +870,7 @@
         "\\b(?:list|tell\\s+me|what\\s+are)\\s+(?:all\\s+)?your\\s+(?:options|commands|features|skills|capabilities|abilities)\\W*$"
       ],
       "replies": [
-        "I can control the car: navigation, climate, windows, sunroof, doors, seats, radio and music, and tell you how the car is doing. I can also hand a general question to a bigger model. Ask me what I can do in the car for the full list."
+        "I can take care of the car for you: navigation, climate, windows, sunroof, doors, seats, music and the radio, and I can tell you how the car is doing. Ask me what I can do in the car for the full list."
       ]
     },
     {
@@ -877,7 +878,9 @@
       "patterns": [
         "^\\W*(?:(?:hey|hi|hello|ok)\\s+\\w+\\W+)?(?:who|what)\\s+are\\s+you(?:\\s+(?:exactly|really))?\\W*$",
         "^\\W*(?:(?:hey|hi|ok)\\W+)?(?:(?:you|can\\s+you|could\\s+you|please|so)\\s+)?tell\\s+me\\s+(?:who|what)\\s+you\\s+are\\W*$",
-        "^\\W*(?:and\\s+)?who\\s+am\\s+i\\s+talking\\s+to\\W*$"
+        "^\\W*(?:and\\s+)?who\\s+am\\s+i\\s+talking\\s+to\\W*$",
+        "^\\W*(?:(?:hey|hi|hello|ok)\\W+)?(?:what\\s+is|what's|whats)\\s+your\\s+name\\W*$",
+        "^\\W*(?:do\\s+you\\s+have\\s+a\\s+name|what\\s+(?:should|can|do)\\s+i\\s+call\\s+you)\\W*$"
       ],
       "replies": [
         "I am your AI Agent, tuned by DaVoice.io."
@@ -890,7 +893,8 @@
         "^\\W*(?:hey\\W+)?how(?:'|’)?s\\s+it\\s+going\\W*$"
       ],
       "replies": [
-        "I am fine and ready to roll, hope you are too."
+        "I'm doing great, thanks for asking! Ready to roll. How about you?",
+        "All good here, thanks! Where are we headed today?"
       ]
     },
     {
@@ -908,6 +912,19 @@
       ]
     },
     {
+      "id": "joke",
+      "patterns": [
+        "^\\W*(?:(?:hey|ok|okay|so|please)\\W+)?(?:(?:can|could|would)\\s+you\\s+)?(?:tell\\s+me|tell\\s+us|say|give\\s+me|do\\s+you\\s+know|got|know)\\s+(?:a|another|any|one\\s+more)\\s+(?:good\\s+|funny\\s+)?jokes?(?:\\s+please)?\\W*$",
+        "^\\W*(?:(?:another|a)\\s+)?jokes?(?:\\s+please)?\\W*$",
+        "^\\W*make\\s+(?:me|us)\\s+laugh(?:\\s+please)?\\W*$"
+      ],
+      "replies": [
+        "What did the traffic light say to the car? Don't look, I'm changing!",
+        "What's a car's favorite meal? Brake-fast!",
+        "I'd tell you a joke about parking spots, but all the good ones are taken."
+      ]
+    },
+    {
       "id": "thanks",
       "patterns": [
         "^\\W*(?:thanks|thank\\s+you|thx|cheers)(?:\\s+(?:a\\s+lot|so\\s+much|very\\s+much|for\\s+(?:the|your)\\s+help))?\\W*$"
@@ -915,6 +932,48 @@
       "replies": [
         "You're welcome!",
         "Anytime!"
+      ]
+    },
+    {
+      "id": "ack",
+      "patterns": [
+        "^\\W*(?:ok|okay|alright|all\\s+right|got\\s+it|cool|sounds\\s+good|fine)\\W*$"
+      ],
+      "replies": [
+        "Okay!",
+        "Sounds good!"
+      ]
+    },
+    {
+      "id": "feedback",
+      "patterns": [
+        "^\\W*(?:(?:oh|ah|wow|yes|yeah|ok|okay)\\W+)?(?:(?:thanks|thank\\s+you|thx|cheers)\\W+)?(?:(?:that(?:'|’)?s|it(?:'|’)?s|that\\s+is|it\\s+is|this\\s+is|that\\s+feels|it\\s+feels|feels)\\s+)?(?:(?:so|much|a\\s+lot|way)\\s+)?(?:better|perfect|great|nice|awesome|cool|good|lovely|wonderful|excellent|amazing)(?:\\s+now)?(?:\\W+(?:thanks|thank\\s+you|thx|cheers)(?:\\s+(?:a\\s+lot|so\\s+much|very\\s+much))?)?\\W*$"
+      ],
+      "replies": [
+        "Glad I could help!",
+        "Happy to help!"
+      ]
+    },
+    {
+      "id": "bored",
+      "patterns": [
+        "^\\W*(?:(?:oh|ugh|man|so)\\W+)?(?:i'm|i\\s+am|im)\\s+(?:so\\s+|really\\s+|very\\s+|kind\\s+of\\s+|kinda\\s+)?bored\\W*$",
+        "^\\W*(?:this\\s+is|it's|its)\\s+(?:so\\s+)?boring\\W*$"
+      ],
+      "replies": [
+        "Some music might help. Just tell me an artist or a station.",
+        "I can put on some music. Just name an artist or a station."
+      ]
+    },
+    {
+      "id": "tired",
+      "patterns": [
+        "^\\W*(?:(?:oh|ugh|man|so)\\W+)?(?:i'm|i\\s+am|im)\\s+(?:so\\s+|really\\s+|very\\s+|getting\\s+|kind\\s+of\\s+|kinda\\s+)?(?:tired|sleepy|exhausted|drowsy)\\W*$",
+        "^\\W*i\\s+(?:need|could\\s+use)\\s+(?:a\\s+)?(?:break|rest|nap)\\W*$"
+      ],
+      "replies": [
+        "Please take a break when it's safe. I can find a coffee shop or a rest area along the way, just ask.",
+        "Stay safe. If you need a break, ask me to find a rest area or a coffee shop."
       ]
     },
     {

@@ -21,6 +21,7 @@ import { getLocalAgent } from '../agent/LocalAgent';
 import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
 import { getCarState } from '../car/CarState';
 import { setCarUndoResults } from '../car/carTools';
+import { basicMessage, isBasicLanguage } from '../car/basicLanguage';
 import { GENERAL_QUESTIONS_LOCAL_INTRO, GENERAL_QUESTIONS_LOCAL_NO_ANSWER, GENERAL_QUESTIONS_MODE, GENERAL_QUESTIONS_SOURCE_LEAD } from '../../general_questions.config';
 import { DEFAULT_CONFIDENCE, readTurn, toCoreConfidence, type TurnConfidence, type TurnOutcome } from '../local_llm/confidence';
 
@@ -106,8 +107,8 @@ function safetySettings(language: string): Record<string, unknown> {
     neverAct: true,
     seatAsk: true,
     messages: {
-      whichSeat: pt ? 'Qual banco: o seu, o do carona ou os dois?' : "Which seat: yours, the passenger's, or both?",
-      unsupported: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en,
+      whichSeat: basicMessage(language, 'whichSeat') ?? (pt ? 'Qual banco: o seu, o do carona ou os dois?' : "Which seat: yours, the passenger's, or both?"),
+      unsupported: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? basicMessage(language, 'notInDemo') ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en,
     },
   };
 }
@@ -223,12 +224,18 @@ export class LocalLLMProvider implements LLMProvider {
     // "safety"): never-act + "which seat?" stay on whatever the confidence setting; only their sentences follow the app's language.
     const language = getTTSLanguage();
     const confidence = currentLocalDemo() === 'car' ? await getLocalConfidence() : { ...DEFAULT_CONFIDENCE, enabled: false };
-    const confidenceKey = `${JSON.stringify(confidence)}|${language}|${GENERAL_QUESTIONS_MODE}`;
+    const confidenceKey = `${JSON.stringify(confidence)}|${language}|${GENERAL_QUESTIONS_MODE}|${model.id}`;
     if (this.confidenceSentTo !== agent || this.confidenceSent !== confidenceKey) {
       this.confidenceSentTo = agent;
       this.confidenceSent = confidenceKey;
       await agent.configure({
         ...({ confidence: toCoreConfidence(confidence, language), safety: safetySettings(language) } as Record<string, unknown>),
+        // Basic language (src/car/basicLanguage.ts): the command scope and the checks that look for English / Portuguese words would
+        // drop or block nearly every request, so they are off; every car action is asked first and runs only after a yes instead.
+        // The tuned languages get the model's own settings back (sent again whenever the language or the model changes).
+        ...(currentLocalDemo() === 'car' && isBasicLanguage(language)
+          ? ({ scope: { enabled: false }, guards: { ...callGuardSettings(model.callGuards ?? 'off', model.historyAsRun === true), capability: 'off', polarity: 'off' } } as Record<string, unknown>)
+          : ({ scope: model.scope ?? { enabled: false }, guards: callGuardSettings(model.callGuards ?? 'off', model.historyAsRun === true) } as Record<string, unknown>)),
       });
       // general_questions.config.ts 'local' (core 2026-11-19, remote {"answer": "self"}): a general question is answered by this model
       // itself after the intro. Sent on its own: an older core refuses "self" and keeps the app's remote (= the 'message' behaviour).
