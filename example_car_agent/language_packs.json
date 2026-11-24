@@ -24,14 +24,14 @@
     },
     "pt-BR": {
       "model": {
-        "file": "model_ex2_portuguese_brv1.dm",
-        "bytes": 144660496,
-        "sha256": "49b98fe134199b5131f8cf3434f319ab5287fd176efa347eaf170434d8c9ea6e"
+        "file": "model_ex2_portuguese_brv3.dm",
+        "bytes": 144588816,
+        "sha256": "02ff046fe08919c0d355f5b493359202bf80ca4288d70dbc6805638cef927625"
       },
       "embedder": {
-        "file": "embedder_brv1.dm",
-        "bytes": 22915184,
-        "sha256": "a7fe390bca79e6a5740798367a09b29dec4b98719ca2146bdf9070882ee51f3d"
+        "file": "embedder_brv3.dm",
+        "bytes": 22182533,
+        "sha256": "40ba819bfeea8798d7da1eab0b524906dd72354d8c1b017d6b9fddaad4b9c6de"
       }
     },
     "pt-PT": {
