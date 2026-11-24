@@ -72,7 +72,7 @@ export async function playWakewordIntroSpeech({
   const speechUiEpoch = beginSpeechUiEpoch();
   await Speech.pauseSpeechRecognition();
   const introLine =
-    `My name is ${selectedSpeakerName}, and I am one of the coaches in the Lunafit app. I love helping people reach their fitness goals.`;
+    `Hello. My name is ${selectedSpeakerName}. In this app, I will use my cloned voice to demonstrate the capabilities of our voice AI agent.`;
   // setMessageGuarded(speechUiEpoch, `${selectedSpeakerName} is speaking...`);
   // setIntroSpeakerName(selectedSpeakerName);
   // setIntroScript(introLine);
@@ -88,10 +88,7 @@ export async function playWakewordIntroSpeech({
   // await Speech.unPauseSpeechRecognition(-1);
   // console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) after intro speech');
 
-  // Hi! Welcome to Lunafit! My name is Ariana. Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!
-  // Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!
   /*
-  await speak("Hi, Welcome to Lunafit, My name is Ariana, Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals, It's about owning your journey!");
   await speak("Hello, as an AI , I don't have feelings , but I'm here and ready to help you with anything you need. Today, how can I assist you?", SPEAKER, SPEAKER_SPEED);
   await speak("let me demonstrate. Are you ready.", SPEAKER, SPEAKER_SPEED);
   await speak("Hey, how are you?", SPEAKER, SPEAKER_SPEED);
