@@ -2072,10 +2072,7 @@ function App(): React.JSX.Element {
       */
 
       // await Speech.speak("This is the first, \
-      //   react native package with full voice support! \
-      //   Luna fitness application is using this package. \
-      //   Inside Luna Fitness application you will here things like: \
-      //   Besides tracking, LunaFit also gives you personalized plans for all those pillars and helps you crush your health and fitness goals. It's about owning your journey!");
+      //   react native package with full voice support!");
 
       // setTimeout(async () => {
       //   await Speech.pauseSpeechRecognition();
