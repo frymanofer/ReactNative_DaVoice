@@ -1,6 +1,7 @@
 import RNFS from 'react-native-fs';
 import type { LocalLLMModelConfig, ModelId } from './types';
 import { LOCAL_LLM_STORAGE_DIR } from './constants';
+import { downloadResumable } from './resumableDownload';
 
 // Real download/cache logic (same RNFS.downloadFile pattern already
 // documented for this feature in local_llm.md's Stage 4) — only the actual
@@ -81,35 +82,16 @@ async function downloadModelOnce(
     await RNFS.mkdir(dir);
   }
 
+  // Continues an earlier, stopped download of this file (also from an earlier app start); see resumableDownload.ts.
   const tmpDest = `${dest}.download`;
-  const { promise } = RNFS.downloadFile({
-    fromUrl: model.url,
-    toFile: tmpDest,
-    // Required on iOS even though the result is ignored here: iOS's
-    // downloader only records the status code and content length inside its
-    // `begin` branch, and gates every `progress` callback on statusCode ==
-    // 200. Without a `begin` handler that gate is never satisfied and
-    // progress silently never fires (found the hard way in a sibling app —
-    // see the AmigoLocal `modelStore.ts` writeup in memory).
-    begin: () => {},
-    progress: onProgress
-      ? (res) => {
-          if (res.contentLength > 0) {
-            onProgress(res.bytesWritten / res.contentLength);
-          }
-        }
-      : undefined,
-    // Time-based throttling (~10fps), not `progressDivider`'s percent-based
-    // throttling: a multi-GB file only crosses ~30 whole-percent boundaries
-    // total, which is too coarse for a smooth progress bar.
-    progressInterval: 100,
+  await downloadResumable({
+    url: model.url,
+    tmpPath: tmpDest,
+    // exact only for models with a sha256 (built-in); a custom model's size is approximate (types.ts)
+    expectedBytes: model.sha256 ? model.sizeBytes : undefined,
+    onProgress,
+    log: `[LocalLLM] model download (${model.displayName}):`,
   });
-
-  const result = await promise;
-  if (result.statusCode !== 200) {
-    await RNFS.unlink(tmpDest).catch(() => undefined);
-    throw new Error(`Model download failed for ${model.displayName}: HTTP ${result.statusCode}`);
-  }
 
   // A cut-off or wrong file would otherwise load as a broken model.
   if (model.sha256) {
@@ -177,19 +159,10 @@ export function downloadPrebuiltState(
     // The phone already saved its own state for this language (states are named "<lang>-<prompt hash>"): no 400 MB download.
     const own = `${kvStatePrefix(model)}${language}-`;
     if ((await RNFS.readDir(modelsDir())).some((e) => e.name.startsWith(own) && e.name.endsWith('.kvstate'))) return null;
+    // 2026-11-24 S20 (pt-BR): RNFS's default 15 s silence timeout ended this download on a short network stall and the phone warmed
+    // up itself (~28 s of "Warming up"). Now it continues where it stopped (also at the next app start); see resumableDownload.ts.
     const tmp = `${dest}.download`;
-    const { promise } = RNFS.downloadFile({
-      fromUrl: entry.url,
-      toFile: tmp,
-      begin: () => {},   // iOS needs a begin handler for progress (see downloadModelOnce)
-      progress: onProgress ? (res) => { if (res.contentLength > 0) onProgress(res.bytesWritten / res.contentLength); } : undefined,
-      progressInterval: 100,
-    });
-    const result = await promise;
-    if (result.statusCode !== 200) {
-      await RNFS.unlink(tmp).catch(() => undefined);
-      throw new Error(`pre-warmed state download failed: HTTP ${result.statusCode}`);
-    }
+    await downloadResumable({ url: entry.url, tmpPath: tmp, expectedBytes: entry.sizeBytes, onProgress, log: `[LocalLLM] pre-warmed state (${language}):` });
     const hash = (await RNFS.hash(tmp, 'sha256')).toLowerCase();
     if (hash !== entry.sha256.toLowerCase()) {
       await RNFS.unlink(tmp).catch(() => undefined);

@@ -110,7 +110,7 @@ import { carTurnInput, noteCarReply, noteCarSpoken } from './src/car/followUp';
 const CAR_ACK_AFTER_MS = 1200;
 import { basicMessage, basicReplyFix, isBasicLanguage, normalizeYesNo } from './src/car/basicLanguage';
 import { REMOTE_ANSWERS_ONLINE } from './src/aichat/remote';
-import { isModelReady } from './src/local_llm/LocalLLMLoader';
+import { getActiveModelId, isModelReady } from './src/local_llm/LocalLLMLoader';
 import { connectMcpServer } from 'react-native-davoice-llm';
 import type { ToolDefinition } from 'react-native-davoice-llm';
 import CarCard from './src/car/CarCard';
@@ -1540,6 +1540,12 @@ function App(): React.JSX.Element {
         } else if (progress) {
           aiReply = `The on-device model, ${localModel.displayName}, is still downloading. It is ${progress[1]} percent done. Please ask me again when it is ready.`;
         } else {
+          // No load running for it (2026-11-24 S20: a reload of the app's code cleared the loader's state while the screen still said
+          // "Ready", and every request answered "still loading"): load it again.
+          if (getActiveModelId() !== localModel.id) {
+            console.log('[AIChat] model not loaded and no load running: loading it again');
+            warmUpLocalModel(aiChatMessages);
+          }
           aiReply = `The on-device model, ${localModel.displayName}, is still loading. Please ask me again in a moment.`;
         }
       } else if (useLocalLLM) {
@@ -2652,7 +2658,7 @@ function App(): React.JSX.Element {
     return (
       <LanguageHoodScreen
         languages={hoodLanguages}
-        defaultId="pt-BR"
+        defaultId="en"
         onInstall={(id) => selectAppLanguage(id as AppLanguage)}
       />
     );

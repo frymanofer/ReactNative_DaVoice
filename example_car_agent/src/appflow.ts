@@ -40,13 +40,23 @@ export const APP_LANGUAGES: {
   /** Supported but not offered on the language screen (still works if selected in code / stored). */
   hidden?: boolean;
 }[] = [
-  // Order = quality (2026-11-19): English; Spanish, Italian, German, Dutch (some word errors); Brazilian Portuguese (kept here for
-  // VW Brazil); Greek, Swedish, Danish (a bit robotic); French, European Portuguese (more mistakes). Hebrew is hidden.
+  // Order (2026-11-24, user): English, then Brazilian Portuguese (the two tuned languages); then by quality (2026-11-19): Spanish,
+  // Italian, German, Dutch (some word errors); Greek, Swedish, Danish (a bit robotic); French, European Portuguese (more mistakes). Hebrew is hidden.
   {
     id: 'en',
     label: 'English',
     sttLocale: 'en-US',
     llmReplyInstruction: 'The user speaks English. Always reply in English.',
+  },
+  {
+    id: 'pt-BR',
+    label: 'Português do Brasil (Brazilian Portuguese)',
+    sttLocale: 'pt-BR',
+    // Short: the local agent's pack also ends every message to the model with
+    // a reminder (agent/pt-BR/agent.json prompts.replyReminder), which small
+    // models follow better than the system prompt.
+    llmReplyInstruction:
+      'Important: always reply in Brazilian Portuguese (pt-BR). Sempre responda em português do Brasil.',
   },
   {
     id: 'es',
@@ -71,16 +81,6 @@ export const APP_LANGUAGES: {
     label: 'Nederlands (Dutch)',
     sttLocale: 'nl-NL',
     llmReplyInstruction: 'The user speaks Dutch. Always reply in Dutch.',
-  },
-  {
-    id: 'pt-BR',
-    label: 'Português do Brasil (Brazilian Portuguese)',
-    sttLocale: 'pt-BR',
-    // Short: the local agent's pack also ends every message to the model with
-    // a reminder (agent/pt-BR/agent.json prompts.replyReminder), which small
-    // models follow better than the system prompt.
-    llmReplyInstruction:
-      'Important: always reply in Brazilian Portuguese (pt-BR). Sempre responda em português do Brasil.',
   },
   {
     id: 'el',
