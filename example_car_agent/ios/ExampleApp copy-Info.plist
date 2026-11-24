@@ -4,7 +4,7 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.lunafit.voicetest.processing</string>
+		<string>io.davoice.voice2voice.caragent.processing</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>

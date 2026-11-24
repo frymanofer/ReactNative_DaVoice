@@ -500,7 +500,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.lunafit.voicetest;
+				PRODUCT_BUNDLE_IDENTIFIER = io.davoice.example.wakeword;
 				PRODUCT_NAME = ExampleApp;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -529,7 +529,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.lunafit.voicetest;
+				PRODUCT_BUNDLE_IDENTIFIER = io.davoice.example.wakeword;
 				PRODUCT_NAME = ExampleApp;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
