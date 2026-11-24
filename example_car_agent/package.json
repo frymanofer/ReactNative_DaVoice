@@ -20,6 +20,7 @@
     "react-native-fs": "^2.20.0",
     "react-native-svg": "15.16.1",
     "react-native-wakeword": "1.1.172",
+    "react-native-webview": "14.0.1",
     "tweetnacl": "1.0.3"
   },
   "devDependencies": {

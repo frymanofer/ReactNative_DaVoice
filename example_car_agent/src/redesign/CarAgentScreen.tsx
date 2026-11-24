@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Image,
   Keyboard,
-  LayoutChangeEvent,
   Pressable,
   StatusBar,
   ScrollView,
@@ -16,7 +15,7 @@ import {
 import Svg, { Path, Rect } from 'react-native-svg';
 import { getCarActions, getCarState, onCarChange, resetCar, setDriving } from '../car/CarState';
 import type { CarState } from '../car/CarState';
-import CarDrawing, { CAR_ASPECT } from './CarDrawing';
+import Car3DView from './Car3DView';
 import { CarbonFill, Chevron, EMBLEM, PrimaryButton, SecondaryButton, statusBarHeight } from './chrome';
 import { C, F, PRIMARY_GRADIENT, LIFT, MESSAGE_CARD } from './theme';
 import ConfidenceControls from './ConfidenceControls';
@@ -79,17 +78,13 @@ function banner(s: CarState): { text: string; meta: string } | null {
   return null;
 }
 
-function Stat({ label, value, unit, sub, align, big, color }: {
-  label: string; value: string; unit?: string; sub?: string; align: 'left' | 'right'; big?: boolean; color?: string;
-}) {
+function Stat({ label, value, color, wide }: { label: string; value: string; color?: string; wide?: boolean }) {
   return (
-    <View style={{ gap: 1, alignItems: align === 'left' ? 'flex-start' : 'flex-end' }}>
+    <View style={[styles.stat, wide && { flex: 1.6 }]}>
       <Text style={styles.statLabel}>{label.toUpperCase()}</Text>
-      <Text style={[big ? styles.statBig : styles.statValue, color ? { color } : null]} numberOfLines={1}>
+      <Text style={[styles.statValue, color ? { color } : null]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
-        {!!unit && <Text style={styles.statUnit}>{unit}</Text>}
       </Text>
-      {!!sub && <Text style={styles.statSub} numberOfLines={1}>{sub}</Text>}
     </View>
   );
 }
@@ -105,7 +100,6 @@ function IconButton({ label, onPress, children }: { label: string; onPress: () =
 export default function CarAgentScreen(p: Props) {
   const [, setVersion] = useState(0);
   useEffect(() => onCarChange(() => setVersion((v) => v + 1)), []);
-  const [area, setArea] = useState({ w: 0, h: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The sheet edits a draft; nothing changes in the app until Save (Cancel or a tap outside drops the draft).
   const [draftConversation, setDraftConversation] = useState<ConversationSettings>(p.conversation);
@@ -156,10 +150,6 @@ export default function CarAgentScreen(p: Props) {
     setText('');
     p.onSendText(t);
   };
-
-  const onArea = (e: LayoutChangeEvent) => setArea({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
-  const sideW = Math.max(76, area.w * 0.2);
-  const carW = Math.max(0, Math.min(area.h * CAR_ASPECT, area.w - 2 * sideW));
 
   return (
     <View style={styles.root}>
@@ -218,18 +208,16 @@ export default function CarAgentScreen(p: Props) {
         </IconButton>
       </View>
 
-      <View style={styles.stage} onLayout={onArea}>
-        <View style={[styles.side, { left: 10, width: sideW }]}>
-          <Stat align="left" big label="Driver" value={`${s.temperature.driver}°`} />
-          <Stat align="left" label="Fan" value={String(s.fan)} unit=" / 7" />
-          <Stat align="left" label="Fuel" value={`${s.fuelPercent}%`} />
-        </View>
-        <View style={[styles.side, { right: 10, width: sideW, alignItems: 'flex-end' }]}>
-          <Stat align="right" big label="Passenger" value={`${s.temperature.passenger}°`} />
-          <Stat align="right" label="Volume" value={s.muted ? 'Muted' : String(s.volume)} sub={s.radio ? 'Radio' : s.source} />
-          <Stat align="right" label="Doors" value={doorsLabel} color={openDoors || s.locked ? C.mint : undefined} />
-        </View>
-        {carW > 0 && <CarDrawing state={s} latest={latest} width={carW} />}
+      <View style={styles.stage}>
+        <Car3DView paused={p.working}>
+          <View style={styles.stats} pointerEvents="none">
+            <Stat label="Driver" value={`${s.temperature.driver}°`} />
+            <Stat label="Pass." value={`${s.temperature.passenger}°`} />
+            <Stat label="Fan" value={String(s.fan)} />
+            <Stat label="Vol" value={s.muted ? 'Muted' : String(s.volume)} />
+            <Stat label="Doors" value={doorsLabel} color={openDoors || s.locked ? C.mint : undefined} wide />
+          </View>
+        </Car3DView>
       </View>
 
       <View style={[styles.lastCard, { borderColor: blocked ? 'rgba(245, 158, 11, 0.8)' : latest || p.heard ? C.mint : '#1F2B27' }]} accessibilityLiveRegion="polite">
@@ -400,20 +388,21 @@ const styles = StyleSheet.create({
   bannerText: { flex: 1, fontFamily: F.semibold, fontSize: 13, color: C.text },
   bannerMeta: { fontFamily: F.regular, fontSize: 12, color: C.text2, maxWidth: '40%' },
   iconButton: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#2A3632', backgroundColor: C.carbon, alignItems: 'center', justifyContent: 'center' },
-  stage: {
+  stage: { flex: 1, minHeight: 0, marginTop: 4 },
+  stats: { position: 'absolute', left: 10, right: 10, bottom: 8, flexDirection: 'row', gap: 6 },
+  stat: {
     flex: 1,
-    minHeight: 0,
-    marginTop: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    experimental_backgroundImage: 'radial-gradient(ellipse at 50% 50%, #0C1512 0%, rgba(6, 9, 8, 0) 70%)',
+    minWidth: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1F2B27',
+    backgroundColor: 'rgba(8, 13, 11, 0.78)',
+    gap: 1,
   },
-  side: { position: 'absolute', top: 24, gap: 18 },
-  statLabel: { fontFamily: F.bold, fontSize: 10, letterSpacing: 1.2, color: C.text2 },
-  statBig: { fontFamily: F.bold, fontSize: 28, color: C.text, fontVariant: ['tabular-nums'] },
-  statValue: { fontFamily: F.bold, fontSize: 18, color: C.text },
-  statUnit: { fontFamily: F.regular, fontSize: 12, color: C.text2 },
-  statSub: { fontFamily: F.regular, fontSize: 11, color: C.text2 },
+  statLabel: { fontFamily: F.bold, fontSize: 9, letterSpacing: 1.1, color: C.text2 },
+  statValue: { fontFamily: F.bold, fontSize: 15, color: C.text, fontVariant: ['tabular-nums'] },
   lastCard: {
     marginHorizontal: 12,
     marginTop: 6,
