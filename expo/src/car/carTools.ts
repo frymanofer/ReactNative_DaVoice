@@ -28,6 +28,7 @@ import carToolsH3Json from './carToolDefinitions.h3.json';
 import carToolsH3dJson from './carToolDefinitions.h3d.json';
 import { adj, be, name, placeName, resolve } from './positions';
 import { restoreCalls } from './undo';
+import { addPending, basicAnswer, basicCannot, basicDone, basicDriving, confirmQuestion, isBasicLanguage, takeConfirmed } from './basicLanguage';
 import type { Lang, Name, Obj, Pos } from './positions';
 
 type Args = Record<string, any>;
@@ -42,7 +43,16 @@ const L = (en: string, ptText: string) => (pt() ? ptText : en);
 const lang = (): Lang => (pt() ? 'pt-BR' : 'en');
 
 /** Refused by the app: nothing changes; the message is a full sentence the user hears (the turn ends there). */
-class Refused extends Error {}
+/** `offer`: what a plain "yes" to the refusal's question means (the agent core runs these calls on the user's yes, without the model;
+ * 2026-11-18 phone: "Close them first?" - "Yes." ran lock_car again). */
+type OfferCall = { name: string; arguments: Args };
+class Refused extends Error {
+  offer?: { calls: OfferCall[] };
+  constructor(message: string, offer?: OfferCall[]) {
+    super(message);
+    if (offer && offer.length) this.offer = { calls: offer };
+  }
+}
 
 const PT_SEAT: Record<string, string> = { driver: 'motorista', passenger: 'passageiro', rear_left: 'traseiro esquerdo', rear_right: 'traseiro direito' };
 const PT_LEVEL: Record<string, string> = { off: 'desligado', low: 'baixo', medium: 'médio', high: 'alto' };
@@ -105,9 +115,13 @@ function lockDoors(door: unknown, lock: boolean): Outcome {
     const open = which.filter((k) => s0.doors[k] === 'open');
     if (open.length) {
       const on = open.length === 1 ? placeName(open[0], 'door', lang()) : name('all', 'door', lang());
+      // yes = close what is open, then lock what was asked
+      // (the whole car asked and more than one door open: one call for all the doors, so the reply stays short)
+      const closing: OfferCall[] = whole && open.length > 1 ? [{ name: 'close_doors', arguments: { door: 'all' } }] : open.map((k) => ({ name: 'close_doors', arguments: { door: k } }));
+      const offer: OfferCall[] = [...closing, { name: 'lock_car', arguments: door === undefined || door === null ? {} : { door } }];
       throw new Refused(open.length === 1
         ? L(`I can't lock it while ${on.text} is open. Close it first?`, `Não consigo trancar com ${on.text} ${adj('abert', on)}. Quer que eu feche primeiro?`)
-        : L("I can't lock the car while doors are open. Close them first?", 'Não consigo trancar com portas abertas. Quer que eu feche primeiro?'));
+        : L("I can't lock the car while doors are open. Close them first?", 'Não consigo trancar com portas abertas. Quer que eu feche primeiro?'), offer);
     }
   }
   const stem = lock ? 'trancad' : 'destrancad';
@@ -275,10 +289,15 @@ const HANDLERS: Record<string, Handler> = {
     // Locked: the app asks; the model never unlocks on its own (2026-11-10 phone: "open all the doors" -> the model ran unlock_car).
     const lockedNow = which.filter((k) => getCarState().doorLocks[k]);
     if (lockedNow.length) {
-      if (lockedNow.length === 4) throw new Refused(L('The car is locked. Should I unlock it?', 'O carro está trancado. Quer que eu destranque?'));
+      // yes = unlock what is locked, then open what was asked
+      const opening: OfferCall = { name: 'open_door', arguments: door === undefined || door === null ? {} : { door } };
+      if (lockedNow.length === 4) {
+        throw new Refused(L('The car is locked. Should I unlock it?', 'O carro está trancado. Quer que eu destranque?'), [{ name: 'unlock_car', arguments: {} }, opening]);
+      }
       const ln = lockedNow.length === 1 ? placeName(lockedNow[0], 'door', lang()) : n;
       throw new Refused(L(`${cap(ln.text)} ${be(ln, 'en')} locked. Should I unlock ${ln.plural ? 'them' : 'it'}?`,
-                          `${cap(ln.text)} ${be(ln, 'pt-BR')} ${adj('trancad', ln)}. Quer que eu destranque?`));
+                          `${cap(ln.text)} ${be(ln, 'pt-BR')} ${adj('trancad', ln)}. Quer que eu destranque?`),
+                        [...lockedNow.map((k) => ({ name: 'unlock_car', arguments: { door: k } })), opening]);
     }
     if (which.every((k) => getCarState().doors[k] === 'open')) {
       return already(L(`${n.text} already open`, `${n.text} já ${adj('abert', n)}`), L(`${cap(n.text)} ${be(n, 'en')} already open.`, `${cap(n.text)} já ${be(n, 'pt-BR')} ${adj('abert', n)}.`));
@@ -386,15 +405,30 @@ const HANDLERS: Record<string, Handler> = {
     updateCar((s) => ({ ...s, audioFocus: String(seat) }));
     return done(seat === 'all' ? L('sound for everyone', 'som para todos') : L(`sound focused on ${words(String(seat))}`, `som focado no ${PT_SEAT[seat] ?? seat}`));
   },
-  set_volume: ({ action, level }) => {
+  set_volume: ({ action: asked, level, change }) => {
     const s0 = getCarState();
     let volume = s0.volume;
-    if (action === 'set' || (level !== undefined && action !== 'mute' && action !== 'unmute')) volume = range(level, 0, 30, L('Volume', 'O volume'));
+    let action = asked;
+    // A step of the user's own size ("by 5", "2 notches"; 2026-11-18: "raise the volume by two" set the volume to 2):
+    //   change = the step (the agent core writes it from the user's words: execution.stepArgument in the tool definitions);
+    //   "up" with a level BELOW the current volume, or "down" with one ABOVE it, cannot be a target: it is the step.
+    const amount = change === undefined || change === null || typeof change === 'boolean' ? NaN : Number(change);
+    const target = level === undefined || level === null || typeof level === 'boolean' ? NaN : Number(level);
+    let step: number | undefined;
+    if (action !== 'mute' && action !== 'unmute') {
+      if (Number.isFinite(amount) && amount !== 0) step = amount < 0 || action === 'down' ? -Math.abs(amount) : Math.abs(amount);
+      else if (Number.isFinite(target) && action === 'up' && target > 0 && target < volume) step = target;
+      else if (Number.isFinite(target) && action === 'down' && target > volume) step = -target;
+    }
+    if (step !== undefined) {
+      volume = Math.max(0, Math.min(30, s0.volume + step));
+      action = step > 0 ? 'up' : 'down';
+    } else if (action === 'set' || (level !== undefined && action !== 'mute' && action !== 'unmute')) volume = range(level, 0, 30, L('Volume', 'O volume'));
     else if (action === 'up') volume = Math.min(30, s0.volume + 3);
     else if (action === 'down') volume = Math.max(0, s0.volume - 3);
     if (action === 'mute' && s0.muted) return already(L('already muted', 'já no mudo'), L('The sound is already muted.', 'O som já está no mudo.'));
     if (action === 'unmute' && !s0.muted) return already(L('sound already on', 'som já ligado'), L(`The sound is already on, volume ${s0.volume}.`, `O som já está ligado, volume ${s0.volume}.`));
-    if ((action === 'set' || (action !== 'up' && action !== 'down' && level !== undefined)) && volume === s0.volume && !s0.muted) {
+    if (step === undefined && (action === 'set' || (action !== 'up' && action !== 'down' && level !== undefined)) && volume === s0.volume && !s0.muted) {
       return already(L(`volume already ${volume}`, `volume já em ${volume}`), L(`The volume is already at ${volume}.`, `O volume já está em ${volume}.`));
     }
     const muted = action === 'mute' ? true : action === 'unmute' || action === 'up' || action === 'set' ? false : s0.muted;
@@ -480,10 +514,20 @@ function toTool(t: any): ToolDefinition {
       const run = HANDLERS[t.name];
       // The agent runs a recorded restoring call ("desfaz"): same checks, a sentence that says it was undone, nothing recorded again.
       const undoing = context?.undo === true;
+      // Basic language (basicLanguage.ts): not tuned, so every state change is asked first and runs only after the user's yes
+      const language = getTTSLanguage();
+      const basic = isBasicLanguage(language);
       try {
         if (!run) throw new Refused(L("Sorry, this car doesn't have that function.", 'Desculpe, este carro não tem essa função.'));
         if (getCarState().driving && NOT_WHILE_DRIVING[t.name]?.(args)) {
-          throw new Refused(L("I can't do that while the car is moving.", 'Não posso fazer isso com o carro em movimento.'));
+          throw new Refused(basic ? basicDriving(language) : L("I can't do that while the car is moving.", 'Não posso fazer isso com o carro em movimento.'));
+        }
+        if (basic && !undoing && !READ_ONLY_TOOLS.has(t.name) && !takeConfirmed(t.name, args)) {
+          const asked = addPending([{ name: t.name, arguments: args }]);
+          const question = confirmQuestion([{ name: t.name, arguments: args }], language);
+          console.log(`[Car] ASK ${t.name} ${JSON.stringify(args)} (basic ${language}): ${question}`);
+          // the offer holds every call asked in this request (the core keeps one offer per request): one yes runs them all
+          return toolReply({ ok: false, refused: 'waiting for the user to confirm', confirm: true, offer: { calls: asked } }, question);
         }
         // vehicle policy: an undo never unlocks the car while it moves
         if (undoing && t.name === 'unlock_car' && getCarState().driving) {
@@ -498,6 +542,8 @@ function toTool(t: any): ToolDefinition {
           if (undo !== undefined) result = { ...result, undo };
         }
         if (undoing && say) say = L(`Undone. ${say}`, `Desfeito. ${say}`);
+        // Basic language: the user just confirmed this exact action, so a short "done" in their language; lookups say their answer
+        if (basic) say = READ_ONLY_TOOLS.has(t.name) ? basicAnswer(t.name, args, language, getCarState()) ?? say : basicDone(language);
         recordCarAction(t.name, args, summary);
         console.log(`[Car] ${t.name} ${JSON.stringify(args)} -> ${summary}`);
         // The app says what it did (2026-11-10: a sentence naming the action, not "Done") and the turn ends there: no second
@@ -517,7 +563,19 @@ function toTool(t: any): ToolDefinition {
           // undo (core g29zk): a state-changing call that did not go through is still the last action, so "desfaz" right after it says
           // nothing was done instead of restoring an older action ({"ok": false} + "undo": false)
           const failedUndo = undoResults && !undoing && !READ_ONLY_TOOLS.has(t.name) ? { undo: false } : {};
-          return toolReply({ ok: false, refused: reason, ...failedUndo }, /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`));
+          let offered: { offer?: { calls: OfferCall[] } } = error.offer && !undoing ? { offer: error.offer } : {};
+          let refusal = /[.?!]$/.test(text) ? text : L(`I didn't do that: ${reason}.`, `Não fiz isso: ${reason}.`);
+          if (basic) {
+            // the tool's own sentences are English / Portuguese: a refusal with an offer becomes the question for that offer
+            if (offered.offer) {
+              const calls = addPending(offered.offer.calls);
+              offered = { offer: { calls } };
+              refusal = confirmQuestion(calls, language);
+            } else {
+              refusal = reason === basicDriving(language) ? reason : basicCannot(language);
+            }
+          }
+          return toolReply({ ok: false, refused: reason, ...failedUndo, ...offered }, refusal);
         }
         throw new Error(`Not done: ${reason}`);
       }

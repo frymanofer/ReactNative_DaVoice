@@ -70,7 +70,7 @@ function agentSettings(): AgentConfig {
 // comparing the user's words with example sentences. Downloaded once; until
 // then the router compares words directly.
 const EMBEDDING_MODEL_URL =
-  'https://huggingface.co/second-state/All-MiniLM-L6-v2-Embedding-GGUF/resolve/main/all-MiniLM-L6-v2-Q8_0.gguf';
+  'https://pub-27f94b1602c647ab95a601086cf52820.r2.dev/agent-llm/router/all-MiniLM-L6-v2-Q8_0.gguf';
 const EMBEDDING_MODEL_PATH = `${RNFS.DocumentDirectoryPath}/models/all-MiniLM-L6-v2-Q8_0.gguf`;
 
 async function setUpRouterEmbeddings(agent: Agent): Promise<void> {

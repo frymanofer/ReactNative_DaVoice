@@ -654,95 +654,24 @@ conversation) as if spoken. Neither exists in a release build.
    person, that `speakerId` shows in the STT results, and that another voice can't unlock
    the car.
 
-### 2.5 Turn-based conversation: the user waits for the AI to finish
+### 2.5 Conversation modes: taking turns, the stop word and interrupting
 
-**How it works today.** The AI chat (local and Gemini) is **turn-based**. The user **cannot
-interrupt** the AI:
+The gear next to the microphone line on the chat screens sets how the conversation works (`src/conversation/`). Changes are a
+draft until **Save**.
 
-1. The user speaks. When they go silent, the app sends the sentence to the AI.
-2. At that moment STT is paused (`Speech.pauseSpeechRecognition()` in `processAIChatTurn`,
-   `App.tsx`). While `aiChatInFlightRef` is set, STT results are ignored
-   (`src/stt/index.ts`).
-3. The AI thinks and speaks its reply, sentence by sentence.
-4. Only after the last audio finishes does `finishAIChatSpeechFlow` reopen the microphone
-   for the next turn.
+- **Take turns** (default): listening pauses while the AI thinks and speaks, so it never hears its own voice. The reply ends →
+  listening again (just talk), or back to the wake word (wake word mode; after a reply that asks a question, the answer needs no
+  wake word).
+- **Wake word stops the agent** (wake word mode, off by default): the wake word listens while the AI speaks; saying it stops the
+  reply and opens a fresh turn. That turn starts with pre-fetch 0, so neither the stop phrase nor the AI's voice is replayed into it,
+  and whatever was heard meanwhile is discarded, never sent.
+- **Interrupt**: speech recognition stays open under the AI's voice. Words the AI is not saying stop it and start the user's next
+  request; words it is saying are its own echo and are ignored (`src/conversation/bargeIn.ts`). It needs echo cancellation
+  (`AEC: { mode: 'always' }` in the routing config on iOS; experimental on Android). In a car, combine it with speaker verification
+  (1.3) so only the owner's voice can interrupt.
 
-While the AI thinks or speaks, nothing the user says is heard. Saying "Hey Coach" doesn't
-stop the reply either, and there is no stop button. This is deliberate: it's the simplest
-and safest way to keep the AI from hearing its own voice and transcribing what it is saying.
-
-**If you want the user to be able to interrupt the AI, you have to change the app.** The
-recommended model is the LunaFit app (`../LunaFitTech.Mobileapp`) in workout mode: there the
-user says "Hey Coach" over the coach and the coach stops immediately. Reference files in
-LunaFit:
-- `src/components/utility-components/WakewordLibHeadless.ts` (`keywordCallback`);
-- `src/components/utility-components/wakewordDetectionRouting.ts`
-  (`resolveWakewordDetectionAction`);
-- `src/components/ai-chat/SpeechLibHeadless.ts` (the `COACH_BTN_STOP_PRESS` handler);
-- `src/components/utility-components/audioRoutingConfigs.ts`.
-
-What LunaFit does, and how to apply it here:
-
-1. **The wake word keeps listening while the AI speaks** (STT stays closed). In LunaFit,
-   when the user's turn ends, STT closes and wake-word detection resumes
-   (`unPauseDetection`) before the coach speaks. Here: call
-   `myInstanceRef.current?.unPauseDetection()` right after `pauseSpeechRecognition()` in
-   `processAIChatTurn`.
-2. **Echo cancellation always on.** In LunaFit: `AEC: { mode: 'always' }` in
-   `defaultAudioRoutingConfig`. Here, `defaultAudioRoutingConfig` in `src/wakeword/index.ts`
-   uses `WakewordAEC: { regular: false, duringTTS: false }`. Replace it with
-   `AEC: { mode: 'always' }`, so the AI's own voice neither triggers the wake word nor gets
-   into STT. Support (documented in `react-native-wakeword`, `audioRoutingConfig.d.ts`):
-   - newer iPhones use iOS's own AEC; older ones an echo-cancelling audio engine;
-   - on Android it covers the wake word and TTS; STT on Android 13+, speaker routes.
-3. **Wake word while the AI speaks = stop.** In LunaFit, `resolveWakewordDetectionAction`
-   returns `'stop-coach'` whenever the coach is speaking, and that takes priority over any
-   other state. Here, at the top of `keywordCallback` in `App.tsx`:
-   ```ts
-   if (aiChatInFlightRef.current) {             // the AI is thinking or speaking
-     if (interruptInFlightRef.current) return;  // the same "Hey Coach" detected twice
-     interruptInFlightRef.current = true;
-     try {
-       aiChatRequestIdRef.current += 1;         // late text and events of the old turn are ignored
-       (await getLocalAgent()).cancel();        // stops the LLM turn (src/agent/LocalAgent.ts)
-       aiChatSpeechQueueRef.current = [];       // drops the sentences not spoken yet
-       ignoreNextFinishedSpeakingRef.current = true; // the stop's "finished speaking" must not open another turn
-       await Speech.stopSpeaking();             // silences the voice now
-       resetSpeechTranscriptState();            // discards whatever STT caught meanwhile (never sent to the AI)
-       aiChatInFlightRef.current = false;
-       await myInstanceRef.current?.pauseDetection(false);
-       await Speech.unPauseSpeechRecognition(-1, 0); // a new user turn; preFetchMs 0, see below
-     } finally {
-       interruptInFlightRef.current = false;
-     }
-     return;
-   }
-   ```
-   `interruptInFlightRef` and `ignoreNextFinishedSpeakingRef` are new refs.
-   `finishAIChatSpeechFlow` must honour the second one and not reopen the microphone again.
-4. **Details LunaFit learned in practice:**
-   - **Guard against double detection** (LunaFit's `coachStopInFlightRef`): the same word
-     can fire twice.
-   - **Discard the accidental transcript; don't send it.** Interrupting the voice must not
-     send the AI half a sentence or an echo of its own words.
-   - **Open STT with `preFetchMs: 0`.** Otherwise STT replays the previous ~2 s of audio and
-     transcribes "Hey Coach" (or the AI's voice) as the new message.
-   - **Button vs. voice.** For a stop button, LunaFit just goes silent. For the wake word it
-     opens the microphone, because the user wants to talk.
-   - **Play a short "listening" sound** when the microphone opens, so the user knows they
-     can speak.
-   - **History:** keep only the part of the reply that was actually spoken, so the next
-     turn makes sense.
-5. **In a car, combine it with speaker verification (1.3).** With a speaker enrolled, only
-   the owner's voice can interrupt. The radio or a passenger can't.
-
-**"Any speech interrupts" variant (duplex).** In LunaFit this exists only on one
-continuous-conversation screen ("Surprise Me", `AEC_DUPLEX_ROUTES` in
-`voiceRouteAudioPolicy.ts`) and **only on iOS**. There STT stays open under the coach's
-voice, with `AEC 'always'`. Words that are **not** an echo of what the coach is saying stop
-the voice and start a normal turn (`interruptCoachForUserSpeech` in `SpeechLibHeadless.ts`).
-It's more complex, because the echo has to be filtered by comparing the transcript with the
-sentence the AI is speaking. For a car, the wake-word version above is safer.
+The full rules, with code to add these modes to another app, are in Part B of the car agent's guide
+(`../example_car_agent/englishHowTo.md`, B5).
 
 ### 2.6 Local confidence: uncertain commands go to the remote agent
 

@@ -129,8 +129,20 @@ export function registerSpeechHandlers({
   clearSpeechSentenceUI,
   silenceThresholdMsRef,
   setAiChatTranscript,
+  onSpeechWhileBusy,
+  onUserSpeech,
+  isConversationAsleep,
 }: any) {
   const speak = speakText ?? Speech.speak.bind(Speech);
+  // Conversation modes (src/conversation): speech heard while a request is being answered is dropped unless
+  // onSpeechWhileBusy(text) says the user interrupted the reply (it then starts the user's next request), and
+  // onUserSpeech(text) hears every accepted transcript (the listening window stops counting).
+  const busyAndNotInterrupting = (text: string | undefined): boolean => {
+    // asleep (waiting for the wake word or a tap): nothing heard counts, even if the recognizer was still open
+    if (typeof isConversationAsleep === 'function' && isConversationAsleep()) return true;
+    if (!aiChatInFlightRef.current) return false;
+    return !(text && typeof onSpeechWhileBusy === 'function' && onSpeechWhileBusy(text));
+  };
   // Speech handlers (kept)
   Speech.onSpeechError = async (e: any) => {
     console.log('onSpeechError error ignored: ', e);
@@ -167,8 +179,10 @@ export function registerSpeechHandlers({
       return;
     }
 
-    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord || aiChatInFlightRef.current) return;
+    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord) return;
     const curr = e.value?.[0];
+    if (busyAndNotInterrupting(curr)) return;
+    if (curr && curr.trim()) onUserSpeech?.(curr);
     if (Platform.OS === 'ios') {
       if (curr && curr !== lastTranscriptRef.current) {
         lastTranscriptRef.current = curr;
@@ -231,12 +245,17 @@ export function registerSpeechHandlers({
     console.log('onSpeechResults: 1 ');
     noteSpeechResult(e);
 
-    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord || aiChatInFlightRef.current) {
+    if (!isSpeechResultsAllowed || showAppModePrompt || isTTSTestMode || isSpeakerVerificationActive || isAwaitingWakeWord) {
       console.log('onSpeechResults: leaving?????? ');
       return;
     }
 
     const current = e.value?.[0]?.trim();
+    if (busyAndNotInterrupting(current)) {
+      console.log('onSpeechResults: a request is being answered, dropped');
+      return;
+    }
+    if (current) onUserSpeech?.(current);
 
     if (Platform.OS === 'android') {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);

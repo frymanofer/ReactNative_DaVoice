@@ -10,6 +10,7 @@
 import type { ToolChoice } from 'react-native-davoice-llm';
 
 import type { AppLanguage } from '../appflow';
+import { basicPackTexts } from '../car/basicLanguage';
 
 /** Regex patterns are strings, matched case-insensitively. */
 type Pattern = string;
@@ -116,8 +117,46 @@ const automotivePacks: Partial<Record<AppLanguage, AgentConfig>> = {
   'pt-BR': require('../../agent_automotive/pt-BR/agent.json'),
 };
 
+/** A Basic language (src/car/basicLanguage.ts: not tuned): the English pack (the instructions the model was trained with) with the
+ * sentences the user hears translated (basic_languages.json "pack"). Built once per language. */
+const basicPacks: Partial<Record<AppLanguage, AgentConfig>> = {};
+function basicPackFor(language: AppLanguage): AgentConfig | undefined {
+  const t = basicPackTexts(language);
+  if (!t || !Object.keys(t).length) return undefined;
+  if (basicPacks[language]) return basicPacks[language];
+  const pack = JSON.parse(JSON.stringify(automotivePacks.en)) as any;
+  const str = (k: string) => (typeof t[k] === 'string' ? (t[k] as string) : undefined);
+  const list = (k: string) => (Array.isArray(t[k]) ? (t[k] as string[]) : undefined);
+  pack.prompts = pack.prompts ?? {};
+  // "ok" is said in every language: the English "Okay!" (fixed reply "ack", 2026-11-21) is for the tuned languages only
+  if (Array.isArray(pack.fixedReplies)) pack.fixedReplies = pack.fixedReplies.filter((r: any) => r?.id !== 'ack');
+  for (const k of ['noReply', 'notDoneRest', 'done', 'failed', 'notConfirmed', 'notAuthorized', 'unsupported', 'invalidArgs', 'guardConflict',
+    'outOfRange', 'outOfRangeAsk', 'scopeClarify', 'scopeUnsupported', 'scopeNoRemote']) {
+    if (str(k)) pack.prompts[k] = str(k);
+  }
+  if (pack.remote) {
+    if (str('remoteFailed')) pack.remote.failed = str('remoteFailed');
+    pack.remote.errors = {
+      ...(pack.remote.errors ?? {}),
+      ...(str('remoteOffline') ? { offline: str('remoteOffline') } : {}),
+      ...(str('remoteBusy') ? { busy: str('remoteBusy') } : {}),
+      ...(str('remoteTimeout') ? { timeout: str('remoteTimeout') } : {}),
+      ...(str('remoteUnavailable') ? { unavailable: str('remoteUnavailable') } : {}),
+    };
+    if (list('remoteFillers')) pack.remote.fillers = list('remoteFillers');
+  }
+  if (list('remoteFillers')) pack.onlineToolFillers = list('remoteFillers');
+  if (pack.webSearch?.fillers) {
+    if (list('searchFillers')) pack.webSearch.fillers.general = list('searchFillers');
+    if (list('searchFailed')) pack.webSearch.fillers.searchFailed = list('searchFailed');
+    pack.webSearch.fillers.topics = [];   // topic fillers are English sentences
+  }
+  basicPacks[language] = pack as AgentConfig;
+  return basicPacks[language];
+}
+
 export function automotiveAgentFor(language: AppLanguage): AgentConfig {
-  return automotivePacks[language] ?? automotivePacks.en!;
+  return automotivePacks[language] ?? basicPackFor(language) ?? automotivePacks.en!;
 }
 
 /** The agent pack of the app's language. */

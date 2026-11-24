@@ -15,11 +15,11 @@
     "jetifier": "^2.0.0",
     "react": "19.1.1",
     "react-native": "0.82.0",
-    "react-native-davoice": "1.0.142",
+    "react-native-davoice": "1.0.143",
     "react-native-davoice-llm": "1.0.20",
     "react-native-fs": "^2.20.0",
     "react-native-svg": "15.16.1",
-    "react-native-wakeword": "1.1.171",
+    "react-native-wakeword": "1.1.172",
     "tweetnacl": "1.0.3"
   },
   "devDependencies": {

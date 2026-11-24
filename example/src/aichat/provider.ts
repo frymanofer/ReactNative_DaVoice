@@ -11,7 +11,7 @@ import type { LocalLLMModelConfig } from '../local_llm/types';
 import { ensureLayer2Loaded, ensureModelLoaded, isModelReady, nativeLoadCount } from '../local_llm/LocalLLMLoader';
 import { getLocalConfidence, getSelectedModel } from '../local_llm/ModelRegistry';
 import { currentLocalDemo } from '../local_llm/demo';
-import { LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL, LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
+import { LOCAL_LLM_LAYER2, LOCAL_LLM_LAYER2_MODEL, LOCAL_LLM_NOT_IN_DEMO_MESSAGE, LOCAL_LLM_USE_REMOTE_ASSISTANT } from '../local_llm/constants';
 import { getProfile } from '../local_llm/profile/ProfileStore';
 import { listFacts } from '../local_llm/memory/LongTermMemoryStore';
 import { retrieve as retrieveLocalRag } from '../local_llm/rag/local/Retriever';
@@ -24,6 +24,8 @@ import { getLocalAgent } from '../agent/LocalAgent';
 import { clearHeardSpeakers } from '../speaker_verification/currentSpeaker';
 import { getCarState } from '../car/CarState';
 import { setCarUndoResults } from '../car/carTools';
+import { basicMessage, isBasicLanguage } from '../car/basicLanguage';
+import { DEFAULT_CONFIDENCE, readTurn, toCoreConfidence, type TurnConfidence, type TurnOutcome } from '../local_llm/confidence';
 
 export interface LLMProvider {
   generateReply(history: AIChatHistoryMessage[], userText: string): Promise<string>;
@@ -100,6 +102,19 @@ function toAgentHistory(history: AIChatHistoryMessage[]): AgentHistoryMessage[] 
 }
 
 /** What a local turn did besides speaking (see `generateReplyStream`). */
+/** Core "safety" (2026-11-19): never-act + "which seat?" on; their sentences in the app's language. */
+function safetySettings(language: string): Record<string, unknown> {
+  const pt = language.toLowerCase().startsWith('pt');
+  return {
+    neverAct: true,
+    seatAsk: true,
+    messages: {
+      whichSeat: basicMessage(language, 'whichSeat') ?? (pt ? 'Qual banco: o seu, o do carona ou os dois?' : "Which seat: yours, the passenger's, or both?"),
+      unsupported: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? basicMessage(language, 'notInDemo') ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en,
+    },
+  };
+}
+
 export interface LocalTurnOutcome {
   /** Keep these in the history with the reply (AIChatHistoryMessage.toolMessages). */
   toolMessages: ToolTurnMessage[];
@@ -109,6 +124,10 @@ export interface LocalTurnOutcome {
   operationTurns?: unknown[];
   /** The command scope's decision for this request (core 2026-11-14, when the model enables it): {outcome, reason, words}. */
   scope?: { outcome: 'local' | 'remote' | 'clarify' | 'unsupported' | 'ignore'; reason?: string; words?: number };
+  /** What happened to the request (core 2026-11-19 "outcome"): executed / clarified / declined / remote / ignored / answered. */
+  outcome?: TurnOutcome;
+  /** The model's score for its action and whether Local confidence held it back (core 2026-11-19; model-derived, not a guarantee). */
+  confidence?: TurnConfidence;
 }
 
 /**
@@ -124,7 +143,7 @@ export class LocalLLMProvider implements LLMProvider {
   private steeringSent: string | null = null;
   private steeringSentTo: Agent | null = null;
   private confidenceSentTo: Agent | null = null;
-  private confidenceSent = -1;
+  private confidenceSent = '';
   private configuredAgent: Agent | null = null;
   private chatTemplateSet: Promise<void> = Promise.resolve();
 
@@ -202,12 +221,24 @@ export class LocalLLMProvider implements LLMProvider {
     setCarUndoResults(model.undo === true);
     // The car's steering-wheel side (core 2026-11-13, Q4; older cores ignore it): "o banco da direita" is the passenger in a left-hand-drive
     // car and the driver in a right-hand-drive one; explicit left / right positions stay physical. Sent again when it changes.
-    // Local confidence (core 2026-11-17, configure "confidence"; older cores ignore it): the car demo's setting, off in the other demo.
-    const minConfidence = currentLocalDemo() === 'car' ? await getLocalConfidence() : 0;
-    if (this.confidenceSentTo !== agent || this.confidenceSent !== minConfidence) {
+    // Local confidence (core 2026-11-19, configure "confidence" {enabled, min, fallback, messages}; src/local_llm/confidence.ts): the
+    // car demo's setting, off in the other demo. Sent when it changes: no model reload, no new session. Safety (core 2026-11-19, configure
+    // "safety"): never-act + "which seat?" stay on whatever the confidence setting; only their sentences follow the app's language.
+    const language = getTTSLanguage();
+    const confidence = currentLocalDemo() === 'car' ? await getLocalConfidence() : { ...DEFAULT_CONFIDENCE, enabled: false };
+    const confidenceKey = `${JSON.stringify(confidence)}|${language}|${model.id}`;
+    if (this.confidenceSentTo !== agent || this.confidenceSent !== confidenceKey) {
       this.confidenceSentTo = agent;
-      this.confidenceSent = minConfidence;
-      await agent.configure({ ...({ confidence: { min: minConfidence } } as Record<string, unknown>) });
+      this.confidenceSent = confidenceKey;
+      await agent.configure({
+        ...({ confidence: toCoreConfidence(confidence, language), safety: safetySettings(language) } as Record<string, unknown>),
+        // Basic language (src/car/basicLanguage.ts): the command scope and the checks that look for English / Portuguese words would
+        // drop or block nearly every request, so they are off; every car action is asked first and runs only after a yes instead.
+        // The tuned languages get the model's own settings back (sent again whenever the language or the model changes).
+        ...(currentLocalDemo() === 'car' && isBasicLanguage(language)
+          ? ({ scope: { enabled: false }, guards: { ...callGuardSettings(model.callGuards ?? 'off', model.historyAsRun === true), capability: 'off', polarity: 'off' } } as Record<string, unknown>)
+          : ({ scope: model.scope ?? { enabled: false }, guards: callGuardSettings(model.callGuards ?? 'off', model.historyAsRun === true) } as Record<string, unknown>)),
+      });
     }
     const steering = getCarState().vehicle.steering;
     if (this.steeringSentTo !== agent || this.steeringSent !== steering) {
@@ -402,7 +433,8 @@ export class LocalLLMProvider implements LLMProvider {
     clearHeardSpeakers(); // the next request is checked on its own voice
     const extra = result as unknown as { operationTurns?: unknown[]; scope?: LocalTurnOutcome['scope'] };
     const operationTurns = extra.operationTurns;
+    const { outcome, confidence } = readTurn(result);
     return { toolMessages: result.toolMessages, webSearch: result.webSearch, ...(operationTurns ? { operationTurns } : {}),
-      ...(extra.scope ? { scope: extra.scope } : {}) };
+      ...(extra.scope ? { scope: extra.scope } : {}), ...(outcome ? { outcome } : {}), ...(confidence ? { confidence } : {}) };
   }
 }

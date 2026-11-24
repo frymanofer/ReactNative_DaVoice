@@ -1,0 +1,1262 @@
+[
+[
+"de",
+"Öffne das Fenster auf der Fahrerseite",
+"Öffne das Fenster auf der Fahrerseite (driver, window, open)"
+],
+[
+"de",
+"Mach alle Fenster zu",
+"Mach alle Fenster zu (window, close, all)"
+],
+[
+"de",
+"Stell die Temperatur auf 22 Grad",
+"Stell die Temperatur auf 22 Grad (temperature, degrees)"
+],
+[
+"de",
+"Mach es etwas wärmer",
+"Mach es etwas wärmer (warmer)"
+],
+[
+"de",
+"Mir ist kalt",
+"Mir ist kalt (I am cold)"
+],
+[
+"de",
+"Gebläse auf Stufe 3",
+"Gebläse auf Stufe 3 (fan, level)"
+],
+[
+"de",
+"Verriegel das Auto",
+"Verriegel das Auto (lock, car)"
+],
+[
+"de",
+"Entriegle die Türen",
+"Entriegle die Türen (door)"
+],
+[
+"de",
+"Öffne das Schiebedach",
+"Öffne das Schiebedach (open, sunroof)"
+],
+[
+"de",
+"Schalte die Sitzheizung für den Fahrer ein",
+"Schalte die Sitzheizung für den Fahrer ein (driver, seat heater, on)"
+],
+[
+"de",
+"Mach die Musik leiser",
+"Mach die Musik leiser (volume down, music)"
+],
+[
+"de",
+"Spiel Musik von Coldplay",
+"Spiel Musik von Coldplay (music, play)"
+],
+[
+"de",
+"Bring mich nach Hause",
+"Bring mich nach Hause (home, navigate)"
+],
+[
+"de",
+"Wie viel Benzin habe ich noch?",
+"Wie viel Benzin habe ich noch? (fuel)"
+],
+[
+"de",
+"Enteise die Frontscheibe",
+"Enteise die Frontscheibe (defrost, windshield)"
+],
+[
+"de",
+"Meine Schwester kommt morgen zu Besuch",
+"Meine Schwester kommt morgen zu Besuch"
+],
+[
+"es",
+"Abre la ventanilla del conductor",
+"Abre la ventanilla del conductor (driver, window, open)"
+],
+[
+"es",
+"Cierra todas las ventanillas",
+"Cierra todas las ventanillas (window, close, all)"
+],
+[
+"es",
+"Pon la temperatura a 22 grados",
+"Pon la temperatura a 22 grados (temperature, degrees)"
+],
+[
+"es",
+"Sube un poco la calefacción",
+"Sube un poco la calefacción (warmer)"
+],
+[
+"es",
+"Tengo frío",
+"Tengo frío (I am cold)"
+],
+[
+"es",
+"Ventilador al 3",
+"Ventilador al 3 (fan)"
+],
+[
+"es",
+"Bloquea el coche",
+"Bloquea el coche (lock, car)"
+],
+[
+"es",
+"Desbloquea las puertas",
+"Desbloquea las puertas (door, unlock)"
+],
+[
+"es",
+"Abre el techo solar",
+"Abre el techo solar (open, sunroof)"
+],
+[
+"es",
+"Enciende la calefacción del asiento del conductor",
+"Enciende la calefacción del asiento del conductor (driver, seat heater, on)"
+],
+[
+"es",
+"Baja el volumen",
+"Baja el volumen (volume down, volume)"
+],
+[
+"es",
+"Pon música de Shakira",
+"Pon música de Shakira (music, play)"
+],
+[
+"es",
+"Llévame a casa",
+"Llévame a casa (home, navigate)"
+],
+[
+"es",
+"¿Cuánta gasolina me queda?",
+"¿Cuánta gasolina me queda? (fuel)"
+],
+[
+"es",
+"Desempaña el parabrisas",
+"Desempaña el parabrisas (defrost, windshield)"
+],
+[
+"es",
+"Mi hermana viene mañana de visita",
+"Mi hermana viene mañana de visita"
+],
+[
+"it",
+"Apri il finestrino del conducente",
+"Apri il finestrino del conducente (driver, window, open)"
+],
+[
+"it",
+"Chiudi tutti i finestrini",
+"Chiudi tutti i finestrini (window, close, all)"
+],
+[
+"it",
+"Imposta la temperatura a 22 gradi",
+"Imposta la temperatura a 22 gradi (temperature, degrees)"
+],
+[
+"it",
+"Fai un po' più caldo",
+"Fai un po' più caldo (warmer, more)"
+],
+[
+"it",
+"Ho freddo",
+"Ho freddo (I am cold)"
+],
+[
+"it",
+"Ventola a 3",
+"Ventola a 3 (fan)"
+],
+[
+"it",
+"Blocca la macchina",
+"Blocca la macchina (lock, car)"
+],
+[
+"it",
+"Sblocca le portiere",
+"Sblocca le portiere (door, unlock)"
+],
+[
+"it",
+"Apri il tetto apribile",
+"Apri il tetto apribile (open, sunroof)"
+],
+[
+"it",
+"Accendi il riscaldamento del sedile del guidatore",
+"Accendi il riscaldamento del sedile del guidatore (driver, seat heater, on)"
+],
+[
+"it",
+"Abbassa il volume",
+"Abbassa il volume (volume down, volume)"
+],
+[
+"it",
+"Metti la musica di Vasco Rossi",
+"Metti la musica di Vasco Rossi (music, play)"
+],
+[
+"it",
+"Portami a casa",
+"Portami a casa (home, navigate)"
+],
+[
+"it",
+"Quanta benzina mi resta?",
+"Quanta benzina mi resta? (fuel)"
+],
+[
+"it",
+"Sbrina il parabrezza",
+"Sbrina il parabrezza (defrost, windshield)"
+],
+[
+"it",
+"Mia sorella viene a trovarci domani",
+"Mia sorella viene a trovarci domani"
+],
+[
+"fr",
+"Ouvre la vitre du conducteur",
+"Ouvre la vitre du conducteur (driver, window, open)"
+],
+[
+"fr",
+"Ferme toutes les vitres",
+"Ferme toutes les vitres (window, close, all)"
+],
+[
+"fr",
+"Mets la température à 22 degrés",
+"Mets la température à 22 degrés (temperature, degrees)"
+],
+[
+"fr",
+"Monte un peu le chauffage",
+"Monte un peu le chauffage (warmer)"
+],
+[
+"fr",
+"J'ai froid",
+"J'ai froid (I am cold)"
+],
+[
+"fr",
+"Ventilation sur 3",
+"Ventilation sur 3 (fan)"
+],
+[
+"fr",
+"Verrouille la voiture",
+"Verrouille la voiture (lock, car)"
+],
+[
+"fr",
+"Déverrouille les portes",
+"Déverrouille les portes (door, unlock)"
+],
+[
+"fr",
+"Ouvre le toit ouvrant",
+"Ouvre le toit ouvrant (open, sunroof)"
+],
+[
+"fr",
+"Allume le siège chauffant du conducteur",
+"Allume le siège chauffant du conducteur (driver, seat heater, on)"
+],
+[
+"fr",
+"Baisse le volume",
+"Baisse le volume (volume down, volume)"
+],
+[
+"fr",
+"Mets de la musique de Stromae",
+"Mets de la musique de Stromae (music, play)"
+],
+[
+"fr",
+"Ramène-moi à la maison",
+"Ramène-moi à la maison (home, navigate)"
+],
+[
+"fr",
+"Combien d'essence il me reste ?",
+"Combien d'essence il me reste ? (fuel)"
+],
+[
+"fr",
+"Désembue le pare-brise",
+"Désembue le pare-brise (defrost, windshield)"
+],
+[
+"fr",
+"Ma sœur vient nous voir demain",
+"Ma sœur vient nous voir demain"
+],
+[
+"nl",
+"Doe het raam aan de bestuurderskant open",
+"Doe het raam aan de bestuurderskant open (driver, window, open)"
+],
+[
+"nl",
+"Doe alle ramen dicht",
+"Doe alle ramen dicht (window, close, all)"
+],
+[
+"nl",
+"Zet de temperatuur op 22 graden",
+"Zet de temperatuur op 22 graden (temperature, degrees)"
+],
+[
+"nl",
+"Maak het iets warmer",
+"Maak het iets warmer (warmer)"
+],
+[
+"nl",
+"Ik heb het koud",
+"Ik heb het koud (I am cold)"
+],
+[
+"nl",
+"Ventilator op stand 3",
+"Ventilator op stand 3 (fan, level)"
+],
+[
+"nl",
+"Vergrendel de auto",
+"Vergrendel de auto (lock, car)"
+],
+[
+"nl",
+"Ontgrendel de deuren",
+"Ontgrendel de deuren (door, unlock)"
+],
+[
+"nl",
+"Open het schuifdak",
+"Open het schuifdak (open, sunroof)"
+],
+[
+"nl",
+"Zet de stoelverwarming van de bestuurder aan",
+"Zet de stoelverwarming van de bestuurder aan (driver, seat heater, on)"
+],
+[
+"nl",
+"Zet de muziek zachter",
+"Zet de muziek zachter (volume down, music)"
+],
+[
+"nl",
+"Speel muziek van Armin van Buuren",
+"Speel muziek van Armin van Buuren (music, play)"
+],
+[
+"nl",
+"Breng me naar huis",
+"Breng me naar huis (home, navigate)"
+],
+[
+"nl",
+"Hoeveel benzine heb ik nog?",
+"Hoeveel benzine heb ik nog? (fuel)"
+],
+[
+"nl",
+"Ontwasem de voorruit",
+"Ontwasem de voorruit (defrost, windshield)"
+],
+[
+"nl",
+"Mijn zus komt morgen op bezoek",
+"Mijn zus komt morgen op bezoek"
+],
+[
+"el",
+"Άνοιξε το παράθυρο του οδηγού",
+"Άνοιξε το παράθυρο του οδηγού (driver, window, open)"
+],
+[
+"el",
+"Κλείσε όλα τα παράθυρα",
+"Κλείσε όλα τα παράθυρα (window, close, all)"
+],
+[
+"el",
+"Βάλε τη θερμοκρασία στους 22 βαθμούς",
+"Βάλε τη θερμοκρασία στους 22 βαθμούς (temperature, degrees)"
+],
+[
+"el",
+"Κάνε το λίγο πιο ζεστό",
+"Κάνε το λίγο πιο ζεστό (warmer)"
+],
+[
+"el",
+"Κρυώνω",
+"Κρυώνω (I am cold)"
+],
+[
+"el",
+"Ανεμιστήρας στο 3",
+"Ανεμιστήρας στο 3 (fan)"
+],
+[
+"el",
+"Κλείδωσε το αυτοκίνητο",
+"Κλείδωσε το αυτοκίνητο (lock, car)"
+],
+[
+"el",
+"Ξεκλείδωσε τις πόρτες",
+"Ξεκλείδωσε τις πόρτες (door, unlock)"
+],
+[
+"el",
+"Άνοιξε την ηλιοροφή",
+"Άνοιξε την ηλιοροφή (open, sunroof)"
+],
+[
+"el",
+"Άναψε τη θέρμανση στο κάθισμα του οδηγού",
+"Άναψε τη θέρμανση στο κάθισμα του οδηγού (driver, seat heater, seat, on)"
+],
+[
+"el",
+"Χαμήλωσε την ένταση",
+"Χαμήλωσε την ένταση (volume down, volume)"
+],
+[
+"el",
+"Βάλε μουσική από Αντώνη Ρέμο",
+"Βάλε μουσική από Αντώνη Ρέμο (music, play)"
+],
+[
+"el",
+"Πήγαινέ με σπίτι",
+"Πήγαινέ με σπίτι (home, navigate)"
+],
+[
+"el",
+"Πόση βενζίνη μου έμεινε;",
+"Πόση βενζίνη μου έμεινε; (fuel)"
+],
+[
+"el",
+"Ξεθάμπωσε το παρμπρίζ",
+"Ξεθάμπωσε το παρμπρίζ (defrost, windshield)"
+],
+[
+"el",
+"Η αδερφή μου έρχεται αύριο για επίσκεψη",
+"Η αδερφή μου έρχεται αύριο για επίσκεψη"
+],
+[
+"sv",
+"Öppna förarens fönster",
+"Öppna förarens fönster (driver, window, open)"
+],
+[
+"sv",
+"Stäng alla fönster",
+"Stäng alla fönster (window, close, all)"
+],
+[
+"sv",
+"Ställ temperaturen på 22 grader",
+"Ställ temperaturen på 22 grader (temperature, degrees)"
+],
+[
+"sv",
+"Gör det lite varmare",
+"Gör det lite varmare (warmer)"
+],
+[
+"sv",
+"Jag fryser",
+"Jag fryser (I am cold)"
+],
+[
+"sv",
+"Fläkten på 3",
+"Fläkten på 3 (fan)"
+],
+[
+"sv",
+"Lås bilen",
+"Lås bilen (lock, car)"
+],
+[
+"sv",
+"Lås upp dörrarna",
+"Lås upp dörrarna (door, unlock)"
+],
+[
+"sv",
+"Öppna takluckan",
+"Öppna takluckan (open, sunroof)"
+],
+[
+"sv",
+"Slå på stolsvärmen på förarstolen",
+"Slå på stolsvärmen på förarstolen (driver, seat heater, on)"
+],
+[
+"sv",
+"Sänk volymen",
+"Sänk volymen (volume down, volume)"
+],
+[
+"sv",
+"Spela musik av ABBA",
+"Spela musik av ABBA (music, play)"
+],
+[
+"sv",
+"Ta mig hem",
+"Ta mig hem (home, navigate)"
+],
+[
+"sv",
+"Hur mycket bensin har jag kvar?",
+"Hur mycket bensin har jag kvar? (fuel)"
+],
+[
+"sv",
+"Avfrosta vindrutan",
+"Avfrosta vindrutan (defrost, windshield)"
+],
+[
+"sv",
+"Min syster kommer på besök i morgon",
+"Min syster kommer på besök i morgon"
+],
+[
+"da",
+"Åbn førerens rude",
+"Åbn førerens rude (driver, window, open)"
+],
+[
+"da",
+"Luk alle ruder",
+"Luk alle ruder (window, close, all)"
+],
+[
+"da",
+"Sæt temperaturen til 22 grader",
+"Sæt temperaturen til 22 grader (temperature, degrees)"
+],
+[
+"da",
+"Gør det lidt varmere",
+"Gør det lidt varmere (warmer)"
+],
+[
+"da",
+"Jeg fryser",
+"Jeg fryser (I am cold)"
+],
+[
+"da",
+"Blæseren på 3",
+"Blæseren på 3 (fan)"
+],
+[
+"da",
+"Lås bilen",
+"Lås bilen (lock, car)"
+],
+[
+"da",
+"Lås dørene op",
+"Lås dørene op (door, unlock)"
+],
+[
+"da",
+"Åbn soltaget",
+"Åbn soltaget (open, sunroof)"
+],
+[
+"da",
+"Tænd for sædevarmen i førersædet",
+"Tænd for sædevarmen i førersædet (driver, seat heater, on)"
+],
+[
+"da",
+"Skru ned for lyden",
+"Skru ned for lyden (volume down, volume)"
+],
+[
+"da",
+"Spil musik af Lukas Graham",
+"Spil musik af Lukas Graham (music, play)"
+],
+[
+"da",
+"Kør mig hjem",
+"Kør mig hjem (home, navigate)"
+],
+[
+"da",
+"Hvor meget benzin har jeg tilbage?",
+"Hvor meget benzin har jeg tilbage? (fuel)"
+],
+[
+"da",
+"Afdug forruden",
+"Afdug forruden (defrost, windshield)"
+],
+[
+"da",
+"Min søster kommer på besøg i morgen",
+"Min søster kommer på besøg i morgen"
+],
+[
+"pt-PT",
+"Abre o vidro do condutor",
+"Abre o vidro do condutor (driver, window, open)"
+],
+[
+"pt-PT",
+"Fecha os vidros todos",
+"Fecha os vidros todos (window, close, all)"
+],
+[
+"pt-PT",
+"Põe a temperatura nos 22 graus",
+"Põe a temperatura nos 22 graus (temperature, degrees)"
+],
+[
+"pt-PT",
+"Aquece um bocadinho",
+"Aquece um bocadinho (warmer)"
+],
+[
+"pt-PT",
+"Estou com frio",
+"Estou com frio (I am cold)"
+],
+[
+"pt-PT",
+"Ventilação no 3",
+"Ventilação no 3 (fan)"
+],
+[
+"pt-PT",
+"Tranca o carro",
+"Tranca o carro (lock, car)"
+],
+[
+"pt-PT",
+"Destranca as portas",
+"Destranca as portas (door, unlock)"
+],
+[
+"pt-PT",
+"Abre o teto de abrir",
+"Abre o teto de abrir (open, sunroof)"
+],
+[
+"pt-PT",
+"Liga o aquecimento do banco do condutor",
+"Liga o aquecimento do banco do condutor (driver, seat heater, on)"
+],
+[
+"pt-PT",
+"Baixa o volume",
+"Baixa o volume (volume down)"
+],
+[
+"pt-PT",
+"Põe música da Ana Moura",
+"Põe música da Ana Moura (music, play)"
+],
+[
+"pt-PT",
+"Leva-me para casa",
+"Leva-me para casa (home, navigate)"
+],
+[
+"pt-PT",
+"Quanta gasolina tenho?",
+"Quanta gasolina tenho? (fuel)"
+],
+[
+"pt-PT",
+"Desembacia o para-brisas",
+"Desembacia o para-brisas (defrost, windshield)"
+],
+[
+"pt-PT",
+"A minha irmã vem cá amanhã",
+"A minha irmã vem cá amanhã"
+],
+[
+"de",
+"Schließ bitte das Beifahrerfenster",
+"Schließ bitte das Beifahrerfenster (passenger, close)"
+],
+[
+"de",
+"Mach die hinteren Fenster auf",
+"Mach die hinteren Fenster auf (window, open)"
+],
+[
+"de",
+"20 Grad bitte",
+"20 Grad bitte (degrees)"
+],
+[
+"de",
+"Es ist zu warm hier drin, kühler bitte",
+"Es ist zu warm hier drin, kühler bitte (cooler)"
+],
+[
+"de",
+"Ich schwitze",
+"Ich schwitze (I am hot)"
+],
+[
+"de",
+"Lüftung stärker",
+"Lüftung stärker (fan, more)"
+],
+[
+"de",
+"Öffne den Kofferraum",
+"Öffne den Kofferraum (open, trunk)"
+],
+[
+"de",
+"Dreh die Musik lauter",
+"Dreh die Musik lauter (volume up, music)"
+],
+[
+"de",
+"Navigiere zur Arbeit",
+"Navigiere zur Arbeit (work, navigate)"
+],
+[
+"de",
+"Sitzheizung beim Beifahrer aus",
+"Sitzheizung beim Beifahrer aus (passenger, seat heater, off)"
+],
+[
+"de",
+"Wie weit komme ich noch?",
+"Wie weit komme ich noch?"
+],
+[
+"de",
+"Gestern waren wir mit Freunden essen",
+"Gestern waren wir mit Freunden essen"
+],
+[
+"es",
+"Sube la ventanilla del copiloto",
+"Sube la ventanilla del copiloto (passenger, window, close)"
+],
+[
+"es",
+"Abre las ventanillas de atrás",
+"Abre las ventanillas de atrás (window, open, rear)"
+],
+[
+"es",
+"Ponlo a 20 grados",
+"Ponlo a 20 grados (degrees)"
+],
+[
+"es",
+"Hace demasiado calor, refresca un poco",
+"Hace demasiado calor, refresca un poco (cooler)"
+],
+[
+"es",
+"Estoy sudando",
+"Estoy sudando (I am hot)"
+],
+[
+"es",
+"Más ventilador",
+"Más ventilador (fan, more)"
+],
+[
+"es",
+"Abre el maletero",
+"Abre el maletero (open, trunk)"
+],
+[
+"es",
+"Súbele a la música",
+"Súbele a la música (volume up, music)"
+],
+[
+"es",
+"Llévame al trabajo",
+"Llévame al trabajo (work, navigate)"
+],
+[
+"es",
+"Apaga la calefacción del asiento del pasajero",
+"Apaga la calefacción del asiento del pasajero (passenger, seat heater, off)"
+],
+[
+"es",
+"¿Cuántos kilómetros me quedan?",
+"¿Cuántos kilómetros me quedan?"
+],
+[
+"es",
+"Ayer cenamos con unos amigos",
+"Ayer cenamos con unos amigos"
+],
+[
+"it",
+"Alza il finestrino del passeggero",
+"Alza il finestrino del passeggero (passenger, window, close)"
+],
+[
+"it",
+"Apri i finestrini dietro",
+"Apri i finestrini dietro (window, open, rear)"
+],
+[
+"it",
+"Mettilo a 20 gradi",
+"Mettilo a 20 gradi (degrees)"
+],
+[
+"it",
+"Fa troppo caldo, rinfresca un po'",
+"Fa troppo caldo, rinfresca un po' (cooler)"
+],
+[
+"it",
+"Sto sudando",
+"Sto sudando (I am hot)"
+],
+[
+"it",
+"Ventola più forte",
+"Ventola più forte (fan, volume up, more)"
+],
+[
+"it",
+"Apri il bagagliaio",
+"Apri il bagagliaio (open, trunk)"
+],
+[
+"it",
+"Alza la musica",
+"Alza la musica (volume up, music)"
+],
+[
+"it",
+"Portami al lavoro",
+"Portami al lavoro (work, navigate)"
+],
+[
+"it",
+"Spegni il sedile riscaldato del passeggero",
+"Spegni il sedile riscaldato del passeggero (passenger, seat heater, off)"
+],
+[
+"it",
+"Quanti chilometri di autonomia ho?",
+"Quanti chilometri di autonomia ho? (range)"
+],
+[
+"it",
+"Ieri siamo andati a cena con degli amici",
+"Ieri siamo andati a cena con degli amici"
+],
+[
+"fr",
+"Remonte la vitre du passager",
+"Remonte la vitre du passager (passenger, window, close)"
+],
+[
+"fr",
+"Ouvre les vitres arrière",
+"Ouvre les vitres arrière (window, open, rear)"
+],
+[
+"fr",
+"Mets 20 degrés",
+"Mets 20 degrés (degrees)"
+],
+[
+"fr",
+"Il fait trop chaud, rafraîchis un peu",
+"Il fait trop chaud, rafraîchis un peu (cooler)"
+],
+[
+"fr",
+"Je transpire",
+"Je transpire (I am hot)"
+],
+[
+"fr",
+"Plus de ventilation",
+"Plus de ventilation (fan, more)"
+],
+[
+"fr",
+"Ouvre le coffre",
+"Ouvre le coffre (open, trunk)"
+],
+[
+"fr",
+"Monte la musique",
+"Monte la musique (music, volume up)"
+],
+[
+"fr",
+"Emmène-moi au travail",
+"Emmène-moi au travail (work, navigate)"
+],
+[
+"fr",
+"Éteins le siège chauffant du passager",
+"Éteins le siège chauffant du passager (passenger, seat heater, off)"
+],
+[
+"fr",
+"Il me reste combien de kilomètres ?",
+"Il me reste combien de kilomètres ?"
+],
+[
+"fr",
+"Hier on a dîné avec des amis",
+"Hier on a dîné avec des amis"
+],
+[
+"nl",
+"Doe het raam van de bijrijder dicht",
+"Doe het raam van de bijrijder dicht (passenger, window, close)"
+],
+[
+"nl",
+"Zet de achterste ramen open",
+"Zet de achterste ramen open (window, open, rear)"
+],
+[
+"nl",
+"Zet hem op 20 graden",
+"Zet hem op 20 graden (degrees, play)"
+],
+[
+"nl",
+"Het is te warm, maak het wat koeler",
+"Het is te warm, maak het wat koeler (cooler, I am hot)"
+],
+[
+"nl",
+"Ik zweet",
+"Ik zweet (I am hot)"
+],
+[
+"nl",
+"Ventilator harder",
+"Ventilator harder (fan, volume up)"
+],
+[
+"nl",
+"Open de kofferbak",
+"Open de kofferbak (open, trunk)"
+],
+[
+"nl",
+"Muziek harder",
+"Muziek harder (volume up, music)"
+],
+[
+"nl",
+"Rij naar mijn werk",
+"Rij naar mijn werk (work, navigate)"
+],
+[
+"nl",
+"Stoelverwarming van de passagier uit",
+"Stoelverwarming van de passagier uit (passenger, seat heater, off)"
+],
+[
+"nl",
+"Hoe ver kan ik nog rijden?",
+"Hoe ver kan ik nog rijden?"
+],
+[
+"nl",
+"Gisteren hebben we met vrienden gegeten",
+"Gisteren hebben we met vrienden gegeten"
+],
+[
+"el",
+"Κλείσε το παράθυρο του συνοδηγού",
+"Κλείσε το παράθυρο του συνοδηγού (passenger, window, close)"
+],
+[
+"el",
+"Άνοιξε τα πίσω παράθυρα",
+"Άνοιξε τα πίσω παράθυρα (window, open, rear)"
+],
+[
+"el",
+"Βάλ' το στους 20 βαθμούς",
+"Βάλ' το στους 20 βαθμούς (degrees)"
+],
+[
+"el",
+"Κάνει πολλή ζέστη, δρόσισε λίγο",
+"Κάνει πολλή ζέστη, δρόσισε λίγο (cooler)"
+],
+[
+"el",
+"Ιδρώνω",
+"Ιδρώνω (I am hot)"
+],
+[
+"el",
+"Δυνάμωσε τον ανεμιστήρα",
+"Δυνάμωσε τον ανεμιστήρα (fan, fan up)"
+],
+[
+"el",
+"Άνοιξε το πορτμπαγκάζ",
+"Άνοιξε το πορτμπαγκάζ (open, trunk)"
+],
+[
+"el",
+"Δυνάμωσε τη μουσική",
+"Δυνάμωσε τη μουσική (volume up, music)"
+],
+[
+"el",
+"Πάμε στη δουλειά",
+"Πάμε στη δουλειά (work, navigate)"
+],
+[
+"el",
+"Σβήσε τη θέρμανση του καθίσματος του συνοδηγού",
+"Σβήσε τη θέρμανση του καθίσματος του συνοδηγού (passenger, seat heater, seat, off)"
+],
+[
+"el",
+"Πόσα χιλιόμετρα αυτονομία έχω;",
+"Πόσα χιλιόμετρα αυτονομία έχω; (range)"
+],
+[
+"el",
+"Χθες φάγαμε με φίλους",
+"Χθες φάγαμε με φίλους"
+],
+[
+"sv",
+"Stäng passagerarens fönster",
+"Stäng passagerarens fönster (passenger, window, close)"
+],
+[
+"sv",
+"Öppna de bakre fönstren",
+"Öppna de bakre fönstren (open, rear)"
+],
+[
+"sv",
+"Ställ den på 20 grader",
+"Ställ den på 20 grader (degrees)"
+],
+[
+"sv",
+"Det är för varmt, gör det svalare",
+"Det är för varmt, gör det svalare (cooler, I am hot)"
+],
+[
+"sv",
+"Jag svettas",
+"Jag svettas (I am hot)"
+],
+[
+"sv",
+"Mer fläkt",
+"Mer fläkt (fan, more)"
+],
+[
+"sv",
+"Öppna bakluckan",
+"Öppna bakluckan (open, trunk)"
+],
+[
+"sv",
+"Höj musiken",
+"Höj musiken (music, volume up)"
+],
+[
+"sv",
+"Navigera till jobbet",
+"Navigera till jobbet (work, navigate)"
+],
+[
+"sv",
+"Stäng av stolsvärmen för passageraren",
+"Stäng av stolsvärmen för passageraren (passenger, seat heater, off)"
+],
+[
+"sv",
+"Hur långt kan jag köra?",
+"Hur långt kan jag köra?"
+],
+[
+"sv",
+"Igår åt vi middag med vänner",
+"Igår åt vi middag med vänner"
+],
+[
+"da",
+"Luk passagerens rude",
+"Luk passagerens rude (passenger, window, close)"
+],
+[
+"da",
+"Åbn de bageste ruder",
+"Åbn de bageste ruder (window, open, rear)"
+],
+[
+"da",
+"Sæt den på 20 grader",
+"Sæt den på 20 grader (degrees)"
+],
+[
+"da",
+"Det er for varmt, gør det køligere",
+"Det er for varmt, gør det køligere (cooler, I am hot)"
+],
+[
+"da",
+"Jeg sveder",
+"Jeg sveder (I am hot)"
+],
+[
+"da",
+"Mere blæser",
+"Mere blæser (fan, more)"
+],
+[
+"da",
+"Åbn bagagerummet",
+"Åbn bagagerummet (open, trunk)"
+],
+[
+"da",
+"Skru op for musikken",
+"Skru op for musikken (volume up, music)"
+],
+[
+"da",
+"Kør mig på arbejde",
+"Kør mig på arbejde (navigate)"
+],
+[
+"da",
+"Sluk sædevarmen for passageren",
+"Sluk sædevarmen for passageren (passenger, seat heater, off)"
+],
+[
+"da",
+"Hvor langt kan jeg køre?",
+"Hvor langt kan jeg køre?"
+],
+[
+"da",
+"I går spiste vi med venner",
+"I går spiste vi med venner"
+],
+[
+"pt-PT",
+"Fecha o vidro do passageiro",
+"Fecha o vidro do passageiro (passenger, window, close)"
+],
+[
+"pt-PT",
+"Abre os vidros de trás",
+"Abre os vidros de trás (window, open)"
+],
+[
+"pt-PT",
+"Põe nos 20 graus",
+"Põe nos 20 graus (degrees)"
+],
+[
+"pt-PT",
+"Está muito calor, arrefece um pouco",
+"Está muito calor, arrefece um pouco (cooler)"
+],
+[
+"pt-PT",
+"Estou a transpirar",
+"Estou a transpirar (I am hot)"
+],
+[
+"pt-PT",
+"Mais ventilação",
+"Mais ventilação (fan, more)"
+],
+[
+"pt-PT",
+"Abre a mala",
+"Abre a mala (open, trunk)"
+],
+[
+"pt-PT",
+"Sobe a música",
+"Sobe a música (music, volume up)"
+],
+[
+"pt-PT",
+"Leva-me para o trabalho",
+"Leva-me para o trabalho (work, navigate)"
+],
+[
+"pt-PT",
+"Desliga o aquecimento do banco do passageiro",
+"Desliga o aquecimento do banco do passageiro (passenger, seat heater, off)"
+],
+[
+"pt-PT",
+"Quantos quilómetros de autonomia tenho?",
+"Quantos quilómetros de autonomia tenho?"
+],
+[
+"pt-PT",
+"Ontem jantámos com amigos",
+"Ontem jantámos com amigos"
+]
+]

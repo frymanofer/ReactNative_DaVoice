@@ -1,0 +1,848 @@
+[
+  {
+    "name": "default: just talk, take turns, the microphone never sleeps (today's behaviour)",
+    "settings": {},
+    "steps": [
+      {
+        "do": "enter",
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 600000,
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "userSpeech",
+        "log": []
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": []
+      },
+      {
+        "do": "heard",
+        "text": "stop",
+        "agent": "I opened the driver window.",
+        "returns": false,
+        "log": []
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": []
+      },
+      {
+        "do": "replyFinished",
+        "log": [
+          "openMic:0"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 600000,
+        "log": [],
+        "phase": "listening"
+      }
+    ]
+  },
+  {
+    "name": "just talk with an idle timeout: sleeps after the silence, the wake word wakes it without pre-fetch",
+    "settings": {
+      "freeMode": {
+        "idleMs": 30000
+      }
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 29999,
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 1,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:0"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "userSpeech",
+        "log": []
+      },
+      {
+        "do": "wait",
+        "ms": 60000,
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "wait",
+        "ms": 60000,
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replyFinished",
+        "log": [
+          "openMic:0"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 30000,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      }
+    ]
+  },
+  {
+    "name": "wake word (stop word on): listen window, pre-fetch after the wake word, stop word armed during the reply; a question gets a follow-up window, a statement goes back to the wake word",
+    "settings": {
+      "wakeWord": true,
+      "wakeWordMode": {
+        "stopWord": true
+      }
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:2000"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "userSpeech",
+        "log": []
+      },
+      {
+        "do": "wait",
+        "ms": 20000,
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": [
+          "armWakeWord"
+        ]
+      },
+      {
+        "do": "replyFinished",
+        "reply": "Should I open the passenger window too?",
+        "log": [
+          "disarmWakeWord",
+          "closeMic",
+          "openMic:0"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 7999,
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 1,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:2000"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": [
+          "armWakeWord"
+        ]
+      },
+      {
+        "do": "replyFinished",
+        "reply": "I opened the driver window.",
+        "log": [
+          "closeMic"
+        ],
+        "phase": "asleep"
+      }
+    ]
+  },
+  {
+    "name": "wake word every time (no follow-up): even a question ends asleep, the stop word stays armed",
+    "settings": {
+      "wakeWord": true,
+      "wakeWordMode": {
+        "followUpMs": 0,
+        "preFetchMs": 1000,
+        "stopWord": true
+      }
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:1000"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "userSpeech",
+        "log": []
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": [
+          "armWakeWord"
+        ]
+      },
+      {
+        "do": "replyFinished",
+        "log": [
+          "closeMic"
+        ],
+        "phase": "asleep",
+        "reply": "Should I open the passenger window too?"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:1000"
+        ],
+        "phase": "listening"
+      }
+    ]
+  },
+  {
+    "name": "wake word as a stop word: stops the reply and listens without pre-fetch",
+    "settings": {
+      "wakeWord": true,
+      "wakeWordMode": {
+        "stopWord": true
+      }
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:2000"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "userSpeech",
+        "log": []
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": [
+          "armWakeWord"
+        ]
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "stopReply",
+          "disarmWakeWord",
+          "openMic:0"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "replyFinished",
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 8000,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      }
+    ]
+  },
+  {
+    "name": "wake word with the stop word off (the default): the detector stays paused while the agent answers; a statement goes back to the wake word",
+    "settings": {
+      "wakeWord": true
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:2000"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": []
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replyFinished",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep",
+        "reply": "I opened the driver window."
+      }
+    ]
+  },
+  {
+    "name": "interrupt: the recognizer opens under the reply, echo is dropped, other words stop the reply",
+    "settings": {
+      "interrupt": true
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": []
+      },
+      {
+        "do": "userSpeech",
+        "log": []
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "heard",
+        "text": "stop",
+        "agent": "I opened the driver window.",
+        "returns": false,
+        "log": []
+      },
+      {
+        "do": "replySpeaking",
+        "log": [
+          "openMic:0"
+        ]
+      },
+      {
+        "do": "heard",
+        "text": "opened the",
+        "agent": "I opened the driver window.",
+        "returns": false,
+        "log": []
+      },
+      {
+        "do": "heard",
+        "text": "no the passenger window",
+        "agent": "I opened the driver window.",
+        "returns": true,
+        "log": [
+          "stopReply"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "heard",
+        "text": "no the passenger window",
+        "agent": "I opened the driver window.",
+        "returns": false,
+        "log": []
+      },
+      {
+        "do": "replyFinished",
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "userSpeech",
+        "log": []
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": [
+          "openMic:0"
+        ]
+      },
+      {
+        "do": "replyFinished",
+        "log": [
+          "closeMic",
+          "openMic:0"
+        ],
+        "phase": "listening"
+      }
+    ]
+  },
+  {
+    "name": "interrupt with the wake word: speech interrupts, the stop word isn't armed (the recognizer has the microphone)",
+    "settings": {
+      "interrupt": true,
+      "wakeWord": true
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:2000"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": [
+          "openMic:0"
+        ]
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "heard",
+        "text": "hey coach stop",
+        "agent": "Playing Anitta.",
+        "returns": true,
+        "log": [
+          "stopReply"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 8000,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      }
+    ]
+  },
+  {
+    "name": "tap to talk: wakes a sleeping conversation; while the agent talks it stops the reply",
+    "settings": {
+      "freeMode": {
+        "idleMs": 15000
+      }
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": []
+      },
+      {
+        "do": "wait",
+        "ms": 15000,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "tapToTalk",
+        "log": [
+          "disarmWakeWord",
+          "openMic:0"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "tapToTalk",
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "tapToTalk",
+        "log": [],
+        "phase": "busy"
+      },
+      {
+        "do": "replySpeaking",
+        "log": []
+      },
+      {
+        "do": "tapToTalk",
+        "log": [
+          "stopReply",
+          "openMic:0"
+        ],
+        "phase": "listening"
+      }
+    ]
+  },
+  {
+    "name": "leave: the wake word listens again and the controller no longer answers it",
+    "settings": {
+      "wakeWord": true
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "leave",
+        "log": [],
+        "phase": "off"
+      },
+      {
+        "do": "wakeWord",
+        "returns": false,
+        "log": [],
+        "phase": "off"
+      },
+      {
+        "do": "turnStarted",
+        "log": [],
+        "phase": "off"
+      },
+      {
+        "do": "replySpeaking",
+        "log": [],
+        "phase": "off"
+      },
+      {
+        "do": "replyFinished",
+        "log": [],
+        "phase": "off"
+      },
+      {
+        "do": "tapToTalk",
+        "log": [],
+        "phase": "off"
+      },
+      {
+        "do": "wait",
+        "ms": 60000,
+        "log": [],
+        "phase": "off"
+      },
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      }
+    ]
+  },
+  {
+    "name": "leave to a mode menu: the wake word the conversation armed goes back to paused",
+    "settings": {
+      "freeMode": {
+        "idleMs": 15000
+      }
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": []
+      },
+      {
+        "do": "wait",
+        "ms": 15000,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "leave",
+        "rearm": false,
+        "log": [
+          "disarmWakeWord"
+        ],
+        "phase": "off"
+      },
+      {
+        "do": "enter",
+        "log": []
+      },
+      {
+        "do": "leave",
+        "rearm": false,
+        "log": [],
+        "phase": "off"
+      }
+    ]
+  },
+  {
+    "name": "new settings restart the listening window",
+    "settings": {},
+    "steps": [
+      {
+        "do": "enter",
+        "log": []
+      },
+      {
+        "do": "wait",
+        "ms": 60000,
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "update",
+        "settings": {
+          "freeMode": {
+            "idleMs": 15000
+          }
+        },
+        "log": []
+      },
+      {
+        "do": "wait",
+        "ms": 14999,
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 1,
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "update",
+        "settings": {
+          "wakeWord": true
+        },
+        "log": [],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:2000"
+        ],
+        "phase": "listening"
+      }
+    ]
+  },
+  {
+    "name": "wake word: asleep, then the settings switch to just talk: the microphone opens (nothing else would open it)",
+    "settings": {
+      "wakeWord": true
+    },
+    "steps": [
+      {
+        "do": "enter",
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "update",
+        "settings": {
+          "wakeWord": false
+        },
+        "log": [
+          "disarmWakeWord",
+          "openMic:0"
+        ],
+        "phase": "listening"
+      },
+      {
+        "do": "wait",
+        "ms": 600000,
+        "log": [],
+        "phase": "listening"
+      }
+    ]
+  },
+  {
+    "name": "wake word: the car screen opens asleep; saving the wake word while just talking puts it to sleep at once",
+    "settings": {},
+    "steps": [
+      {
+        "do": "enter",
+        "log": [],
+        "phase": "listening"
+      },
+      {
+        "do": "update",
+        "settings": {
+          "wakeWord": true
+        },
+        "log": [
+          "closeMic",
+          "armWakeWord"
+        ],
+        "phase": "asleep"
+      },
+      {
+        "do": "wakeWord",
+        "returns": true,
+        "log": [
+          "disarmWakeWord",
+          "openMic:2000"
+        ],
+        "phase": "listening"
+      }
+    ]
+  }
+]

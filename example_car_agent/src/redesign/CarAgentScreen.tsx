@@ -26,6 +26,7 @@ import type { ConversationPhase } from '../conversation/controller';
 import { conversationHint, conversationTapEnabled } from '../conversation/hint';
 import type { ConversationSettings } from '../conversation/settings';
 import { GearIcon } from './icons';
+import PrivacyPolicyLink from './PrivacyPolicyLink';
 
 type Props = {
   language: string;
@@ -319,6 +320,9 @@ export default function CarAgentScreen(p: Props) {
                 }}
               />
             )}
+            <View style={styles.sheetDivider} />
+            <Text style={styles.sheetTitle}>ABOUT</Text>
+            <PrivacyPolicyLink />
             </ScrollView>
             <View style={styles.sheetButtons}>
               <SecondaryButton label="Cancel" onPress={() => setSettingsOpen(false)} style={{ flex: 1 }} />

@@ -1,0 +1,3700 @@
+{
+  "_comment": "Basic support for the car agent in languages the model was NOT tuned for (2026-11-21). English and pt-BR are the tuned languages and never use this file. In a Basic language every car action is first asked ('q' around a template) and runs only after a yes; lookups answer directly. Shared by the RN and Flutter car demos (copy, keep identical). 'pack' overrides the English agent pack's spoken prompts; 'messages' are the app's own sentences.",
+  "version": 1,
+  "languages": {
+    "de": {
+      "q": "Soll ich {a}?",
+      "capitalize": false,
+      "done": "Erledigt.",
+      "cannot": "Das geht gerade nicht.",
+      "driving": "Das geht nicht während der Fahrt.",
+      "and": "und",
+      "yes": [
+        "ja",
+        "jawohl",
+        "ja bitte",
+        "genau",
+        "klar",
+        "sicher",
+        "okay",
+        "ok",
+        "gerne",
+        "bitte",
+        "mach das",
+        "mach es",
+        "richtig",
+        "passt",
+        "natürlich"
+      ],
+      "no": [
+        "nein",
+        "nee",
+        "nö",
+        "nein danke",
+        "lieber nicht",
+        "abbrechen",
+        "vergiss es",
+        "lass es",
+        "jetzt nicht"
+      ],
+      "window": {
+        "all": "alle Fenster",
+        "driver": "das Fahrerfenster",
+        "passenger": "das Beifahrerfenster",
+        "front_left": "das Fenster vorne links",
+        "front_right": "das Fenster vorne rechts",
+        "rear_left": "das Fenster hinten links",
+        "rear_right": "das Fenster hinten rechts",
+        "front": "die vorderen Fenster",
+        "rear": "die hinteren Fenster",
+        "left": "die linken Fenster",
+        "right": "die rechten Fenster"
+      },
+      "door": {
+        "all": "alle Türen",
+        "driver": "die Fahrertür",
+        "passenger": "die Beifahrertür",
+        "front_left": "die Tür vorne links",
+        "front_right": "die Tür vorne rechts",
+        "rear_left": "die Tür hinten links",
+        "rear_right": "die Tür hinten rechts",
+        "front": "die vorderen Türen",
+        "rear": "die hinteren Türen",
+        "left": "die linken Türen",
+        "right": "die rechten Türen",
+        "car": "das Auto"
+      },
+      "seat": {
+        "driver": "für den Fahrersitz",
+        "passenger": "für den Beifahrersitz",
+        "rear_left": "für den Sitz hinten links",
+        "rear_right": "für den Sitz hinten rechts"
+      },
+      "zone": {
+        "driver": "für den Fahrer",
+        "passenger": "für den Beifahrer",
+        "rear": "hinten",
+        "all": "überall"
+      },
+      "feature": {
+        "heater": "die Sitzheizung",
+        "ventilation": "die Sitzbelüftung"
+      },
+      "level": {
+        "low": "niedrig",
+        "medium": "mittel",
+        "high": "hoch"
+      },
+      "air": {
+        "face": "auf das Gesicht",
+        "feet": "in den Fußraum",
+        "face_and_feet": "auf Gesicht und Fußraum",
+        "windshield": "auf die Frontscheibe"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "Radio",
+        "usb": "USB",
+        "streaming": "Streaming"
+      },
+      "avoid": {
+        "tolls": "Mautstraßen",
+        "traffic": "Staus",
+        "highways": "Autobahnen",
+        "ferries": "Fähren"
+      },
+      "place": {
+        "gas_station": "eine Tankstelle",
+        "ev_charger": "eine Ladestation",
+        "parking": "einen Parkplatz",
+        "restaurant": "ein Restaurant",
+        "coffee": "ein Café",
+        "rest_area": "einen Rastplatz"
+      },
+      "t": {
+        "window.open": "{window} öffnen",
+        "window.close": "{window} schließen",
+        "window.half": "{window} halb öffnen",
+        "window.crack": "{window} einen Spalt öffnen",
+        "door.open": "{door} öffnen",
+        "door.close": "{door} schließen",
+        "lock": "{door} verriegeln",
+        "unlock": "{door} entriegeln",
+        "sunroof.open": "das Schiebedach öffnen",
+        "sunroof.tilt": "das Schiebedach ankippen",
+        "sunroof.close": "das Schiebedach schließen",
+        "trunk.open": "den Kofferraum öffnen",
+        "trunk.close": "den Kofferraum schließen",
+        "frunk.open": "den vorderen Kofferraum öffnen",
+        "frunk.close": "den vorderen Kofferraum schließen",
+        "temp.set": "die Temperatur auf {t} stellen",
+        "temp.setZone": "die Temperatur {zone} auf {t} stellen",
+        "temp.up": "die Temperatur um {n} Grad erhöhen",
+        "temp.down": "die Temperatur um {n} Grad senken",
+        "dual": "den Fahrer auf {d} und den Beifahrer auf {p} stellen",
+        "feel.cold": "es wärmer machen",
+        "feel.hot": "es kühler machen",
+        "fan.set": "das Gebläse auf Stufe {n} stellen",
+        "fan.up": "das Gebläse stärker stellen",
+        "fan.down": "das Gebläse schwächer stellen",
+        "air": "die Luft {mode} richten",
+        "defrost.windshield.on": "die Frontscheibe enteisen",
+        "defrost.windshield.off": "die Frontscheibenheizung ausschalten",
+        "defrost.rear.on": "die Heckscheibenheizung einschalten",
+        "defrost.rear.off": "die Heckscheibenheizung ausschalten",
+        "seat.set": "{feature} {seat} auf {level} stellen",
+        "seat.off": "{feature} {seat} ausschalten",
+        "wheel.on": "die Lenkradheizung einschalten",
+        "wheel.off": "die Lenkradheizung ausschalten",
+        "media": "{q} abspielen",
+        "radio": "das Radio auf {band} {f} einstellen",
+        "source": "auf {source} umschalten",
+        "vol.up": "lauter stellen",
+        "vol.down": "leiser stellen",
+        "vol.mute": "den Ton stummschalten",
+        "vol.unmute": "den Ton wieder einschalten",
+        "vol.set": "die Lautstärke auf {n} stellen",
+        "nav": "zu {dest} navigieren",
+        "nav.home": "nach Hause navigieren",
+        "nav.work": "zur Arbeit navigieren",
+        "avoid": "{avoid} vermeiden",
+        "generic": "das ausführen"
+      },
+      "answer": {
+        "eta": "Ankunft in etwa {min} Minuten.",
+        "eta.none": "Es gibt keine aktive Route.",
+        "find": "Ich habe {place} auf der Route gefunden.",
+        "status.range": "Die Reichweite beträgt etwa {km} km.",
+        "status.fuel": "Der Tank ist bei {pct} %, etwa {km} km.",
+        "status.battery": "Die Batterie ist bei {pct} %.",
+        "status.energy_consumption": "Der Verbrauch liegt bei {v} km pro Liter.",
+        "status.tire_pressure": "Der Reifendruck ist in Ordnung: 31 bis 32 psi.",
+        "status.warnings": "Es leuchten keine Warnleuchten."
+      },
+      "messages": {
+        "whichSeat": "Welcher Sitz: Ihrer, der des Beifahrers oder beide?",
+        "didNotCatch": "Entschuldigung, das habe ich nicht verstanden. Können Sie das wiederholen?",
+        "notInDemo": "Das ist in dieser Demo nicht verfügbar. Wenn Sie es nutzen möchten, wenden Sie sich an info@davoice.io.",
+        "noRemote": "Dafür brauche ich ein Remote-Modell. Bitte richten Sie in der App ein Remote-Modell ein.",
+        "lowClarify": "Ich bin nicht sicher, ob ich das richtig verstanden habe. Können Sie es anders sagen?",
+        "lowDecline": "Da bin ich mir nicht sicher genug, deshalb habe ich nichts geändert.",
+        "lowNoRemote": "Für diesen Befehl brauche ich einen Remote-Agenten."
+      },
+      "pack": {
+        "noReply": "Entschuldigung, das habe ich nicht verstanden. Können Sie das wiederholen?",
+        "notDoneRest": "Den Rest habe ich nicht ausgeführt. Können Sie das wiederholen?",
+        "done": "Erledigt.",
+        "failed": "Entschuldigung, das hat nicht geklappt.",
+        "notConfirmed": "In Ordnung, dann mache ich das nicht.",
+        "notAuthorized": "Entschuldigung, das dürfen Sie nicht.",
+        "unsupported": "Entschuldigung, das ist in dieser App nicht verfügbar.",
+        "invalidArgs": "Entschuldigung, mir fehlen Details. Können Sie das wiederholen?",
+        "guardConflict": "Entschuldigung, ich bin nicht sicher, ob ich das richtig verstanden habe. Können Sie das wiederholen?",
+        "outOfRange": "Entschuldigung, {value} geht nicht: möglich ist {min} bis {max}.",
+        "outOfRangeAsk": "Welchen Wert möchten Sie? Möglich ist {min} bis {max}.",
+        "scopeClarify": "Entschuldigung, das habe ich nicht verstanden. Können Sie das wiederholen?",
+        "scopeUnsupported": "Entschuldigung, das kann ich in diesem Auto nicht steuern.",
+        "scopeNoRemote": "Das kann ich hier nicht beantworten. Ich helfe bei Fenstern, Türen, Klima, Musik, Navigation und dem Fahrzeugstatus.",
+        "remoteFailed": "Entschuldigung, Gemini konnte das gerade nicht beantworten. Bitte versuchen Sie es gleich noch einmal.",
+        "remoteOffline": "Ich erreiche Gemini nicht. Bitte prüfen Sie die Internetverbindung.",
+        "remoteBusy": "Gemini ist gerade ausgelastet. Bitte versuchen Sie es gleich noch einmal.",
+        "remoteTimeout": "Gemini braucht zu lange. Bitte versuchen Sie es gleich noch einmal.",
+        "remoteUnavailable": "Gemini ist gerade nicht verfügbar. Bitte versuchen Sie es später.",
+        "remoteFillers": [
+          "Einen Moment, ich sehe nach.",
+          "Einen Augenblick bitte.",
+          "Ich schaue kurz nach."
+        ],
+        "searchFillers": [
+          "Gute Frage, ich suche kurz.",
+          "Einen Moment, ich suche das."
+        ],
+        "searchFailed": [
+          "Entschuldigung, ich erreiche das Internet gerade nicht."
+        ]
+      },
+      "hints": [
+        [
+          "\\bbeifahrer",
+          "passenger"
+        ],
+        [
+          "\\bfahrer",
+          "driver"
+        ],
+        [
+          "\\bfenster|\\bseitenscheibe",
+          "window"
+        ],
+        [
+          "\\btur\\b|\\bturen\\b",
+          "door"
+        ],
+        [
+          "\\boffne\\w*|\\baufmachen",
+          "open"
+        ],
+        [
+          "\\bauf$|\\brunter$",
+          "open"
+        ],
+        [
+          "\\bzu$|\\bhoch$",
+          "close"
+        ],
+        [
+          "\\bschlie(ß|ss)\\w*|\\bzumachen",
+          "close"
+        ],
+        [
+          "\\bverriegel\\w*|\\babschlie(ß|ss)\\w*|\\bzusperr\\w*|\\babsperr\\w*",
+          "lock"
+        ],
+        [
+          "\\bentriegel\\w*|\\baufschlie(ß|ss)\\w*|\\baufsperr\\w*",
+          "unlock"
+        ],
+        [
+          "\\bschiebedach|\\bsonnendach|\\bpanoramadach",
+          "sunroof"
+        ],
+        [
+          "\\bsitzheizung",
+          "seat heater"
+        ],
+        [
+          "\\bsitzbeluftung",
+          "seat ventilation"
+        ],
+        [
+          "\\blenkradheizung",
+          "steering wheel heater"
+        ],
+        [
+          "\\bgeblase|\\blufter|\\bluftung|\\bventilator",
+          "fan"
+        ],
+        [
+          "\\bstufe",
+          "level"
+        ],
+        [
+          "\\btemperatur",
+          "temperature"
+        ],
+        [
+          "\\bgrad\\b",
+          "degrees"
+        ],
+        [
+          "\\bwarmer\\b",
+          "warmer"
+        ],
+        [
+          "\\bkalter\\b|\\bkuhler\\b",
+          "cooler"
+        ],
+        [
+          "\\bmir ist kalt|\\bkalt\\b|\\bfriere",
+          "I am cold"
+        ],
+        [
+          "\\bmir ist (zu )?warm|\\bheiß|\\bschwitze",
+          "I am hot"
+        ],
+        [
+          "\\blauter",
+          "volume up"
+        ],
+        [
+          "\\bleiser",
+          "volume down"
+        ],
+        [
+          "\\blautstarke",
+          "volume"
+        ],
+        [
+          "\\bmusik|\\blied",
+          "music"
+        ],
+        [
+          "\\bspiel\\w*|\\babspielen",
+          "play"
+        ],
+        [
+          "\\bradio|\\bsender",
+          "radio"
+        ],
+        [
+          "\\bnach hause|\\bheim\\b|\\bnachhause",
+          "home"
+        ],
+        [
+          "\\bzur arbeit|\\bins buro",
+          "work"
+        ],
+        [
+          "\\bnavigier\\w*|\\bbring mich|\\bfahr mich|\\broute nach",
+          "navigate"
+        ],
+        [
+          "\\bbenzin|\\btank|\\bsprit|\\bkraftstoff|\\bdiesel",
+          "fuel"
+        ],
+        [
+          "\\breichweite",
+          "range"
+        ],
+        [
+          "\\benteis\\w*|\\bentfrost\\w*|\\bbeschlag\\w*",
+          "defrost"
+        ],
+        [
+          "\\bfrontscheibe|\\bwindschutzscheibe",
+          "windshield"
+        ],
+        [
+          "\\bheckscheibe",
+          "rear window"
+        ],
+        [
+          "\\bkofferraum",
+          "trunk"
+        ],
+        [
+          "\\bvorne\\b",
+          "front"
+        ],
+        [
+          "\\bhinten\\b",
+          "rear"
+        ],
+        [
+          "\\blinks\\b",
+          "left"
+        ],
+        [
+          "\\brechts\\b",
+          "right"
+        ],
+        [
+          "\\balle\\b",
+          "all"
+        ],
+        [
+          "\\bein$|\\beinschalten|\\banmachen|\\ban$",
+          "on"
+        ],
+        [
+          "\\baus$|\\bausschalten|\\babschalten|\\bausmachen",
+          "off"
+        ],
+        [
+          "\\bauto\\b|\\bwagen\\b",
+          "car"
+        ],
+        [
+          "\\bmehr\\b|\\bstarker\\b",
+          "more"
+        ],
+        [
+          "\\bschwitz\\w*",
+          "I am hot"
+        ],
+        [
+          "\\bmusik lauter|\\blauter machen",
+          "volume up"
+        ]
+      ]
+    },
+    "es": {
+      "q": "¿{a}?",
+      "capitalize": true,
+      "done": "Hecho.",
+      "cannot": "Eso no es posible ahora.",
+      "driving": "No puedo hacer eso con el coche en marcha.",
+      "and": "y",
+      "yes": [
+        "sí",
+        "si",
+        "claro",
+        "vale",
+        "venga",
+        "de acuerdo",
+        "por favor",
+        "sí por favor",
+        "hazlo",
+        "adelante",
+        "correcto",
+        "exacto",
+        "ok",
+        "okay",
+        "perfecto",
+        "dale"
+      ],
+      "no": [
+        "no",
+        "no gracias",
+        "mejor no",
+        "cancela",
+        "cancelar",
+        "déjalo",
+        "olvídalo",
+        "ahora no"
+      ],
+      "window": {
+        "all": "todas las ventanillas",
+        "driver": "la ventanilla del conductor",
+        "passenger": "la ventanilla del pasajero",
+        "front_left": "la ventanilla delantera izquierda",
+        "front_right": "la ventanilla delantera derecha",
+        "rear_left": "la ventanilla trasera izquierda",
+        "rear_right": "la ventanilla trasera derecha",
+        "front": "las ventanillas delanteras",
+        "rear": "las ventanillas traseras",
+        "left": "las ventanillas izquierdas",
+        "right": "las ventanillas derechas"
+      },
+      "door": {
+        "all": "todas las puertas",
+        "driver": "la puerta del conductor",
+        "passenger": "la puerta del pasajero",
+        "front_left": "la puerta delantera izquierda",
+        "front_right": "la puerta delantera derecha",
+        "rear_left": "la puerta trasera izquierda",
+        "rear_right": "la puerta trasera derecha",
+        "front": "las puertas delanteras",
+        "rear": "las puertas traseras",
+        "left": "las puertas izquierdas",
+        "right": "las puertas derechas",
+        "car": "el coche"
+      },
+      "seat": {
+        "driver": "del asiento del conductor",
+        "passenger": "del asiento del pasajero",
+        "rear_left": "del asiento trasero izquierdo",
+        "rear_right": "del asiento trasero derecho"
+      },
+      "zone": {
+        "driver": "del conductor",
+        "passenger": "del pasajero",
+        "rear": "de atrás",
+        "all": "de todo el coche"
+      },
+      "feature": {
+        "heater": "la calefacción",
+        "ventilation": "la ventilación"
+      },
+      "level": {
+        "low": "bajo",
+        "medium": "medio",
+        "high": "alto"
+      },
+      "air": {
+        "face": "a la cara",
+        "feet": "a los pies",
+        "face_and_feet": "a la cara y los pies",
+        "windshield": "al parabrisas"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "la radio",
+        "usb": "USB",
+        "streaming": "streaming"
+      },
+      "avoid": {
+        "tolls": "los peajes",
+        "traffic": "el tráfico",
+        "highways": "las autopistas",
+        "ferries": "los ferris"
+      },
+      "place": {
+        "gas_station": "una gasolinera",
+        "ev_charger": "un cargador eléctrico",
+        "parking": "un aparcamiento",
+        "restaurant": "un restaurante",
+        "coffee": "una cafetería",
+        "rest_area": "un área de descanso"
+      },
+      "t": {
+        "window.open": "abrir {window}",
+        "window.close": "cerrar {window}",
+        "window.half": "abrir {window} a la mitad",
+        "window.crack": "abrir un poco {window}",
+        "door.open": "abrir {door}",
+        "door.close": "cerrar {door}",
+        "lock": "bloquear {door}",
+        "unlock": "desbloquear {door}",
+        "sunroof.open": "abrir el techo solar",
+        "sunroof.tilt": "inclinar el techo solar",
+        "sunroof.close": "cerrar el techo solar",
+        "trunk.open": "abrir el maletero",
+        "trunk.close": "cerrar el maletero",
+        "frunk.open": "abrir el maletero delantero",
+        "frunk.close": "cerrar el maletero delantero",
+        "temp.set": "poner la temperatura a {t}",
+        "temp.setZone": "poner la temperatura {zone} a {t}",
+        "temp.up": "subir la temperatura {n} grados",
+        "temp.down": "bajar la temperatura {n} grados",
+        "dual": "poner al conductor a {d} y al pasajero a {p}",
+        "feel.cold": "calentar el coche",
+        "feel.hot": "enfriar el coche",
+        "fan.set": "poner el ventilador en {n}",
+        "fan.up": "subir el ventilador",
+        "fan.down": "bajar el ventilador",
+        "air": "dirigir el aire {mode}",
+        "defrost.windshield.on": "desempañar el parabrisas",
+        "defrost.windshield.off": "apagar el desempañador del parabrisas",
+        "defrost.rear.on": "encender la luneta térmica",
+        "defrost.rear.off": "apagar la luneta térmica",
+        "seat.set": "poner {feature} {seat} en {level}",
+        "seat.off": "apagar {feature} {seat}",
+        "wheel.on": "encender la calefacción del volante",
+        "wheel.off": "apagar la calefacción del volante",
+        "media": "reproducir {q}",
+        "radio": "sintonizar {band} {f}",
+        "source": "cambiar a {source}",
+        "vol.up": "subir el volumen",
+        "vol.down": "bajar el volumen",
+        "vol.mute": "silenciar el sonido",
+        "vol.unmute": "activar el sonido",
+        "vol.set": "poner el volumen en {n}",
+        "nav": "ir a {dest}",
+        "nav.home": "ir a casa",
+        "nav.work": "ir al trabajo",
+        "avoid": "evitar {avoid}",
+        "generic": "hacer eso"
+      },
+      "answer": {
+        "eta": "Llegada en unos {min} minutos.",
+        "eta.none": "No hay ninguna ruta activa.",
+        "find": "He encontrado {place} en la ruta.",
+        "status.range": "Te quedan unos {km} km de autonomía.",
+        "status.fuel": "El depósito está al {pct} %, unos {km} km.",
+        "status.battery": "La batería está al {pct} %.",
+        "status.energy_consumption": "El consumo medio es de {v} km por litro.",
+        "status.tire_pressure": "Los neumáticos están bien: entre 31 y 32 psi.",
+        "status.warnings": "No hay ninguna luz de aviso encendida."
+      },
+      "messages": {
+        "whichSeat": "¿Qué asiento: el tuyo, el del pasajero o los dos?",
+        "didNotCatch": "Perdona, no te he entendido. ¿Puedes repetirlo?",
+        "notInDemo": "Esto no está disponible en esta demo. Para tenerlo, contacta con info@davoice.io.",
+        "noRemote": "Necesito enviar esto a un modelo remoto. Para que funcione, configura un modelo remoto en la app.",
+        "lowClarify": "No estoy seguro de haberlo entendido. ¿Puedes decirlo de otra forma?",
+        "lowDecline": "No estoy lo bastante seguro, así que no he cambiado nada.",
+        "lowNoRemote": "Para este comando necesito un agente remoto."
+      },
+      "pack": {
+        "noReply": "Perdona, no te he entendido. ¿Puedes repetirlo?",
+        "notDoneRest": "El resto no lo he hecho. ¿Puedes repetirlo?",
+        "done": "Hecho.",
+        "failed": "Perdona, no ha funcionado.",
+        "notConfirmed": "Vale, no lo haré.",
+        "notAuthorized": "Perdona, no tienes permiso para eso.",
+        "unsupported": "Perdona, eso no está disponible en esta app.",
+        "invalidArgs": "Perdona, me faltan detalles. ¿Puedes repetirlo?",
+        "guardConflict": "Perdona, no estoy seguro de haberlo entendido bien. ¿Puedes repetirlo?",
+        "outOfRange": "Perdona, {value} no es posible: va de {min} a {max}.",
+        "outOfRangeAsk": "¿Qué valor quieres? Va de {min} a {max}.",
+        "scopeClarify": "Perdona, no te he entendido. ¿Puedes repetirlo?",
+        "scopeUnsupported": "Perdona, eso no lo puedo controlar en este coche.",
+        "scopeNoRemote": "Eso no lo puedo responder aquí. Puedo ayudarte con las ventanillas, las puertas, el clima, la música, la navegación y el estado del coche.",
+        "remoteFailed": "Perdona, Gemini no ha podido responder ahora. Inténtalo de nuevo en un momento.",
+        "remoteOffline": "No puedo conectar con Gemini. Comprueba la conexión a internet.",
+        "remoteBusy": "Gemini está ocupado ahora. Inténtalo de nuevo en un momento.",
+        "remoteTimeout": "Gemini está tardando demasiado. Inténtalo de nuevo en un momento.",
+        "remoteUnavailable": "Gemini no está disponible ahora. Inténtalo más tarde.",
+        "remoteFillers": [
+          "Un momento, lo miro.",
+          "Dame un segundo.",
+          "Déjame comprobarlo."
+        ],
+        "searchFillers": [
+          "Buena pregunta, lo busco.",
+          "Un momento, lo estoy buscando."
+        ],
+        "searchFailed": [
+          "Perdona, ahora no puedo conectarme a internet."
+        ]
+      },
+      "hints": [
+        [
+          "\\bconductor|\\bpiloto\\b",
+          "driver"
+        ],
+        [
+          "\\bpasajero|\\bcopiloto|\\bacompanante",
+          "passenger"
+        ],
+        [
+          "\\bventanill\\w*|\\bventana\\w*|\\bcristal\\w*",
+          "window"
+        ],
+        [
+          "\\bpuerta\\w*",
+          "door"
+        ],
+        [
+          "\\babr[eia]\\w*|\\bbaja\\w* (la |las )?ventan\\w*",
+          "open"
+        ],
+        [
+          "\\bcierr\\w*|\\bcerr\\w*|\\bsube\\w* (la |las )?ventan\\w*",
+          "close"
+        ],
+        [
+          "\\bbloque\\w*|\\bseguro\\b|\\bcierra el coche",
+          "lock"
+        ],
+        [
+          "\\bdesbloque\\w*|\\bquita el seguro",
+          "unlock"
+        ],
+        [
+          "\\btecho",
+          "sunroof"
+        ],
+        [
+          "\\bcalefaccion del asiento|\\basiento calefactado|\\bcalienta el asiento",
+          "seat heater"
+        ],
+        [
+          "\\bventilacion del asiento",
+          "seat ventilation"
+        ],
+        [
+          "\\bvolante",
+          "steering wheel"
+        ],
+        [
+          "\\bventilador\\w*",
+          "fan"
+        ],
+        [
+          "\\bnivel|\\bvelocidad",
+          "level"
+        ],
+        [
+          "\\btemperatura",
+          "temperature"
+        ],
+        [
+          "\\bgrados?\\b",
+          "degrees"
+        ],
+        [
+          "\\bmas calor|\\bmas caliente|\\bsube (un poco )?la calefaccion|\\bcalienta\\b",
+          "warmer"
+        ],
+        [
+          "\\bmas fri[oa]|\\bmas fresco|\\benfria\\w*|\\brefresca\\w*|\\bbaja (un poco )?la calefaccion",
+          "cooler"
+        ],
+        [
+          "\\btengo frio|\\bhace frio|\\bque frio",
+          "I am cold"
+        ],
+        [
+          "\\btengo calor|\\bhace calor|\\bque calor",
+          "I am hot"
+        ],
+        [
+          "\\bsube (el )?(volumen|musica|sonido)|\\bmas alto|\\bsubele",
+          "volume up"
+        ],
+        [
+          "\\bbaja (el )?(volumen|musica|sonido)|\\bmas bajo|\\bbajale",
+          "volume down"
+        ],
+        [
+          "\\bvolumen|\\bsonido",
+          "volume"
+        ],
+        [
+          "\\bmusica|\\bcancion",
+          "music"
+        ],
+        [
+          "\\breproduc\\w*|\\btoca\\b|\\bpon (musica|algo de|la cancion)",
+          "play"
+        ],
+        [
+          "\\bradio|\\bemisora",
+          "radio"
+        ],
+        [
+          "\\ba casa\\b|\\bmi casa",
+          "home"
+        ],
+        [
+          "\\bal trabajo|\\ba la oficina",
+          "work"
+        ],
+        [
+          "\\bllevame|\\bnavega\\w*|\\bvamos a\\b|\\bruta a\\b",
+          "navigate"
+        ],
+        [
+          "\\bgasolina|\\bcombustible|\\bdeposito|\\bgasoil|\\bdiesel",
+          "fuel"
+        ],
+        [
+          "\\bautonomia",
+          "range"
+        ],
+        [
+          "\\bdesempan\\w*|\\bdesescarch\\w*",
+          "defrost"
+        ],
+        [
+          "\\bparabrisas",
+          "windshield"
+        ],
+        [
+          "\\bluneta",
+          "rear window"
+        ],
+        [
+          "\\bmaletero|\\bbaul",
+          "trunk"
+        ],
+        [
+          "\\bdelanter\\w*",
+          "front"
+        ],
+        [
+          "\\btraser\\w*|\\batras\\b",
+          "rear"
+        ],
+        [
+          "\\bizquierd\\w*",
+          "left"
+        ],
+        [
+          "\\bderech\\w*",
+          "right"
+        ],
+        [
+          "\\btod[oa]s\\b",
+          "all"
+        ],
+        [
+          "\\benciend\\w*|\\bencender|\\bactiva\\w*|\\bprende\\w*",
+          "on"
+        ],
+        [
+          "\\bapag\\w*|\\bdesactiva\\w*",
+          "off"
+        ],
+        [
+          "\\bcoche\\b|\\bcarro\\b|\\bauto\\b",
+          "car"
+        ],
+        [
+          "\\bmas\\b",
+          "more"
+        ],
+        [
+          "\\bsudando|\\bsudo\\b",
+          "I am hot"
+        ],
+        [
+          "\\bsube\\w* (a )?la musica|\\bsubele",
+          "volume up"
+        ]
+      ]
+    },
+    "it": {
+      "q": "{a}?",
+      "capitalize": true,
+      "done": "Fatto.",
+      "cannot": "Adesso non è possibile.",
+      "driving": "Non posso farlo con l'auto in movimento.",
+      "and": "e",
+      "yes": [
+        "sì",
+        "si",
+        "certo",
+        "va bene",
+        "ok",
+        "okay",
+        "d'accordo",
+        "dai",
+        "vai",
+        "per favore",
+        "sì grazie",
+        "fallo",
+        "esatto",
+        "giusto",
+        "perfetto",
+        "volentieri"
+      ],
+      "no": [
+        "no",
+        "no grazie",
+        "meglio di no",
+        "annulla",
+        "lascia stare",
+        "lascia perdere",
+        "non ora",
+        "non adesso"
+      ],
+      "window": {
+        "all": "tutti i finestrini",
+        "driver": "il finestrino del conducente",
+        "passenger": "il finestrino del passeggero",
+        "front_left": "il finestrino anteriore sinistro",
+        "front_right": "il finestrino anteriore destro",
+        "rear_left": "il finestrino posteriore sinistro",
+        "rear_right": "il finestrino posteriore destro",
+        "front": "i finestrini anteriori",
+        "rear": "i finestrini posteriori",
+        "left": "i finestrini di sinistra",
+        "right": "i finestrini di destra"
+      },
+      "door": {
+        "all": "tutte le portiere",
+        "driver": "la portiera del conducente",
+        "passenger": "la portiera del passeggero",
+        "front_left": "la portiera anteriore sinistra",
+        "front_right": "la portiera anteriore destra",
+        "rear_left": "la portiera posteriore sinistra",
+        "rear_right": "la portiera posteriore destra",
+        "front": "le portiere anteriori",
+        "rear": "le portiere posteriori",
+        "left": "le portiere di sinistra",
+        "right": "le portiere di destra",
+        "car": "l'auto"
+      },
+      "seat": {
+        "driver": "del sedile del conducente",
+        "passenger": "del sedile del passeggero",
+        "rear_left": "del sedile posteriore sinistro",
+        "rear_right": "del sedile posteriore destro"
+      },
+      "zone": {
+        "driver": "del conducente",
+        "passenger": "del passeggero",
+        "rear": "posteriore",
+        "all": "di tutta l'auto"
+      },
+      "feature": {
+        "heater": "il riscaldamento",
+        "ventilation": "la ventilazione"
+      },
+      "level": {
+        "low": "basso",
+        "medium": "medio",
+        "high": "alto"
+      },
+      "air": {
+        "face": "verso il viso",
+        "feet": "verso i piedi",
+        "face_and_feet": "verso viso e piedi",
+        "windshield": "verso il parabrezza"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "la radio",
+        "usb": "USB",
+        "streaming": "lo streaming"
+      },
+      "avoid": {
+        "tolls": "i pedaggi",
+        "traffic": "il traffico",
+        "highways": "le autostrade",
+        "ferries": "i traghetti"
+      },
+      "place": {
+        "gas_station": "un distributore",
+        "ev_charger": "una colonnina di ricarica",
+        "parking": "un parcheggio",
+        "restaurant": "un ristorante",
+        "coffee": "un bar",
+        "rest_area": "un'area di sosta"
+      },
+      "t": {
+        "window.open": "aprire {window}",
+        "window.close": "chiudere {window}",
+        "window.half": "aprire a metà {window}",
+        "window.crack": "aprire un po' {window}",
+        "door.open": "aprire {door}",
+        "door.close": "chiudere {door}",
+        "lock": "bloccare {door}",
+        "unlock": "sbloccare {door}",
+        "sunroof.open": "aprire il tetto apribile",
+        "sunroof.tilt": "inclinare il tetto apribile",
+        "sunroof.close": "chiudere il tetto apribile",
+        "trunk.open": "aprire il bagagliaio",
+        "trunk.close": "chiudere il bagagliaio",
+        "frunk.open": "aprire il bagagliaio anteriore",
+        "frunk.close": "chiudere il bagagliaio anteriore",
+        "temp.set": "impostare la temperatura a {t}",
+        "temp.setZone": "impostare la temperatura {zone} a {t}",
+        "temp.up": "alzare la temperatura di {n} gradi",
+        "temp.down": "abbassare la temperatura di {n} gradi",
+        "dual": "impostare il conducente a {d} e il passeggero a {p}",
+        "feel.cold": "riscaldare l'auto",
+        "feel.hot": "rinfrescare l'auto",
+        "fan.set": "impostare la ventola a {n}",
+        "fan.up": "aumentare la ventola",
+        "fan.down": "diminuire la ventola",
+        "air": "dirigere l'aria {mode}",
+        "defrost.windshield.on": "sbrinare il parabrezza",
+        "defrost.windshield.off": "spegnere lo sbrinamento del parabrezza",
+        "defrost.rear.on": "accendere il lunotto termico",
+        "defrost.rear.off": "spegnere il lunotto termico",
+        "seat.set": "impostare {feature} {seat} su {level}",
+        "seat.off": "spegnere {feature} {seat}",
+        "wheel.on": "accendere il volante riscaldato",
+        "wheel.off": "spegnere il volante riscaldato",
+        "media": "riprodurre {q}",
+        "radio": "sintonizzare {band} {f}",
+        "source": "passare a {source}",
+        "vol.up": "alzare il volume",
+        "vol.down": "abbassare il volume",
+        "vol.mute": "disattivare l'audio",
+        "vol.unmute": "riattivare l'audio",
+        "vol.set": "impostare il volume a {n}",
+        "nav": "andare a {dest}",
+        "nav.home": "andare a casa",
+        "nav.work": "andare al lavoro",
+        "avoid": "evitare {avoid}",
+        "generic": "farlo"
+      },
+      "answer": {
+        "eta": "Arrivo tra circa {min} minuti.",
+        "eta.none": "Non c'è nessun percorso attivo.",
+        "find": "Ho trovato {place} lungo il percorso.",
+        "status.range": "Hai circa {km} km di autonomia.",
+        "status.fuel": "Il serbatoio è al {pct}%, circa {km} km.",
+        "status.battery": "La batteria è al {pct}%.",
+        "status.energy_consumption": "Il consumo medio è di {v} km al litro.",
+        "status.tire_pressure": "Le gomme sono a posto: tra 31 e 32 psi.",
+        "status.warnings": "Nessuna spia accesa."
+      },
+      "messages": {
+        "whichSeat": "Quale sedile: il tuo, quello del passeggero o tutti e due?",
+        "didNotCatch": "Scusa, non ho capito. Puoi ripetere?",
+        "notInDemo": "Questo non è disponibile in questa demo. Per averlo, contatta info@davoice.io.",
+        "noRemote": "Devo inviarlo a un modello remoto. Per farlo funzionare, configura un modello remoto nell'app.",
+        "lowClarify": "Non sono sicuro di aver capito. Puoi dirlo in un altro modo?",
+        "lowDecline": "Non ne sono abbastanza sicuro, quindi non ho cambiato niente.",
+        "lowNoRemote": "Per questo comando mi serve un agente remoto."
+      },
+      "pack": {
+        "noReply": "Scusa, non ho capito. Puoi ripetere?",
+        "notDoneRest": "Il resto non l'ho fatto. Puoi ripetere?",
+        "done": "Fatto.",
+        "failed": "Scusa, non ha funzionato.",
+        "notConfirmed": "Va bene, non lo faccio.",
+        "notAuthorized": "Scusa, non hai il permesso per farlo.",
+        "unsupported": "Scusa, questo non è disponibile in questa app.",
+        "invalidArgs": "Scusa, mi mancano dei dettagli. Puoi ripetere?",
+        "guardConflict": "Scusa, non sono sicuro di aver capito bene. Puoi ripetere?",
+        "outOfRange": "Scusa, {value} non è possibile: va da {min} a {max}.",
+        "outOfRangeAsk": "Che valore vuoi? Va da {min} a {max}.",
+        "scopeClarify": "Scusa, non ho capito. Puoi ripetere?",
+        "scopeUnsupported": "Scusa, questo non lo posso controllare in questa auto.",
+        "scopeNoRemote": "Qui non posso rispondere. Posso aiutarti con finestrini, portiere, clima, musica, navigazione e stato dell'auto.",
+        "remoteFailed": "Scusa, Gemini non è riuscito a rispondere adesso. Riprova tra un momento.",
+        "remoteOffline": "Non riesco a raggiungere Gemini. Controlla la connessione a internet.",
+        "remoteBusy": "Gemini è occupato adesso. Riprova tra un momento.",
+        "remoteTimeout": "Gemini ci sta mettendo troppo. Riprova tra un momento.",
+        "remoteUnavailable": "Gemini non è disponibile adesso. Riprova più tardi.",
+        "remoteFillers": [
+          "Un attimo, controllo.",
+          "Dammi un secondo.",
+          "Fammi verificare."
+        ],
+        "searchFillers": [
+          "Bella domanda, cerco subito.",
+          "Un momento, sto cercando."
+        ],
+        "searchFailed": [
+          "Scusa, adesso non riesco a collegarmi a internet."
+        ]
+      },
+      "hints": [
+        [
+          "\\bconducente|\\bguidatore|\\bautista",
+          "driver"
+        ],
+        [
+          "\\bpasseggero",
+          "passenger"
+        ],
+        [
+          "\\bfinestrin\\w*|\\bvetr[oi]\\b",
+          "window"
+        ],
+        [
+          "\\bportier\\w*|\\bport[ae]\\b",
+          "door"
+        ],
+        [
+          "\\bapr[io]\\w*|\\babbassa\\w* (il |i )?finestrin\\w*",
+          "open"
+        ],
+        [
+          "\\bchiud\\w*|\\balza\\w* (il |i )?finestrin\\w*",
+          "close"
+        ],
+        [
+          "\\bblocca\\w*|\\bchiudi (la macchina|l auto|la vettura)",
+          "lock"
+        ],
+        [
+          "\\bsblocca\\w*",
+          "unlock"
+        ],
+        [
+          "\\btett\\w*",
+          "sunroof"
+        ],
+        [
+          "\\bsedile riscaldato|\\briscaldamento (del )?sedile|\\bscalda(re)? (il )?sedile",
+          "seat heater"
+        ],
+        [
+          "\\bventilazione (del )?sedile",
+          "seat ventilation"
+        ],
+        [
+          "\\bvolante",
+          "steering wheel"
+        ],
+        [
+          "\\bventol\\w*|\\bventilazione\\b",
+          "fan"
+        ],
+        [
+          "\\blivello|\\bvelocita",
+          "level"
+        ],
+        [
+          "\\btemperatura",
+          "temperature"
+        ],
+        [
+          "\\bgradi\\b",
+          "degrees"
+        ],
+        [
+          "\\bpiu caldo|\\balza (il )?riscaldamento|\\bscalda\\b",
+          "warmer"
+        ],
+        [
+          "\\bpiu fresco|\\bpiu freddo|\\brinfresca\\w*|\\babbassa (il )?riscaldamento",
+          "cooler"
+        ],
+        [
+          "\\bho freddo|\\bfa freddo|\\bsento freddo",
+          "I am cold"
+        ],
+        [
+          "\\bho caldo|\\bfa caldo|\\bsento caldo",
+          "I am hot"
+        ],
+        [
+          "\\balza (il )?volume|\\bpiu forte|\\balza la musica",
+          "volume up"
+        ],
+        [
+          "\\babbassa (il )?volume|\\bpiu piano|\\babbassa la musica",
+          "volume down"
+        ],
+        [
+          "\\bvolume",
+          "volume"
+        ],
+        [
+          "\\bmusica|\\bcanzone",
+          "music"
+        ],
+        [
+          "\\bmetti (la |un po di )?musica|\\bsuona\\w*|\\briproduc\\w*",
+          "play"
+        ],
+        [
+          "\\bradio",
+          "radio"
+        ],
+        [
+          "\\ba casa\\b",
+          "home"
+        ],
+        [
+          "\\bal lavoro|\\bin ufficio",
+          "work"
+        ],
+        [
+          "\\bportami|\\bnaviga\\w*|\\bandiamo a\\b",
+          "navigate"
+        ],
+        [
+          "\\bbenzina|\\bcarburante|\\bserbatoio|\\bgasolio",
+          "fuel"
+        ],
+        [
+          "\\bautonomia",
+          "range"
+        ],
+        [
+          "\\bsbrin\\w*|\\bdisappann\\w*",
+          "defrost"
+        ],
+        [
+          "\\bparabrezza",
+          "windshield"
+        ],
+        [
+          "\\blunotto",
+          "rear window"
+        ],
+        [
+          "\\bbagagliaio|\\bportabagagli",
+          "trunk"
+        ],
+        [
+          "\\banterior\\w*|\\bdavanti",
+          "front"
+        ],
+        [
+          "\\bposterior\\w*|\\bdietro",
+          "rear"
+        ],
+        [
+          "\\bsinistr\\w*",
+          "left"
+        ],
+        [
+          "\\bdestr\\w*",
+          "right"
+        ],
+        [
+          "\\btutt[ie]\\b",
+          "all"
+        ],
+        [
+          "\\baccend\\w*|\\battiva\\w*",
+          "on"
+        ],
+        [
+          "\\bspegn\\w*|\\bdisattiva\\w*",
+          "off"
+        ],
+        [
+          "\\bmacchina|\\bauto\\b|\\bvettura",
+          "car"
+        ],
+        [
+          "\\bpiu\\b",
+          "more"
+        ],
+        [
+          "\\bsudando|\\bsudo\\b",
+          "I am hot"
+        ],
+        [
+          "\\balza (la )?musica",
+          "volume up"
+        ]
+      ]
+    },
+    "fr": {
+      "q": "{a} ?",
+      "capitalize": true,
+      "done": "C'est fait.",
+      "cannot": "Ce n'est pas possible pour le moment.",
+      "driving": "Je ne peux pas faire ça en roulant.",
+      "and": "et",
+      "yes": [
+        "oui",
+        "ouais",
+        "d'accord",
+        "ok",
+        "okay",
+        "bien sûr",
+        "vas-y",
+        "allez",
+        "s'il te plaît",
+        "s'il vous plaît",
+        "oui merci",
+        "oui s'il te plaît",
+        "exactement",
+        "parfait",
+        "c'est ça",
+        "volontiers"
+      ],
+      "no": [
+        "non",
+        "non merci",
+        "pas maintenant",
+        "annule",
+        "annuler",
+        "laisse tomber",
+        "laisse",
+        "oublie"
+      ],
+      "window": {
+        "all": "toutes les vitres",
+        "driver": "la vitre du conducteur",
+        "passenger": "la vitre du passager",
+        "front_left": "la vitre avant gauche",
+        "front_right": "la vitre avant droite",
+        "rear_left": "la vitre arrière gauche",
+        "rear_right": "la vitre arrière droite",
+        "front": "les vitres avant",
+        "rear": "les vitres arrière",
+        "left": "les vitres de gauche",
+        "right": "les vitres de droite"
+      },
+      "door": {
+        "all": "toutes les portes",
+        "driver": "la porte du conducteur",
+        "passenger": "la porte du passager",
+        "front_left": "la porte avant gauche",
+        "front_right": "la porte avant droite",
+        "rear_left": "la porte arrière gauche",
+        "rear_right": "la porte arrière droite",
+        "front": "les portes avant",
+        "rear": "les portes arrière",
+        "left": "les portes de gauche",
+        "right": "les portes de droite",
+        "car": "la voiture"
+      },
+      "seat": {
+        "driver": "du siège conducteur",
+        "passenger": "du siège passager",
+        "rear_left": "du siège arrière gauche",
+        "rear_right": "du siège arrière droit"
+      },
+      "zone": {
+        "driver": "du conducteur",
+        "passenger": "du passager",
+        "rear": "à l'arrière",
+        "all": "de toute la voiture"
+      },
+      "feature": {
+        "heater": "le chauffage",
+        "ventilation": "la ventilation"
+      },
+      "level": {
+        "low": "faible",
+        "medium": "moyen",
+        "high": "élevé"
+      },
+      "air": {
+        "face": "vers le visage",
+        "feet": "vers les pieds",
+        "face_and_feet": "vers le visage et les pieds",
+        "windshield": "vers le pare-brise"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "la radio",
+        "usb": "USB",
+        "streaming": "le streaming"
+      },
+      "avoid": {
+        "tolls": "les péages",
+        "traffic": "les bouchons",
+        "highways": "les autoroutes",
+        "ferries": "les ferries"
+      },
+      "place": {
+        "gas_station": "une station-service",
+        "ev_charger": "une borne de recharge",
+        "parking": "un parking",
+        "restaurant": "un restaurant",
+        "coffee": "un café",
+        "rest_area": "une aire de repos"
+      },
+      "t": {
+        "window.open": "ouvrir {window}",
+        "window.close": "fermer {window}",
+        "window.half": "ouvrir {window} à moitié",
+        "window.crack": "entrouvrir {window}",
+        "door.open": "ouvrir {door}",
+        "door.close": "fermer {door}",
+        "lock": "verrouiller {door}",
+        "unlock": "déverrouiller {door}",
+        "sunroof.open": "ouvrir le toit ouvrant",
+        "sunroof.tilt": "entrouvrir le toit ouvrant",
+        "sunroof.close": "fermer le toit ouvrant",
+        "trunk.open": "ouvrir le coffre",
+        "trunk.close": "fermer le coffre",
+        "frunk.open": "ouvrir le coffre avant",
+        "frunk.close": "fermer le coffre avant",
+        "temp.set": "régler la température à {t}",
+        "temp.setZone": "régler la température {zone} à {t}",
+        "temp.up": "augmenter la température de {n} degrés",
+        "temp.down": "baisser la température de {n} degrés",
+        "dual": "régler le conducteur à {d} et le passager à {p}",
+        "feel.cold": "réchauffer la voiture",
+        "feel.hot": "rafraîchir la voiture",
+        "fan.set": "régler la ventilation sur {n}",
+        "fan.up": "augmenter la ventilation",
+        "fan.down": "baisser la ventilation",
+        "air": "diriger l'air {mode}",
+        "defrost.windshield.on": "désembuer le pare-brise",
+        "defrost.windshield.off": "arrêter le désembuage du pare-brise",
+        "defrost.rear.on": "allumer la lunette arrière chauffante",
+        "defrost.rear.off": "éteindre la lunette arrière chauffante",
+        "seat.set": "régler {feature} {seat} sur {level}",
+        "seat.off": "éteindre {feature} {seat}",
+        "wheel.on": "allumer le volant chauffant",
+        "wheel.off": "éteindre le volant chauffant",
+        "media": "lancer {q}",
+        "radio": "régler la radio sur {band} {f}",
+        "source": "passer à {source}",
+        "vol.up": "monter le son",
+        "vol.down": "baisser le son",
+        "vol.mute": "couper le son",
+        "vol.unmute": "remettre le son",
+        "vol.set": "régler le volume sur {n}",
+        "nav": "aller à {dest}",
+        "nav.home": "rentrer à la maison",
+        "nav.work": "aller au travail",
+        "avoid": "éviter {avoid}",
+        "generic": "faire ça"
+      },
+      "answer": {
+        "eta": "Arrivée dans environ {min} minutes.",
+        "eta.none": "Aucun itinéraire n'est actif.",
+        "find": "J'ai trouvé {place} sur l'itinéraire.",
+        "status.range": "Il vous reste environ {km} km d'autonomie.",
+        "status.fuel": "Le réservoir est à {pct} %, environ {km} km.",
+        "status.battery": "La batterie est à {pct} %.",
+        "status.energy_consumption": "La consommation moyenne est de {v} km par litre.",
+        "status.tire_pressure": "Les pneus sont bons : entre 31 et 32 psi.",
+        "status.warnings": "Aucun voyant n'est allumé."
+      },
+      "messages": {
+        "whichSeat": "Quel siège : le vôtre, celui du passager ou les deux ?",
+        "didNotCatch": "Désolé, je n'ai pas compris. Pouvez-vous répéter ?",
+        "notInDemo": "Ce n'est pas disponible dans cette démo. Pour l'obtenir, contactez info@davoice.io.",
+        "noRemote": "Je dois envoyer ceci à un modèle distant. Pour que ça marche, configurez un modèle distant dans l'application.",
+        "lowClarify": "Je ne suis pas sûr d'avoir compris. Pouvez-vous le dire autrement ?",
+        "lowDecline": "Je n'en suis pas assez sûr, alors je n'ai rien changé.",
+        "lowNoRemote": "Pour cette commande, j'ai besoin d'un agent distant."
+      },
+      "pack": {
+        "noReply": "Désolé, je n'ai pas compris. Pouvez-vous répéter ?",
+        "notDoneRest": "Je n'ai pas fait le reste. Pouvez-vous répéter ?",
+        "done": "C'est fait.",
+        "failed": "Désolé, ça n'a pas marché.",
+        "notConfirmed": "D'accord, je ne le fais pas.",
+        "notAuthorized": "Désolé, vous n'avez pas le droit de faire ça.",
+        "unsupported": "Désolé, ce n'est pas disponible dans cette application.",
+        "invalidArgs": "Désolé, il me manque des détails. Pouvez-vous répéter ?",
+        "guardConflict": "Désolé, je ne suis pas sûr d'avoir bien compris. Pouvez-vous répéter ?",
+        "outOfRange": "Désolé, {value} n'est pas possible : c'est de {min} à {max}.",
+        "outOfRangeAsk": "Quelle valeur voulez-vous ? C'est de {min} à {max}.",
+        "scopeClarify": "Désolé, je n'ai pas compris. Pouvez-vous répéter ?",
+        "scopeUnsupported": "Désolé, je ne peux pas contrôler ça dans cette voiture.",
+        "scopeNoRemote": "Je ne peux pas répondre à ça ici. Je peux vous aider avec les vitres, les portes, la climatisation, la musique, la navigation et l'état de la voiture.",
+        "remoteFailed": "Désolé, Gemini n'a pas pu répondre pour le moment. Réessayez dans un instant.",
+        "remoteOffline": "Je n'arrive pas à joindre Gemini. Vérifiez la connexion internet.",
+        "remoteBusy": "Gemini est occupé pour le moment. Réessayez dans un instant.",
+        "remoteTimeout": "Gemini met trop de temps. Réessayez dans un instant.",
+        "remoteUnavailable": "Gemini n'est pas disponible pour le moment. Réessayez plus tard.",
+        "remoteFillers": [
+          "Un instant, je regarde.",
+          "Une seconde.",
+          "Je vérifie."
+        ],
+        "searchFillers": [
+          "Bonne question, je cherche.",
+          "Un instant, je cherche ça."
+        ],
+        "searchFailed": [
+          "Désolé, je n'arrive pas à accéder à internet pour le moment."
+        ]
+      },
+      "hints": [
+        [
+          "\\bconducteur|\\bchauffeur",
+          "driver"
+        ],
+        [
+          "\\bpassager",
+          "passenger"
+        ],
+        [
+          "\\bvitre\\w*|\\bfenetre\\w*",
+          "window"
+        ],
+        [
+          "\\bportiere\\w*|\\bportes?\\b",
+          "door"
+        ],
+        [
+          "\\bouvr\\w*|\\bbaisse\\w* (la |les )?vitre\\w*",
+          "open"
+        ],
+        [
+          "\\bferme\\w*|\\bremonte\\w* (la |les )?vitre\\w*",
+          "close"
+        ],
+        [
+          "\\bverrouill\\w*",
+          "lock"
+        ],
+        [
+          "\\bdeverrouill\\w*",
+          "unlock"
+        ],
+        [
+          "\\btoit",
+          "sunroof"
+        ],
+        [
+          "\\bsiege chauffant|\\bchauffage (du )?siege|\\bchauffe(r)? (le )?siege",
+          "seat heater"
+        ],
+        [
+          "\\bventilation (du )?siege",
+          "seat ventilation"
+        ],
+        [
+          "\\bvolant",
+          "steering wheel"
+        ],
+        [
+          "\\bventilat\\w*|\\bsoufflerie",
+          "fan"
+        ],
+        [
+          "\\bniveau|\\bvitesse",
+          "level"
+        ],
+        [
+          "\\btemperature",
+          "temperature"
+        ],
+        [
+          "\\bdegres?\\b",
+          "degrees"
+        ],
+        [
+          "\\bplus chaud|\\bmonte (un peu )?le chauffage|\\brechauff\\w*",
+          "warmer"
+        ],
+        [
+          "\\bplus frais|\\bplus froid|\\brafraich\\w*|\\bbaisse (un peu )?le chauffage",
+          "cooler"
+        ],
+        [
+          "\\bj ai froid|\\bil fait froid",
+          "I am cold"
+        ],
+        [
+          "\\bj ai chaud|\\bil fait chaud",
+          "I am hot"
+        ],
+        [
+          "\\bmonte (le )?(son|volume)|\\bplus fort",
+          "volume up"
+        ],
+        [
+          "\\bbaisse (le )?(son|volume)|\\bmoins fort",
+          "volume down"
+        ],
+        [
+          "\\bvolume|\\bson\\b",
+          "volume"
+        ],
+        [
+          "\\bmusique|\\bchanson",
+          "music"
+        ],
+        [
+          "\\bmets (de la )?musique|\\bjoue\\w*|\\blance\\w*",
+          "play"
+        ],
+        [
+          "\\bradio",
+          "radio"
+        ],
+        [
+          "\\ba la maison|\\bchez moi|\\bmaison",
+          "home"
+        ],
+        [
+          "\\bau travail|\\bau bureau",
+          "work"
+        ],
+        [
+          "\\bramene\\w*|\\bemmene\\w*|\\bnavig\\w*|\\bitineraire|\\ballons a\\b",
+          "navigate"
+        ],
+        [
+          "\\bessence|\\bcarburant|\\breservoir|\\bgazole|\\bdiesel",
+          "fuel"
+        ],
+        [
+          "\\bautonomie",
+          "range"
+        ],
+        [
+          "\\bdesembu\\w*|\\bdegivr\\w*",
+          "defrost"
+        ],
+        [
+          "\\bpare brise",
+          "windshield"
+        ],
+        [
+          "\\blunette arriere",
+          "rear window"
+        ],
+        [
+          "\\bcoffre",
+          "trunk"
+        ],
+        [
+          "\\bavant\\b",
+          "front"
+        ],
+        [
+          "\\barriere\\b",
+          "rear"
+        ],
+        [
+          "\\bgauche",
+          "left"
+        ],
+        [
+          "\\bdroite?\\b",
+          "right"
+        ],
+        [
+          "\\btoutes?\\b|\\btous\\b",
+          "all"
+        ],
+        [
+          "\\ballum\\w*|\\bactiv\\w*",
+          "on"
+        ],
+        [
+          "\\beteins?\\b|\\beteindre|\\bdesactiv\\w*",
+          "off"
+        ],
+        [
+          "\\bvoiture|\\bauto\\b",
+          "car"
+        ],
+        [
+          "\\bplus\\b",
+          "more"
+        ],
+        [
+          "\\btranspir\\w*|\\bje sue\\b",
+          "I am hot"
+        ],
+        [
+          "\\bmonte (la )?musique",
+          "volume up"
+        ]
+      ]
+    },
+    "nl": {
+      "q": "Zal ik {a}?",
+      "capitalize": false,
+      "done": "Klaar.",
+      "cannot": "Dat kan nu niet.",
+      "driving": "Dat kan niet terwijl de auto rijdt.",
+      "and": "en",
+      "yes": [
+        "ja",
+        "jazeker",
+        "ja graag",
+        "graag",
+        "zeker",
+        "oké",
+        "oke",
+        "ok",
+        "okay",
+        "prima",
+        "doe maar",
+        "goed",
+        "klopt",
+        "natuurlijk",
+        "alsjeblieft",
+        "ja alsjeblieft"
+      ],
+      "no": [
+        "nee",
+        "nee dank je",
+        "liever niet",
+        "annuleer",
+        "laat maar",
+        "vergeet het",
+        "niet nu"
+      ],
+      "window": {
+        "all": "alle ramen",
+        "driver": "het bestuurdersraam",
+        "passenger": "het passagiersraam",
+        "front_left": "het raam linksvoor",
+        "front_right": "het raam rechtsvoor",
+        "rear_left": "het raam linksachter",
+        "rear_right": "het raam rechtsachter",
+        "front": "de voorste ramen",
+        "rear": "de achterste ramen",
+        "left": "de ramen links",
+        "right": "de ramen rechts"
+      },
+      "door": {
+        "all": "alle deuren",
+        "driver": "de bestuurdersdeur",
+        "passenger": "de passagiersdeur",
+        "front_left": "de deur linksvoor",
+        "front_right": "de deur rechtsvoor",
+        "rear_left": "de deur linksachter",
+        "rear_right": "de deur rechtsachter",
+        "front": "de voordeuren",
+        "rear": "de achterdeuren",
+        "left": "de deuren links",
+        "right": "de deuren rechts",
+        "car": "de auto"
+      },
+      "seat": {
+        "driver": "van de bestuurdersstoel",
+        "passenger": "van de passagiersstoel",
+        "rear_left": "van de stoel linksachter",
+        "rear_right": "van de stoel rechtsachter"
+      },
+      "zone": {
+        "driver": "voor de bestuurder",
+        "passenger": "voor de passagier",
+        "rear": "achterin",
+        "all": "overal"
+      },
+      "feature": {
+        "heater": "de stoelverwarming",
+        "ventilation": "de stoelventilatie"
+      },
+      "level": {
+        "low": "laag",
+        "medium": "middel",
+        "high": "hoog"
+      },
+      "air": {
+        "face": "op het gezicht",
+        "feet": "naar de voeten",
+        "face_and_feet": "op gezicht en voeten",
+        "windshield": "op de voorruit"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "de radio",
+        "usb": "USB",
+        "streaming": "streaming"
+      },
+      "avoid": {
+        "tolls": "tolwegen",
+        "traffic": "files",
+        "highways": "snelwegen",
+        "ferries": "veerboten"
+      },
+      "place": {
+        "gas_station": "een tankstation",
+        "ev_charger": "een laadpaal",
+        "parking": "een parkeerplaats",
+        "restaurant": "een restaurant",
+        "coffee": "een koffiezaak",
+        "rest_area": "een rustplaats"
+      },
+      "t": {
+        "window.open": "{window} openen",
+        "window.close": "{window} sluiten",
+        "window.half": "{window} half openen",
+        "window.crack": "{window} op een kier zetten",
+        "door.open": "{door} openen",
+        "door.close": "{door} sluiten",
+        "lock": "{door} vergrendelen",
+        "unlock": "{door} ontgrendelen",
+        "sunroof.open": "het schuifdak openen",
+        "sunroof.tilt": "het schuifdak kantelen",
+        "sunroof.close": "het schuifdak sluiten",
+        "trunk.open": "de kofferbak openen",
+        "trunk.close": "de kofferbak sluiten",
+        "frunk.open": "de voorste kofferbak openen",
+        "frunk.close": "de voorste kofferbak sluiten",
+        "temp.set": "de temperatuur op {t} zetten",
+        "temp.setZone": "de temperatuur {zone} op {t} zetten",
+        "temp.up": "de temperatuur {n} graden hoger zetten",
+        "temp.down": "de temperatuur {n} graden lager zetten",
+        "dual": "de bestuurder op {d} en de passagier op {p} zetten",
+        "feel.cold": "de auto warmer maken",
+        "feel.hot": "de auto koeler maken",
+        "fan.set": "de ventilator op stand {n} zetten",
+        "fan.up": "de ventilator harder zetten",
+        "fan.down": "de ventilator zachter zetten",
+        "air": "de lucht {mode} richten",
+        "defrost.windshield.on": "de voorruit ontwasemen",
+        "defrost.windshield.off": "de voorruitverwarming uitzetten",
+        "defrost.rear.on": "de achterruitverwarming aanzetten",
+        "defrost.rear.off": "de achterruitverwarming uitzetten",
+        "seat.set": "{feature} {seat} op {level} zetten",
+        "seat.off": "{feature} {seat} uitzetten",
+        "wheel.on": "de stuurverwarming aanzetten",
+        "wheel.off": "de stuurverwarming uitzetten",
+        "media": "{q} afspelen",
+        "radio": "de radio op {band} {f} zetten",
+        "source": "overschakelen naar {source}",
+        "vol.up": "het volume hoger zetten",
+        "vol.down": "het volume lager zetten",
+        "vol.mute": "het geluid dempen",
+        "vol.unmute": "het geluid weer aanzetten",
+        "vol.set": "het volume op {n} zetten",
+        "nav": "naar {dest} navigeren",
+        "nav.home": "naar huis navigeren",
+        "nav.work": "naar het werk navigeren",
+        "avoid": "{avoid} vermijden",
+        "generic": "dat doen"
+      },
+      "answer": {
+        "eta": "Aankomst over ongeveer {min} minuten.",
+        "eta.none": "Er is geen actieve route.",
+        "find": "Ik heb {place} langs de route gevonden.",
+        "status.range": "Je hebt nog ongeveer {km} km bereik.",
+        "status.fuel": "De tank staat op {pct}%, ongeveer {km} km.",
+        "status.battery": "De accu staat op {pct}%.",
+        "status.energy_consumption": "Het gemiddelde verbruik is {v} km per liter.",
+        "status.tire_pressure": "De banden zijn in orde: 31 tot 32 psi.",
+        "status.warnings": "Er branden geen waarschuwingslampjes."
+      },
+      "messages": {
+        "whichSeat": "Welke stoel: die van jou, die van de passagier of allebei?",
+        "didNotCatch": "Sorry, dat verstond ik niet. Kun je het herhalen?",
+        "notInDemo": "Dit is niet beschikbaar in deze demo. Neem contact op met info@davoice.io om het te krijgen.",
+        "noRemote": "Ik moet dit naar een extern model sturen. Stel in de app een extern model in om dit te laten werken.",
+        "lowClarify": "Ik weet niet zeker of ik het goed begrepen heb. Kun je het anders zeggen?",
+        "lowDecline": "Daar ben ik niet zeker genoeg van, dus ik heb niets veranderd.",
+        "lowNoRemote": "Voor dit commando heb ik een externe agent nodig."
+      },
+      "pack": {
+        "noReply": "Sorry, dat verstond ik niet. Kun je het herhalen?",
+        "notDoneRest": "De rest heb ik niet gedaan. Kun je het herhalen?",
+        "done": "Klaar.",
+        "failed": "Sorry, dat is niet gelukt.",
+        "notConfirmed": "Oké, dan doe ik het niet.",
+        "notAuthorized": "Sorry, dat mag je niet doen.",
+        "unsupported": "Sorry, dat is niet beschikbaar in deze app.",
+        "invalidArgs": "Sorry, ik mis een paar details. Kun je het herhalen?",
+        "guardConflict": "Sorry, ik weet niet zeker of ik het goed begrepen heb. Kun je het herhalen?",
+        "outOfRange": "Sorry, {value} kan niet: het gaat van {min} tot {max}.",
+        "outOfRangeAsk": "Welke waarde wil je? Het gaat van {min} tot {max}.",
+        "scopeClarify": "Sorry, dat verstond ik niet. Kun je het herhalen?",
+        "scopeUnsupported": "Sorry, dat kan ik in deze auto niet bedienen.",
+        "scopeNoRemote": "Daar kan ik hier geen antwoord op geven. Ik help met de ramen, deuren, klimaat, muziek, navigatie en de status van de auto.",
+        "remoteFailed": "Sorry, Gemini kon dat nu niet beantwoorden. Probeer het zo nog eens.",
+        "remoteOffline": "Ik kan Gemini niet bereiken. Controleer de internetverbinding.",
+        "remoteBusy": "Gemini is nu druk. Probeer het zo nog eens.",
+        "remoteTimeout": "Gemini doet er te lang over. Probeer het zo nog eens.",
+        "remoteUnavailable": "Gemini is nu niet beschikbaar. Probeer het later nog eens.",
+        "remoteFillers": [
+          "Even kijken.",
+          "Een momentje.",
+          "Ik zoek het even op."
+        ],
+        "searchFillers": [
+          "Goede vraag, ik zoek het op.",
+          "Een moment, ik zoek het op."
+        ],
+        "searchFailed": [
+          "Sorry, ik kan nu geen verbinding maken met internet."
+        ]
+      },
+      "hints": [
+        [
+          "\\bbestuurder\\w*",
+          "driver"
+        ],
+        [
+          "\\bpassagier\\w*|\\bbijrijder\\w*",
+          "passenger"
+        ],
+        [
+          "\\braam\\w*|\\bramen\\b|\\bzijruit",
+          "window"
+        ],
+        [
+          "\\bdeur\\w*",
+          "door"
+        ],
+        [
+          "\\bopen\\w*",
+          "open"
+        ],
+        [
+          "\\bdicht\\w*|\\bsluit\\w*",
+          "close"
+        ],
+        [
+          "\\bvergrendel\\w*|\\bop slot",
+          "lock"
+        ],
+        [
+          "\\bontgrendel\\w*|\\bvan het slot",
+          "unlock"
+        ],
+        [
+          "\\bschuifdak|\\bzonnedak|\\bdak\\b",
+          "sunroof"
+        ],
+        [
+          "\\bstoelverwarming",
+          "seat heater"
+        ],
+        [
+          "\\bstoelventilatie",
+          "seat ventilation"
+        ],
+        [
+          "\\bstuurverwarming",
+          "steering wheel heater"
+        ],
+        [
+          "\\bventilator|\\bblazer|\\bventilatie\\b",
+          "fan"
+        ],
+        [
+          "\\bstand\\b|\\bniveau",
+          "level"
+        ],
+        [
+          "\\btemperatuur",
+          "temperature"
+        ],
+        [
+          "\\bgraden?\\b",
+          "degrees"
+        ],
+        [
+          "\\bwarmer\\b",
+          "warmer"
+        ],
+        [
+          "\\bkoeler|\\bkouder",
+          "cooler"
+        ],
+        [
+          "\\bik heb het koud|\\bkoud\\b",
+          "I am cold"
+        ],
+        [
+          "\\bik heb het warm|\\bheet\\b|\\bte warm",
+          "I am hot"
+        ],
+        [
+          "\\bharder|\\bluider",
+          "volume up"
+        ],
+        [
+          "\\bzachter|\\bstiller",
+          "volume down"
+        ],
+        [
+          "\\bvolume|\\bgeluid",
+          "volume"
+        ],
+        [
+          "\\bmuziek|\\bliedje",
+          "music"
+        ],
+        [
+          "\\bspeel\\w*|\\bafspelen|\\bzet \\w+ op\\b",
+          "play"
+        ],
+        [
+          "\\bradio|\\bzender",
+          "radio"
+        ],
+        [
+          "\\bnaar huis|\\bthuis",
+          "home"
+        ],
+        [
+          "\\bnaar het werk|\\bnaar kantoor|\\bnaar mijn werk",
+          "work"
+        ],
+        [
+          "\\bbreng me|\\bnavigeer\\w*|\\broute naar|\\brij naar",
+          "navigate"
+        ],
+        [
+          "\\bbenzine|\\bbrandstof|\\btank\\b|\\bdiesel",
+          "fuel"
+        ],
+        [
+          "\\bactieradius|\\bbereik",
+          "range"
+        ],
+        [
+          "\\bontwasem\\w*|\\bontdooi\\w*|\\bbeslagen",
+          "defrost"
+        ],
+        [
+          "\\bvoorruit",
+          "windshield"
+        ],
+        [
+          "\\bachterruit",
+          "rear window"
+        ],
+        [
+          "\\bkofferbak",
+          "trunk"
+        ],
+        [
+          "\\bvoor\\b|\\bvoorin|\\bvoorste|\\bvoorkant",
+          "front"
+        ],
+        [
+          "\\bachter\\b|\\bachterin|\\bachterste",
+          "rear"
+        ],
+        [
+          "\\blinks\\w*",
+          "left"
+        ],
+        [
+          "\\brechts\\w*",
+          "right"
+        ],
+        [
+          "\\balle\\b",
+          "all"
+        ],
+        [
+          "\\baan$|\\baanzetten|\\binschakel\\w*",
+          "on"
+        ],
+        [
+          "\\buit$|\\buitzetten|\\buitschakel\\w*",
+          "off"
+        ],
+        [
+          "\\bauto\\b|\\bwagen\\b",
+          "car"
+        ],
+        [
+          "\\bmeer\\b",
+          "more"
+        ],
+        [
+          "\\bzweet\\b|\\bik zweet",
+          "I am hot"
+        ],
+        [
+          "\\bmuziek (harder|luider)",
+          "volume up"
+        ]
+      ]
+    },
+    "el": {
+      "q": "{a};",
+      "capitalize": true,
+      "done": "Έγινε.",
+      "cannot": "Αυτό δεν γίνεται τώρα.",
+      "driving": "Δεν μπορώ να το κάνω ενώ το αυτοκίνητο κινείται.",
+      "and": "και",
+      "yes": [
+        "ναι",
+        "ναι παρακαλώ",
+        "βέβαια",
+        "βεβαίως",
+        "σίγουρα",
+        "εντάξει",
+        "οκ",
+        "ok",
+        "έλα",
+        "κάν' το",
+        "κάνε το",
+        "σωστά",
+        "ακριβώς",
+        "φυσικά",
+        "παρακαλώ"
+      ],
+      "no": [
+        "όχι",
+        "όχι ευχαριστώ",
+        "άκυρο",
+        "ακύρωσε",
+        "άσ' το",
+        "άφησέ το",
+        "όχι τώρα"
+      ],
+      "window": {
+        "all": "όλα τα παράθυρα",
+        "driver": "το παράθυρο του οδηγού",
+        "passenger": "το παράθυρο του συνοδηγού",
+        "front_left": "το μπροστινό αριστερό παράθυρο",
+        "front_right": "το μπροστινό δεξί παράθυρο",
+        "rear_left": "το πίσω αριστερό παράθυρο",
+        "rear_right": "το πίσω δεξί παράθυρο",
+        "front": "τα μπροστινά παράθυρα",
+        "rear": "τα πίσω παράθυρα",
+        "left": "τα αριστερά παράθυρα",
+        "right": "τα δεξιά παράθυρα"
+      },
+      "door": {
+        "all": "όλες τις πόρτες",
+        "driver": "την πόρτα του οδηγού",
+        "passenger": "την πόρτα του συνοδηγού",
+        "front_left": "την μπροστινή αριστερή πόρτα",
+        "front_right": "την μπροστινή δεξιά πόρτα",
+        "rear_left": "την πίσω αριστερή πόρτα",
+        "rear_right": "την πίσω δεξιά πόρτα",
+        "front": "τις μπροστινές πόρτες",
+        "rear": "τις πίσω πόρτες",
+        "left": "τις αριστερές πόρτες",
+        "right": "τις δεξιές πόρτες",
+        "car": "το αυτοκίνητο"
+      },
+      "seat": {
+        "driver": "του καθίσματος του οδηγού",
+        "passenger": "του καθίσματος του συνοδηγού",
+        "rear_left": "του πίσω αριστερού καθίσματος",
+        "rear_right": "του πίσω δεξιού καθίσματος"
+      },
+      "zone": {
+        "driver": "του οδηγού",
+        "passenger": "του συνοδηγού",
+        "rear": "πίσω",
+        "all": "παντού"
+      },
+      "feature": {
+        "heater": "τη θέρμανση",
+        "ventilation": "τον αερισμό"
+      },
+      "level": {
+        "low": "χαμηλό",
+        "medium": "μεσαίο",
+        "high": "υψηλό"
+      },
+      "air": {
+        "face": "στο πρόσωπο",
+        "feet": "στα πόδια",
+        "face_and_feet": "στο πρόσωπο και στα πόδια",
+        "windshield": "στο παρμπρίζ"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "ραδιόφωνο",
+        "usb": "USB",
+        "streaming": "streaming"
+      },
+      "avoid": {
+        "tolls": "τα διόδια",
+        "traffic": "την κίνηση",
+        "highways": "τους αυτοκινητόδρομους",
+        "ferries": "τα πλοία"
+      },
+      "place": {
+        "gas_station": "ένα βενζινάδικο",
+        "ev_charger": "έναν φορτιστή",
+        "parking": "ένα πάρκινγκ",
+        "restaurant": "ένα εστιατόριο",
+        "coffee": "μια καφετέρια",
+        "rest_area": "ένα σταθμό ξεκούρασης"
+      },
+      "t": {
+        "window.open": "να ανοίξω {window}",
+        "window.close": "να κλείσω {window}",
+        "window.half": "να ανοίξω {window} μέχρι τη μέση",
+        "window.crack": "να ανοίξω λίγο {window}",
+        "door.open": "να ανοίξω {door}",
+        "door.close": "να κλείσω {door}",
+        "lock": "να κλειδώσω {door}",
+        "unlock": "να ξεκλειδώσω {door}",
+        "sunroof.open": "να ανοίξω την ηλιοροφή",
+        "sunroof.tilt": "να ανασηκώσω την ηλιοροφή",
+        "sunroof.close": "να κλείσω την ηλιοροφή",
+        "trunk.open": "να ανοίξω το πορτμπαγκάζ",
+        "trunk.close": "να κλείσω το πορτμπαγκάζ",
+        "frunk.open": "να ανοίξω το μπροστινό πορτμπαγκάζ",
+        "frunk.close": "να κλείσω το μπροστινό πορτμπαγκάζ",
+        "temp.set": "να βάλω τη θερμοκρασία στους {t}",
+        "temp.setZone": "να βάλω τη θερμοκρασία {zone} στους {t}",
+        "temp.up": "να ανεβάσω τη θερμοκρασία {n} βαθμούς",
+        "temp.down": "να κατεβάσω τη θερμοκρασία {n} βαθμούς",
+        "dual": "να βάλω τον οδηγό στους {d} και τον συνοδηγό στους {p}",
+        "feel.cold": "να ζεστάνω το αυτοκίνητο",
+        "feel.hot": "να δροσίσω το αυτοκίνητο",
+        "fan.set": "να βάλω τον ανεμιστήρα στο {n}",
+        "fan.up": "να δυναμώσω τον ανεμιστήρα",
+        "fan.down": "να χαμηλώσω τον ανεμιστήρα",
+        "air": "να στρέψω τον αέρα {mode}",
+        "defrost.windshield.on": "να ξεθαμπώσω το παρμπρίζ",
+        "defrost.windshield.off": "να σβήσω το ξεθάμπωμα του παρμπρίζ",
+        "defrost.rear.on": "να ανάψω τη θέρμανση του πίσω τζαμιού",
+        "defrost.rear.off": "να σβήσω τη θέρμανση του πίσω τζαμιού",
+        "seat.set": "να βάλω {feature} {seat} στο {level}",
+        "seat.off": "να σβήσω {feature} {seat}",
+        "wheel.on": "να ανάψω τη θέρμανση του τιμονιού",
+        "wheel.off": "να σβήσω τη θέρμανση του τιμονιού",
+        "media": "να παίξω {q}",
+        "radio": "να συντονίσω το ραδιόφωνο στους {band} {f}",
+        "source": "να αλλάξω σε {source}",
+        "vol.up": "να δυναμώσω την ένταση",
+        "vol.down": "να χαμηλώσω την ένταση",
+        "vol.mute": "να κάνω σίγαση",
+        "vol.unmute": "να επαναφέρω τον ήχο",
+        "vol.set": "να βάλω την ένταση στο {n}",
+        "nav": "να ξεκινήσω πλοήγηση προς {dest}",
+        "nav.home": "να σε πάω σπίτι",
+        "nav.work": "να σε πάω στη δουλειά",
+        "avoid": "να αποφύγω {avoid}",
+        "generic": "να το κάνω"
+      },
+      "answer": {
+        "eta": "Άφιξη σε περίπου {min} λεπτά.",
+        "eta.none": "Δεν υπάρχει ενεργή διαδρομή.",
+        "find": "Βρήκα {place} στη διαδρομή.",
+        "status.range": "Έχεις αυτονομία περίπου {km} χιλιόμετρα.",
+        "status.fuel": "Το ρεζερβουάρ είναι στο {pct}%, περίπου {km} χιλιόμετρα.",
+        "status.battery": "Η μπαταρία είναι στο {pct}%.",
+        "status.energy_consumption": "Η μέση κατανάλωση είναι {v} χιλιόμετρα ανά λίτρο.",
+        "status.tire_pressure": "Τα λάστιχα είναι εντάξει: 31 έως 32 psi.",
+        "status.warnings": "Δεν υπάρχει καμία προειδοποίηση."
+      },
+      "messages": {
+        "whichSeat": "Ποιο κάθισμα: το δικό σου, του συνοδηγού ή και τα δύο;",
+        "didNotCatch": "Συγγνώμη, δεν κατάλαβα. Μπορείς να το επαναλάβεις;",
+        "notInDemo": "Αυτό δεν είναι διαθέσιμο σε αυτή την επίδειξη. Για να το αποκτήσετε, επικοινωνήστε με το info@davoice.io.",
+        "noRemote": "Πρέπει να το στείλω σε ένα απομακρυσμένο μοντέλο. Για να λειτουργήσει, ρυθμίστε ένα απομακρυσμένο μοντέλο στην εφαρμογή.",
+        "lowClarify": "Δεν είμαι σίγουρος ότι κατάλαβα. Μπορείς να το πεις αλλιώς;",
+        "lowDecline": "Δεν είμαι αρκετά σίγουρος, οπότε δεν άλλαξα τίποτα.",
+        "lowNoRemote": "Για αυτή την εντολή χρειάζομαι έναν απομακρυσμένο βοηθό."
+      },
+      "pack": {
+        "noReply": "Συγγνώμη, δεν κατάλαβα. Μπορείς να το επαναλάβεις;",
+        "notDoneRest": "Το υπόλοιπο δεν το έκανα. Μπορείς να το επαναλάβεις;",
+        "done": "Έγινε.",
+        "failed": "Συγγνώμη, δεν πέτυχε.",
+        "notConfirmed": "Εντάξει, δεν θα το κάνω.",
+        "notAuthorized": "Συγγνώμη, δεν επιτρέπεται να το κάνεις αυτό.",
+        "unsupported": "Συγγνώμη, αυτό δεν είναι διαθέσιμο σε αυτή την εφαρμογή.",
+        "invalidArgs": "Συγγνώμη, μου λείπουν λεπτομέρειες. Μπορείς να το επαναλάβεις;",
+        "guardConflict": "Συγγνώμη, δεν είμαι σίγουρος ότι κατάλαβα σωστά. Μπορείς να το επαναλάβεις;",
+        "outOfRange": "Συγγνώμη, το {value} δεν γίνεται: πάει από {min} έως {max}.",
+        "outOfRangeAsk": "Ποια τιμή θέλεις; Πάει από {min} έως {max}.",
+        "scopeClarify": "Συγγνώμη, δεν κατάλαβα. Μπορείς να το επαναλάβεις;",
+        "scopeUnsupported": "Συγγνώμη, αυτό δεν μπορώ να το ελέγξω σε αυτό το αυτοκίνητο.",
+        "scopeNoRemote": "Δεν μπορώ να απαντήσω σε αυτό εδώ. Βοηθάω με τα παράθυρα, τις πόρτες, το κλίμα, τη μουσική, την πλοήγηση και την κατάσταση του αυτοκινήτου.",
+        "remoteFailed": "Συγγνώμη, το Gemini δεν μπόρεσε να απαντήσει τώρα. Δοκίμασε ξανά σε λίγο.",
+        "remoteOffline": "Δεν μπορώ να συνδεθώ με το Gemini. Έλεγξε τη σύνδεση στο internet.",
+        "remoteBusy": "Το Gemini είναι απασχολημένο τώρα. Δοκίμασε ξανά σε λίγο.",
+        "remoteTimeout": "Το Gemini αργεί πολύ. Δοκίμασε ξανά σε λίγο.",
+        "remoteUnavailable": "Το Gemini δεν είναι διαθέσιμο τώρα. Δοκίμασε αργότερα.",
+        "remoteFillers": [
+          "Μια στιγμή, το κοιτάζω.",
+          "Ένα δευτερόλεπτο.",
+          "Για να το ελέγξω."
+        ],
+        "searchFillers": [
+          "Καλή ερώτηση, το ψάχνω.",
+          "Μια στιγμή, το ψάχνω."
+        ],
+        "searchFailed": [
+          "Συγγνώμη, δεν μπορώ να συνδεθώ στο internet τώρα."
+        ]
+      },
+      "hints": [
+        [
+          "\\bοδηγ\\w*",
+          "driver"
+        ],
+        [
+          "\\bσυνοδηγ\\w*",
+          "passenger"
+        ],
+        [
+          "\\bπαραθυρ\\w*|\\bτζαμ\\w*",
+          "window"
+        ],
+        [
+          "\\bπορτ(α|ες|ας|ων)\\b",
+          "door"
+        ],
+        [
+          "\\bανοιξ\\w*|\\bανοιγ\\w*",
+          "open"
+        ],
+        [
+          "\\bκλεισ\\w*|\\bκλειν\\w*",
+          "close"
+        ],
+        [
+          "\\bκλειδωσ\\w*|\\bκλειδων\\w*",
+          "lock"
+        ],
+        [
+          "\\bξεκλειδωσ\\w*|\\bξεκλειδων\\w*",
+          "unlock"
+        ],
+        [
+          "\\bηλιοροφ\\w*|\\bοροφ\\w*",
+          "sunroof"
+        ],
+        [
+          "\\bθερμαν\\w* (στο |του )?καθισμα\\w*|\\bθερμαινομεν\\w* καθισμα\\w*",
+          "seat heater"
+        ],
+        [
+          "\\bκαθισμα\\w*",
+          "seat"
+        ],
+        [
+          "\\bτιμον\\w*",
+          "steering wheel"
+        ],
+        [
+          "\\bανεμιστηρ\\w*|\\bεξαεριστηρ\\w*",
+          "fan"
+        ],
+        [
+          "\\bθερμοκρασι\\w*",
+          "temperature"
+        ],
+        [
+          "\\bβαθμ\\w*",
+          "degrees"
+        ],
+        [
+          "\\bπιο ζεστ\\w*|\\bζεστανε\\w*",
+          "warmer"
+        ],
+        [
+          "\\bπιο δροσερ\\w*|\\bπιο κρυ\\w*|\\bδροσισ\\w*",
+          "cooler"
+        ],
+        [
+          "\\bκρυωνω|\\bκανει κρυο",
+          "I am cold"
+        ],
+        [
+          "\\bζεσταινομαι|\\bκανει ζεστη|\\bζεσταθηκα",
+          "I am hot"
+        ],
+        [
+          "\\bδυναμωσ\\w* (την |τη )?(ενταση|μουσικ\\w*|ηχο)|\\bανεβασ\\w* (την |τη )?ενταση",
+          "volume up"
+        ],
+        [
+          "\\bχαμηλωσ\\w* (την |τη )?(ενταση|μουσικ\\w*|ηχο)|\\bκατεβασ\\w* (την |τη )?ενταση",
+          "volume down"
+        ],
+        [
+          "\\bενταση|\\bηχο\\w*",
+          "volume"
+        ],
+        [
+          "\\bμουσικ\\w*|\\bτραγουδ\\w*",
+          "music"
+        ],
+        [
+          "\\bπαιξε|\\bβαλε (λιγη )?μουσικ\\w*",
+          "play"
+        ],
+        [
+          "\\bραδιοφων\\w*",
+          "radio"
+        ],
+        [
+          "\\bσπιτι",
+          "home"
+        ],
+        [
+          "\\bδουλει\\w*|\\bγραφει\\w*",
+          "work"
+        ],
+        [
+          "\\bπηγαινε με|\\bπηγαινεμε|\\bπλοηγ\\w*|\\bδιαδρομ\\w*|\\bπαμε (στο|στη|σπιτι)",
+          "navigate"
+        ],
+        [
+          "\\bβενζιν\\w*|\\bκαυσιμ\\w*|\\bρεζερβουαρ|\\bντιζελ",
+          "fuel"
+        ],
+        [
+          "\\bαυτονομι\\w*",
+          "range"
+        ],
+        [
+          "\\bξεθαμπ\\w*|\\bξεπαγ\\w*|\\bθαμπωσ\\w*",
+          "defrost"
+        ],
+        [
+          "\\bπαρμπριζ",
+          "windshield"
+        ],
+        [
+          "\\bπισω τζαμι",
+          "rear window"
+        ],
+        [
+          "\\bπορτμπαγκαζ",
+          "trunk"
+        ],
+        [
+          "\\bμπροστιν\\w*|\\bμπροστα",
+          "front"
+        ],
+        [
+          "\\bπισω\\b|\\bπισιν\\w*",
+          "rear"
+        ],
+        [
+          "\\bαριστερ\\w*",
+          "left"
+        ],
+        [
+          "\\bδεξι\\w*",
+          "right"
+        ],
+        [
+          "\\bολ(α|ες|οι|ους)\\b",
+          "all"
+        ],
+        [
+          "\\bαναψ\\w*|\\bενεργοποι\\w*",
+          "on"
+        ],
+        [
+          "\\bσβησ\\w*|\\bαπενεργοποι\\w*",
+          "off"
+        ],
+        [
+          "\\bαυτοκινητ\\w*|\\bαμαξ\\w*",
+          "car"
+        ],
+        [
+          "\\bπερισσοτερ\\w*|\\bπιο πολυ",
+          "more"
+        ],
+        [
+          "\\bιδρων\\w*",
+          "I am hot"
+        ],
+        [
+          "\\bδυναμωσ\\w* (τον )?ανεμιστηρ\\w*",
+          "fan up"
+        ]
+      ]
+    },
+    "sv": {
+      "q": "Ska jag {a}?",
+      "capitalize": false,
+      "done": "Klart.",
+      "cannot": "Det går inte just nu.",
+      "driving": "Det kan jag inte göra medan bilen rör sig.",
+      "and": "och",
+      "yes": [
+        "ja",
+        "japp",
+        "jajamen",
+        "visst",
+        "absolut",
+        "okej",
+        "ok",
+        "okay",
+        "gärna",
+        "ja tack",
+        "ja gärna",
+        "gör det",
+        "kör",
+        "precis",
+        "stämmer",
+        "självklart"
+      ],
+      "no": [
+        "nej",
+        "nej tack",
+        "inte nu",
+        "avbryt",
+        "strunta i det",
+        "glöm det",
+        "låt bli"
+      ],
+      "window": {
+        "all": "alla fönster",
+        "driver": "förarens fönster",
+        "passenger": "passagerarens fönster",
+        "front_left": "fönstret fram till vänster",
+        "front_right": "fönstret fram till höger",
+        "rear_left": "fönstret bak till vänster",
+        "rear_right": "fönstret bak till höger",
+        "front": "de främre fönstren",
+        "rear": "de bakre fönstren",
+        "left": "fönstren till vänster",
+        "right": "fönstren till höger"
+      },
+      "door": {
+        "all": "alla dörrar",
+        "driver": "förardörren",
+        "passenger": "passagerardörren",
+        "front_left": "dörren fram till vänster",
+        "front_right": "dörren fram till höger",
+        "rear_left": "dörren bak till vänster",
+        "rear_right": "dörren bak till höger",
+        "front": "de främre dörrarna",
+        "rear": "de bakre dörrarna",
+        "left": "dörrarna till vänster",
+        "right": "dörrarna till höger",
+        "car": "bilen"
+      },
+      "seat": {
+        "driver": "på förarstolen",
+        "passenger": "på passagerarstolen",
+        "rear_left": "på stolen bak till vänster",
+        "rear_right": "på stolen bak till höger"
+      },
+      "zone": {
+        "driver": "för föraren",
+        "passenger": "för passageraren",
+        "rear": "bak",
+        "all": "överallt"
+      },
+      "feature": {
+        "heater": "stolsvärmen",
+        "ventilation": "stolsventilationen"
+      },
+      "level": {
+        "low": "låg",
+        "medium": "medel",
+        "high": "hög"
+      },
+      "air": {
+        "face": "mot ansiktet",
+        "feet": "mot fötterna",
+        "face_and_feet": "mot ansiktet och fötterna",
+        "windshield": "mot vindrutan"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "radio",
+        "usb": "USB",
+        "streaming": "streaming"
+      },
+      "avoid": {
+        "tolls": "vägtullar",
+        "traffic": "köer",
+        "highways": "motorvägar",
+        "ferries": "färjor"
+      },
+      "place": {
+        "gas_station": "en bensinstation",
+        "ev_charger": "en laddstation",
+        "parking": "en parkering",
+        "restaurant": "en restaurang",
+        "coffee": "ett kafé",
+        "rest_area": "en rastplats"
+      },
+      "t": {
+        "window.open": "öppna {window}",
+        "window.close": "stänga {window}",
+        "window.half": "öppna {window} till hälften",
+        "window.crack": "öppna {window} på glänt",
+        "door.open": "öppna {door}",
+        "door.close": "stänga {door}",
+        "lock": "låsa {door}",
+        "unlock": "låsa upp {door}",
+        "sunroof.open": "öppna takluckan",
+        "sunroof.tilt": "vinkla upp takluckan",
+        "sunroof.close": "stänga takluckan",
+        "trunk.open": "öppna bakluckan",
+        "trunk.close": "stänga bakluckan",
+        "frunk.open": "öppna det främre bagageutrymmet",
+        "frunk.close": "stänga det främre bagageutrymmet",
+        "temp.set": "ställa temperaturen på {t}",
+        "temp.setZone": "ställa temperaturen {zone} på {t}",
+        "temp.up": "höja temperaturen {n} grader",
+        "temp.down": "sänka temperaturen {n} grader",
+        "dual": "ställa föraren på {d} och passageraren på {p}",
+        "feel.cold": "värma upp bilen",
+        "feel.hot": "svalka bilen",
+        "fan.set": "ställa fläkten på {n}",
+        "fan.up": "öka fläkten",
+        "fan.down": "minska fläkten",
+        "air": "rikta luften {mode}",
+        "defrost.windshield.on": "avfrosta vindrutan",
+        "defrost.windshield.off": "stänga av avfrostningen av vindrutan",
+        "defrost.rear.on": "slå på bakrutevärmen",
+        "defrost.rear.off": "stänga av bakrutevärmen",
+        "seat.set": "ställa {feature} {seat} på {level}",
+        "seat.off": "stänga av {feature} {seat}",
+        "wheel.on": "slå på rattvärmen",
+        "wheel.off": "stänga av rattvärmen",
+        "media": "spela {q}",
+        "radio": "ställa in radion på {band} {f}",
+        "source": "byta till {source}",
+        "vol.up": "höja volymen",
+        "vol.down": "sänka volymen",
+        "vol.mute": "stänga av ljudet",
+        "vol.unmute": "slå på ljudet igen",
+        "vol.set": "ställa volymen på {n}",
+        "nav": "navigera till {dest}",
+        "nav.home": "navigera hem",
+        "nav.work": "navigera till jobbet",
+        "avoid": "undvika {avoid}",
+        "generic": "göra det"
+      },
+      "answer": {
+        "eta": "Ankomst om cirka {min} minuter.",
+        "eta.none": "Det finns ingen aktiv rutt.",
+        "find": "Jag hittade {place} längs rutten.",
+        "status.range": "Du har cirka {km} km räckvidd kvar.",
+        "status.fuel": "Tanken är på {pct} %, cirka {km} km.",
+        "status.battery": "Batteriet är på {pct} %.",
+        "status.energy_consumption": "Medelförbrukningen är {v} km per liter.",
+        "status.tire_pressure": "Däcken är bra: 31 till 32 psi.",
+        "status.warnings": "Inga varningslampor lyser."
+      },
+      "messages": {
+        "whichSeat": "Vilken stol: din, passagerarens eller båda?",
+        "didNotCatch": "Förlåt, det uppfattade jag inte. Kan du säga det igen?",
+        "notInDemo": "Det är inte tillgängligt i den här demon. Kontakta info@davoice.io för att få det.",
+        "noRemote": "Jag behöver skicka det här till en fjärrmodell. Ställ in en fjärrmodell i appen så att det fungerar.",
+        "lowClarify": "Jag är inte säker på att jag förstod. Kan du säga det på ett annat sätt?",
+        "lowDecline": "Jag är inte tillräckligt säker, så jag ändrade ingenting.",
+        "lowNoRemote": "För det här kommandot behöver jag en fjärragent."
+      },
+      "pack": {
+        "noReply": "Förlåt, det uppfattade jag inte. Kan du säga det igen?",
+        "notDoneRest": "Resten gjorde jag inte. Kan du säga det igen?",
+        "done": "Klart.",
+        "failed": "Förlåt, det fungerade inte.",
+        "notConfirmed": "Okej, då gör jag det inte.",
+        "notAuthorized": "Förlåt, det får du inte göra.",
+        "unsupported": "Förlåt, det är inte tillgängligt i den här appen.",
+        "invalidArgs": "Förlåt, jag saknar några detaljer. Kan du säga det igen?",
+        "guardConflict": "Förlåt, jag är inte säker på att jag förstod rätt. Kan du säga det igen?",
+        "outOfRange": "Förlåt, {value} går inte: det går från {min} till {max}.",
+        "outOfRangeAsk": "Vilket värde vill du ha? Det går från {min} till {max}.",
+        "scopeClarify": "Förlåt, det uppfattade jag inte. Kan du säga det igen?",
+        "scopeUnsupported": "Förlåt, det kan jag inte styra i den här bilen.",
+        "scopeNoRemote": "Det kan jag inte svara på här. Jag hjälper till med fönster, dörrar, klimat, musik, navigering och bilens status.",
+        "remoteFailed": "Förlåt, Gemini kunde inte svara just nu. Försök igen om en stund.",
+        "remoteOffline": "Jag når inte Gemini. Kontrollera internetanslutningen.",
+        "remoteBusy": "Gemini är upptaget just nu. Försök igen om en stund.",
+        "remoteTimeout": "Gemini tar för lång tid. Försök igen om en stund.",
+        "remoteUnavailable": "Gemini är inte tillgängligt just nu. Försök igen senare.",
+        "remoteFillers": [
+          "Ett ögonblick, jag kollar.",
+          "En sekund.",
+          "Jag ska kolla."
+        ],
+        "searchFillers": [
+          "Bra fråga, jag söker.",
+          "Ett ögonblick, jag söker."
+        ],
+        "searchFailed": [
+          "Förlåt, jag kommer inte ut på internet just nu."
+        ]
+      },
+      "hints": [
+        [
+          "\\bforar\\w*",
+          "driver"
+        ],
+        [
+          "\\bpassagerar\\w*",
+          "passenger"
+        ],
+        [
+          "\\bfonster\\w*|\\bruta\\b|\\brutan\\b|\\bsidoruta\\w*",
+          "window"
+        ],
+        [
+          "\\bdorr\\w*",
+          "door"
+        ],
+        [
+          "\\boppna\\w*|\\bveva ner",
+          "open"
+        ],
+        [
+          "\\bstang\\w*(?! av)|\\bveva upp",
+          "close"
+        ],
+        [
+          "\\blas(a)?\\b(?! upp)",
+          "lock"
+        ],
+        [
+          "\\blas(a)? upp",
+          "unlock"
+        ],
+        [
+          "\\btaklucka\\w*|\\bsoltak\\w*",
+          "sunroof"
+        ],
+        [
+          "\\bstolsvarm\\w*|\\bsatesvarm\\w*",
+          "seat heater"
+        ],
+        [
+          "\\bstolsventil\\w*",
+          "seat ventilation"
+        ],
+        [
+          "\\brattvarm\\w*",
+          "steering wheel heater"
+        ],
+        [
+          "\\bflakt\\w*",
+          "fan"
+        ],
+        [
+          "\\bniva\\w*|\\bsteg\\b",
+          "level"
+        ],
+        [
+          "\\btemperatur\\w*",
+          "temperature"
+        ],
+        [
+          "\\bgrader?\\b",
+          "degrees"
+        ],
+        [
+          "\\bvarmare",
+          "warmer"
+        ],
+        [
+          "\\bsvalare|\\bkallare",
+          "cooler"
+        ],
+        [
+          "\\bjag fryser|\\bfryser\\b|\\bkallt\\b",
+          "I am cold"
+        ],
+        [
+          "\\bvarmt\\b|\\bjag svettas|\\bjag ar varm",
+          "I am hot"
+        ],
+        [
+          "\\bhoj\\w* volymen|\\bhogre\\b|\\bskruva upp",
+          "volume up"
+        ],
+        [
+          "\\bsank\\w* volymen|\\blagre\\b|\\bskruva ner",
+          "volume down"
+        ],
+        [
+          "\\bvolym\\w*|\\bljud\\w*",
+          "volume"
+        ],
+        [
+          "\\bmusik\\w*|\\blaten\\b",
+          "music"
+        ],
+        [
+          "\\bspela\\w*",
+          "play"
+        ],
+        [
+          "\\bradio\\w*",
+          "radio"
+        ],
+        [
+          "\\bhem\\b|\\bhemat",
+          "home"
+        ],
+        [
+          "\\btill jobbet|\\btill kontoret",
+          "work"
+        ],
+        [
+          "\\bta mig|\\bkor mig|\\bnavigera\\w*|\\bvagen till",
+          "navigate"
+        ],
+        [
+          "\\bbensin|\\bbransle|\\btank\\w*|\\bdiesel",
+          "fuel"
+        ],
+        [
+          "\\brackvidd",
+          "range"
+        ],
+        [
+          "\\bavfrost\\w*|\\bimmig\\w*",
+          "defrost"
+        ],
+        [
+          "\\bvindruta\\w*",
+          "windshield"
+        ],
+        [
+          "\\bbakruta\\w*",
+          "rear window"
+        ],
+        [
+          "\\bbaklucka\\w*|\\bbagageutrymme\\w*",
+          "trunk"
+        ],
+        [
+          "\\bfram\\b|\\bframre",
+          "front"
+        ],
+        [
+          "\\bbak\\b|\\bbakre",
+          "rear"
+        ],
+        [
+          "\\bvanster\\w*",
+          "left"
+        ],
+        [
+          "\\bhoger\\w*",
+          "right"
+        ],
+        [
+          "\\balla\\b",
+          "all"
+        ],
+        [
+          "\\bsla pa|\\bsatt pa|\\bpa$",
+          "on"
+        ],
+        [
+          "\\bstang av|\\bsla av|\\bav$",
+          "off"
+        ],
+        [
+          "\\bbil\\w*",
+          "car"
+        ],
+        [
+          "\\bmer\\b|\\bmera\\b",
+          "more"
+        ],
+        [
+          "\\bhoj\\w* musiken|\\bhogre musik",
+          "volume up"
+        ]
+      ]
+    },
+    "da": {
+      "q": "Skal jeg {a}?",
+      "capitalize": false,
+      "done": "Så er det gjort.",
+      "cannot": "Det kan ikke lade sig gøre lige nu.",
+      "driving": "Det kan jeg ikke, mens bilen kører.",
+      "and": "og",
+      "yes": [
+        "ja",
+        "jo",
+        "javel",
+        "ja tak",
+        "gerne",
+        "ja gerne",
+        "okay",
+        "ok",
+        "selvfølgelig",
+        "klart",
+        "gør det",
+        "præcis",
+        "det er rigtigt",
+        "fint"
+      ],
+      "no": [
+        "nej",
+        "nej tak",
+        "ikke nu",
+        "annuller",
+        "glem det",
+        "lad være"
+      ],
+      "window": {
+        "all": "alle ruder",
+        "driver": "førerens rude",
+        "passenger": "passagerens rude",
+        "front_left": "ruden foran til venstre",
+        "front_right": "ruden foran til højre",
+        "rear_left": "ruden bag til venstre",
+        "rear_right": "ruden bag til højre",
+        "front": "de forreste ruder",
+        "rear": "de bageste ruder",
+        "left": "ruderne til venstre",
+        "right": "ruderne til højre"
+      },
+      "door": {
+        "all": "alle døre",
+        "driver": "førerdøren",
+        "passenger": "passagerdøren",
+        "front_left": "døren foran til venstre",
+        "front_right": "døren foran til højre",
+        "rear_left": "døren bag til venstre",
+        "rear_right": "døren bag til højre",
+        "front": "de forreste døre",
+        "rear": "de bageste døre",
+        "left": "dørene til venstre",
+        "right": "dørene til højre",
+        "car": "bilen"
+      },
+      "seat": {
+        "driver": "i førersædet",
+        "passenger": "i passagersædet",
+        "rear_left": "i sædet bag til venstre",
+        "rear_right": "i sædet bag til højre"
+      },
+      "zone": {
+        "driver": "for føreren",
+        "passenger": "for passageren",
+        "rear": "bagi",
+        "all": "overalt"
+      },
+      "feature": {
+        "heater": "sædevarmen",
+        "ventilation": "sædeventilationen"
+      },
+      "level": {
+        "low": "lav",
+        "medium": "mellem",
+        "high": "høj"
+      },
+      "air": {
+        "face": "mod ansigtet",
+        "feet": "mod fødderne",
+        "face_and_feet": "mod ansigtet og fødderne",
+        "windshield": "mod forruden"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "radio",
+        "usb": "USB",
+        "streaming": "streaming"
+      },
+      "avoid": {
+        "tolls": "betalingsveje",
+        "traffic": "trafik",
+        "highways": "motorveje",
+        "ferries": "færger"
+      },
+      "place": {
+        "gas_station": "en tankstation",
+        "ev_charger": "en ladestander",
+        "parking": "en parkeringsplads",
+        "restaurant": "en restaurant",
+        "coffee": "en café",
+        "rest_area": "en rasteplads"
+      },
+      "t": {
+        "window.open": "åbne {window}",
+        "window.close": "lukke {window}",
+        "window.half": "åbne {window} halvt",
+        "window.crack": "åbne {window} på klem",
+        "door.open": "åbne {door}",
+        "door.close": "lukke {door}",
+        "lock": "låse {door}",
+        "unlock": "låse {door} op",
+        "sunroof.open": "åbne soltaget",
+        "sunroof.tilt": "vippe soltaget op",
+        "sunroof.close": "lukke soltaget",
+        "trunk.open": "åbne bagagerummet",
+        "trunk.close": "lukke bagagerummet",
+        "frunk.open": "åbne det forreste bagagerum",
+        "frunk.close": "lukke det forreste bagagerum",
+        "temp.set": "sætte temperaturen til {t}",
+        "temp.setZone": "sætte temperaturen {zone} til {t}",
+        "temp.up": "hæve temperaturen {n} grader",
+        "temp.down": "sænke temperaturen {n} grader",
+        "dual": "sætte føreren til {d} og passageren til {p}",
+        "feel.cold": "varme bilen op",
+        "feel.hot": "køle bilen ned",
+        "fan.set": "sætte blæseren på {n}",
+        "fan.up": "skrue op for blæseren",
+        "fan.down": "skrue ned for blæseren",
+        "air": "rette luften {mode}",
+        "defrost.windshield.on": "afdugge forruden",
+        "defrost.windshield.off": "slukke for afdugningen af forruden",
+        "defrost.rear.on": "tænde for bagrudevarmen",
+        "defrost.rear.off": "slukke for bagrudevarmen",
+        "seat.set": "sætte {feature} {seat} på {level}",
+        "seat.off": "slukke for {feature} {seat}",
+        "wheel.on": "tænde for rattvarmen",
+        "wheel.off": "slukke for rattvarmen",
+        "media": "afspille {q}",
+        "radio": "stille radioen på {band} {f}",
+        "source": "skifte til {source}",
+        "vol.up": "skrue op for lyden",
+        "vol.down": "skrue ned for lyden",
+        "vol.mute": "slå lyden fra",
+        "vol.unmute": "slå lyden til igen",
+        "vol.set": "sætte lydstyrken til {n}",
+        "nav": "navigere til {dest}",
+        "nav.home": "navigere hjem",
+        "nav.work": "navigere til arbejdet",
+        "avoid": "undgå {avoid}",
+        "generic": "gøre det"
+      },
+      "answer": {
+        "eta": "Ankomst om cirka {min} minutter.",
+        "eta.none": "Der er ingen aktiv rute.",
+        "find": "Jeg fandt {place} langs ruten.",
+        "status.range": "Du har cirka {km} km rækkevidde tilbage.",
+        "status.fuel": "Tanken er på {pct} %, cirka {km} km.",
+        "status.battery": "Batteriet er på {pct} %.",
+        "status.energy_consumption": "Det gennemsnitlige forbrug er {v} km pr. liter.",
+        "status.tire_pressure": "Dækkene er fine: 31 til 32 psi.",
+        "status.warnings": "Der lyser ingen advarselslamper."
+      },
+      "messages": {
+        "whichSeat": "Hvilket sæde: dit, passagerens eller begge?",
+        "didNotCatch": "Undskyld, det fangede jeg ikke. Kan du sige det igen?",
+        "notInDemo": "Det er ikke tilgængeligt i denne demo. Kontakt info@davoice.io for at få det.",
+        "noRemote": "Jeg skal sende det her til en ekstern model. Konfigurer en ekstern model i appen, så det virker.",
+        "lowClarify": "Jeg er ikke sikker på, at jeg forstod det. Kan du sige det på en anden måde?",
+        "lowDecline": "Det er jeg ikke sikker nok på, så jeg har ikke ændret noget.",
+        "lowNoRemote": "Til denne kommando skal jeg bruge en ekstern agent."
+      },
+      "pack": {
+        "noReply": "Undskyld, det fangede jeg ikke. Kan du sige det igen?",
+        "notDoneRest": "Resten gjorde jeg ikke. Kan du sige det igen?",
+        "done": "Så er det gjort.",
+        "failed": "Undskyld, det virkede ikke.",
+        "notConfirmed": "Okay, så gør jeg det ikke.",
+        "notAuthorized": "Undskyld, det må du ikke.",
+        "unsupported": "Undskyld, det er ikke tilgængeligt i denne app.",
+        "invalidArgs": "Undskyld, jeg mangler nogle detaljer. Kan du sige det igen?",
+        "guardConflict": "Undskyld, jeg er ikke sikker på, at jeg forstod det rigtigt. Kan du sige det igen?",
+        "outOfRange": "Undskyld, {value} går ikke: det går fra {min} til {max}.",
+        "outOfRangeAsk": "Hvilken værdi vil du have? Det går fra {min} til {max}.",
+        "scopeClarify": "Undskyld, det fangede jeg ikke. Kan du sige det igen?",
+        "scopeUnsupported": "Undskyld, det kan jeg ikke styre i denne bil.",
+        "scopeNoRemote": "Det kan jeg ikke svare på her. Jeg hjælper med ruder, døre, klima, musik, navigation og bilens status.",
+        "remoteFailed": "Undskyld, Gemini kunne ikke svare lige nu. Prøv igen om lidt.",
+        "remoteOffline": "Jeg kan ikke nå Gemini. Tjek internetforbindelsen.",
+        "remoteBusy": "Gemini har travlt lige nu. Prøv igen om lidt.",
+        "remoteTimeout": "Gemini er for lang tid om det. Prøv igen om lidt.",
+        "remoteUnavailable": "Gemini er ikke tilgængelig lige nu. Prøv igen senere.",
+        "remoteFillers": [
+          "Et øjeblik, jeg tjekker.",
+          "Et sekund.",
+          "Lad mig lige tjekke."
+        ],
+        "searchFillers": [
+          "Godt spørgsmål, jeg søger.",
+          "Et øjeblik, jeg søger."
+        ],
+        "searchFailed": [
+          "Undskyld, jeg kan ikke komme på internettet lige nu."
+        ]
+      },
+      "hints": [
+        [
+          "\\bfører\\w*|\\bchauffør",
+          "driver"
+        ],
+        [
+          "\\bpassager\\w*",
+          "passenger"
+        ],
+        [
+          "\\brude\\w*|\\bvindue\\w*",
+          "window"
+        ],
+        [
+          "\\bdør\\w*",
+          "door"
+        ],
+        [
+          "\\babn\\w*",
+          "open"
+        ],
+        [
+          "\\bluk\\b|\\blukke\\w*|\\bluk (\\w+ )?\\w+$",
+          "close"
+        ],
+        [
+          "^(?!.*\\bop$).*\\blas(e)?\\b",
+          "lock"
+        ],
+        [
+          "\\blas(e)?\\b.*\\bop$|\\boplas\\w*",
+          "unlock"
+        ],
+        [
+          "\\bsoltag\\w*|\\btagluge\\w*",
+          "sunroof"
+        ],
+        [
+          "\\bsædevarme\\w*",
+          "seat heater"
+        ],
+        [
+          "\\bsædeventil\\w*",
+          "seat ventilation"
+        ],
+        [
+          "\\brattvarme\\w*",
+          "steering wheel heater"
+        ],
+        [
+          "\\bblæser\\w*|\\bventilator\\w*",
+          "fan"
+        ],
+        [
+          "\\bniveau|\\btrin\\b",
+          "level"
+        ],
+        [
+          "\\btemperatur\\w*",
+          "temperature"
+        ],
+        [
+          "\\bgrader?\\b",
+          "degrees"
+        ],
+        [
+          "\\bvarmere",
+          "warmer"
+        ],
+        [
+          "\\bkøligere|\\bkoldere",
+          "cooler"
+        ],
+        [
+          "\\bjeg fryser|\\bfryser\\b|\\bkoldt\\b",
+          "I am cold"
+        ],
+        [
+          "\\bvarmt\\b|\\bjeg sveder",
+          "I am hot"
+        ],
+        [
+          "\\bskru op for (lyden|musikken)|\\bhøjere",
+          "volume up"
+        ],
+        [
+          "\\bskru ned for (lyden|musikken)|\\blavere",
+          "volume down"
+        ],
+        [
+          "\\blyd\\w*|\\blydstyrke\\w*",
+          "volume"
+        ],
+        [
+          "\\bmusik\\w*|\\bsang\\w*",
+          "music"
+        ],
+        [
+          "\\bspil\\w*|\\bafspil\\w*",
+          "play"
+        ],
+        [
+          "\\bradio\\w*",
+          "radio"
+        ],
+        [
+          "\\bhjem\\b",
+          "home"
+        ],
+        [
+          "\\btil arbejde\\w*|\\btil kontoret",
+          "work"
+        ],
+        [
+          "\\bkør mig|\\bnaviger\\w*|\\brute til",
+          "navigate"
+        ],
+        [
+          "\\bbenzin|\\bbrændstof|\\btank\\w*|\\bdiesel",
+          "fuel"
+        ],
+        [
+          "\\brækkevidde",
+          "range"
+        ],
+        [
+          "\\bafdug\\w*|\\bafis\\w*|\\bdugget",
+          "defrost"
+        ],
+        [
+          "\\bforrude\\w*",
+          "windshield"
+        ],
+        [
+          "\\bbagrude\\w*",
+          "rear window"
+        ],
+        [
+          "\\bbagagerum\\w*|\\bbagklap\\w*",
+          "trunk"
+        ],
+        [
+          "\\bforan\\b|\\bforreste",
+          "front"
+        ],
+        [
+          "\\bbag\\b|\\bbag(e|er)ste|\\bbagi\\b",
+          "rear"
+        ],
+        [
+          "\\bvenstre",
+          "left"
+        ],
+        [
+          "\\bhøjre",
+          "right"
+        ],
+        [
+          "\\balle\\b",
+          "all"
+        ],
+        [
+          "\\btænd\\w*|\\bsla til",
+          "on"
+        ],
+        [
+          "\\bsluk\\w*|\\bsla fra",
+          "off"
+        ],
+        [
+          "\\bbil\\w*",
+          "car"
+        ],
+        [
+          "\\bmere\\b",
+          "more"
+        ],
+        [
+          "\\bskru op for musikken",
+          "volume up"
+        ]
+      ]
+    },
+    "pt-PT": {
+      "q": "{a}?",
+      "capitalize": true,
+      "done": "Está feito.",
+      "cannot": "Isso não é possível agora.",
+      "driving": "Não posso fazer isso com o carro em andamento.",
+      "and": "e",
+      "yes": [
+        "sim",
+        "claro",
+        "pode ser",
+        "pode",
+        "ok",
+        "okay",
+        "está bem",
+        "com certeza",
+        "isso",
+        "exato",
+        "exatamente",
+        "por favor",
+        "sim por favor",
+        "faça isso",
+        "força"
+      ],
+      "no": [
+        "não",
+        "nao",
+        "não obrigado",
+        "não obrigada",
+        "agora não",
+        "cancela",
+        "cancelar",
+        "deixa",
+        "deixe",
+        "esquece"
+      ],
+      "window": {
+        "all": "todos os vidros",
+        "driver": "o vidro do condutor",
+        "passenger": "o vidro do passageiro",
+        "front_left": "o vidro dianteiro esquerdo",
+        "front_right": "o vidro dianteiro direito",
+        "rear_left": "o vidro traseiro esquerdo",
+        "rear_right": "o vidro traseiro direito",
+        "front": "os vidros da frente",
+        "rear": "os vidros de trás",
+        "left": "os vidros do lado esquerdo",
+        "right": "os vidros do lado direito"
+      },
+      "door": {
+        "all": "todas as portas",
+        "driver": "a porta do condutor",
+        "passenger": "a porta do passageiro",
+        "front_left": "a porta dianteira esquerda",
+        "front_right": "a porta dianteira direita",
+        "rear_left": "a porta traseira esquerda",
+        "rear_right": "a porta traseira direita",
+        "front": "as portas da frente",
+        "rear": "as portas de trás",
+        "left": "as portas do lado esquerdo",
+        "right": "as portas do lado direito",
+        "car": "o carro"
+      },
+      "seat": {
+        "driver": "do banco do condutor",
+        "passenger": "do banco do passageiro",
+        "rear_left": "do banco traseiro esquerdo",
+        "rear_right": "do banco traseiro direito"
+      },
+      "zone": {
+        "driver": "do condutor",
+        "passenger": "do passageiro",
+        "rear": "atrás",
+        "all": "em todo o carro"
+      },
+      "feature": {
+        "heater": "o aquecimento",
+        "ventilation": "a ventilação"
+      },
+      "level": {
+        "low": "baixo",
+        "medium": "médio",
+        "high": "alto"
+      },
+      "air": {
+        "face": "para a cara",
+        "feet": "para os pés",
+        "face_and_feet": "para a cara e os pés",
+        "windshield": "para o para-brisas"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "o rádio",
+        "usb": "USB",
+        "streaming": "o streaming"
+      },
+      "avoid": {
+        "tolls": "as portagens",
+        "traffic": "o trânsito",
+        "highways": "as autoestradas",
+        "ferries": "os ferries"
+      },
+      "place": {
+        "gas_station": "uma bomba de gasolina",
+        "ev_charger": "um posto de carregamento",
+        "parking": "um parque de estacionamento",
+        "restaurant": "um restaurante",
+        "coffee": "um café",
+        "rest_area": "uma área de serviço"
+      },
+      "t": {
+        "window.open": "abrir {window}",
+        "window.close": "fechar {window}",
+        "window.half": "abrir {window} até meio",
+        "window.crack": "abrir um pouco {window}",
+        "door.open": "abrir {door}",
+        "door.close": "fechar {door}",
+        "lock": "trancar {door}",
+        "unlock": "destrancar {door}",
+        "sunroof.open": "abrir o teto de abrir",
+        "sunroof.tilt": "inclinar o teto de abrir",
+        "sunroof.close": "fechar o teto de abrir",
+        "trunk.open": "abrir a mala",
+        "trunk.close": "fechar a mala",
+        "frunk.open": "abrir a mala da frente",
+        "frunk.close": "fechar a mala da frente",
+        "temp.set": "pôr a temperatura nos {t}",
+        "temp.setZone": "pôr a temperatura {zone} nos {t}",
+        "temp.up": "subir a temperatura {n} graus",
+        "temp.down": "baixar a temperatura {n} graus",
+        "dual": "pôr o condutor nos {d} e o passageiro nos {p}",
+        "feel.cold": "aquecer o carro",
+        "feel.hot": "arrefecer o carro",
+        "fan.set": "pôr a ventilação no {n}",
+        "fan.up": "aumentar a ventilação",
+        "fan.down": "diminuir a ventilação",
+        "air": "direcionar o ar {mode}",
+        "defrost.windshield.on": "desembaciar o para-brisas",
+        "defrost.windshield.off": "desligar o desembaciador do para-brisas",
+        "defrost.rear.on": "ligar o desembaciador traseiro",
+        "defrost.rear.off": "desligar o desembaciador traseiro",
+        "seat.set": "pôr {feature} {seat} no nível {level}",
+        "seat.off": "desligar {feature} {seat}",
+        "wheel.on": "ligar o aquecimento do volante",
+        "wheel.off": "desligar o aquecimento do volante",
+        "media": "tocar {q}",
+        "radio": "sintonizar o rádio em {band} {f}",
+        "source": "mudar para {source}",
+        "vol.up": "aumentar o volume",
+        "vol.down": "baixar o volume",
+        "vol.mute": "tirar o som",
+        "vol.unmute": "voltar a pôr o som",
+        "vol.set": "pôr o volume no {n}",
+        "nav": "ir para {dest}",
+        "nav.home": "ir para casa",
+        "nav.work": "ir para o trabalho",
+        "avoid": "evitar {avoid}",
+        "generic": "fazer isso"
+      },
+      "answer": {
+        "eta": "Chegada dentro de cerca de {min} minutos.",
+        "eta.none": "Não há nenhuma rota ativa.",
+        "find": "Encontrei {place} no percurso.",
+        "status.range": "Tem cerca de {km} km de autonomia.",
+        "status.fuel": "O depósito está a {pct}%, cerca de {km} km.",
+        "status.battery": "A bateria está a {pct}%.",
+        "status.energy_consumption": "O consumo médio é de {v} km por litro.",
+        "status.tire_pressure": "Os pneus estão bem: entre 31 e 32 psi.",
+        "status.warnings": "Não há nenhuma luz de aviso acesa."
+      },
+      "messages": {
+        "whichSeat": "Que banco: o seu, o do passageiro ou os dois?",
+        "didNotCatch": "Desculpe, não percebi. Pode repetir?",
+        "notInDemo": "Isto não está disponível nesta demonstração. Para o disponibilizar, contacte info@davoice.io",
+        "noRemote": "Preciso de enviar isto para um modelo remoto. Para isto funcionar, configure um modelo remoto na aplicação.",
+        "lowClarify": "Não tenho a certeza de ter percebido. Pode dizer de outra forma?",
+        "lowDecline": "Não tenho certeza suficiente, por isso não mudei nada.",
+        "lowNoRemote": "Para este comando preciso de um agente remoto."
+      },
+      "pack": {
+        "noReply": "Desculpe, não percebi. Pode repetir?",
+        "notDoneRest": "O resto não fiz. Pode repetir?",
+        "done": "Está feito.",
+        "failed": "Desculpe, não funcionou.",
+        "notConfirmed": "Está bem, não vou fazer isso.",
+        "notAuthorized": "Desculpe, não tem permissão para isso.",
+        "unsupported": "Desculpe, isso não está disponível nesta aplicação.",
+        "invalidArgs": "Desculpe, faltam-me detalhes. Pode repetir?",
+        "guardConflict": "Desculpe, não tenho a certeza de ter percebido bem. Pode repetir?",
+        "outOfRange": "Desculpe, {value} não é possível: vai de {min} a {max}.",
+        "outOfRangeAsk": "Que valor quer? Vai de {min} a {max}.",
+        "scopeClarify": "Desculpe, não percebi. Pode repetir?",
+        "scopeUnsupported": "Desculpe, isso não consigo controlar neste carro.",
+        "scopeNoRemote": "Não consigo responder a isso aqui. Posso ajudar com os vidros, as portas, o clima, a música, a navegação e o estado do carro.",
+        "remoteFailed": "Desculpe, o Gemini não conseguiu responder agora. Tente outra vez daqui a pouco.",
+        "remoteOffline": "Não consigo contactar o Gemini. Verifique a ligação à internet.",
+        "remoteBusy": "O Gemini está ocupado agora. Tente outra vez daqui a pouco.",
+        "remoteTimeout": "O Gemini está a demorar demasiado. Tente outra vez daqui a pouco.",
+        "remoteUnavailable": "O Gemini não está disponível agora. Tente mais tarde.",
+        "remoteFillers": [
+          "Um momento, vou ver.",
+          "Só um segundo.",
+          "Deixe-me verificar."
+        ],
+        "searchFillers": [
+          "Boa pergunta, vou procurar.",
+          "Um momento, estou a procurar."
+        ],
+        "searchFailed": [
+          "Desculpe, agora não consigo ligar-me à internet."
+        ]
+      },
+      "hints": [
+        [
+          "\\bcondutor|\\bmotorista",
+          "driver"
+        ],
+        [
+          "\\bpassageiro|\\bpendura",
+          "passenger"
+        ],
+        [
+          "\\bvidr\\w*|\\bjanel\\w*",
+          "window"
+        ],
+        [
+          "\\bporta\\w*",
+          "door"
+        ],
+        [
+          "\\babr\\w*",
+          "open"
+        ],
+        [
+          "\\bfech\\w*",
+          "close"
+        ],
+        [
+          "\\btranc\\w*",
+          "lock"
+        ],
+        [
+          "\\bdestranc\\w*",
+          "unlock"
+        ],
+        [
+          "\\bteto\\b|\\btecto\\b",
+          "sunroof"
+        ],
+        [
+          "\\baquecimento do banco|\\bbanco aquecido",
+          "seat heater"
+        ],
+        [
+          "\\bvolante",
+          "steering wheel"
+        ],
+        [
+          "\\bventila\\w*",
+          "fan"
+        ],
+        [
+          "\\btemperatura",
+          "temperature"
+        ],
+        [
+          "\\bgraus\\b",
+          "degrees"
+        ],
+        [
+          "\\baquece\\b|\\baquece um|\\bmais quente",
+          "warmer"
+        ],
+        [
+          "\\barrefec\\w*|\\bmais fresco",
+          "cooler"
+        ],
+        [
+          "\\bestou com frio|\\bque frio",
+          "I am cold"
+        ],
+        [
+          "\\bestou com calor|\\bque calor",
+          "I am hot"
+        ],
+        [
+          "\\bbaixa (o )?volume|\\bmais baixo",
+          "volume down"
+        ],
+        [
+          "\\b(sobe|aumenta) (o )?volume|\\bmais alto",
+          "volume up"
+        ],
+        [
+          "\\bmusica",
+          "music"
+        ],
+        [
+          "\\btoca\\b|\\bpoe (a |uma )?musica",
+          "play"
+        ],
+        [
+          "\\bpara casa\\b",
+          "home"
+        ],
+        [
+          "\\bpara o trabalho",
+          "work"
+        ],
+        [
+          "\\bleva me|\\bnavega\\w*",
+          "navigate"
+        ],
+        [
+          "\\bgasolina|\\bcombustivel|\\bgasoleo|\\bdeposito",
+          "fuel"
+        ],
+        [
+          "\\bdesembaci\\w*|\\bdesembaca\\w*",
+          "defrost"
+        ],
+        [
+          "\\bpara brisas",
+          "windshield"
+        ],
+        [
+          "\\bmala\\b",
+          "trunk"
+        ],
+        [
+          "\\btodos|\\btodas",
+          "all"
+        ],
+        [
+          "\\bliga\\b|\\bligar",
+          "on"
+        ],
+        [
+          "\\bdesliga\\w*",
+          "off"
+        ],
+        [
+          "\\bcarro",
+          "car"
+        ],
+        [
+          "\\bmais\\b",
+          "more"
+        ],
+        [
+          "\\btranspir\\w*|\\ba suar\\b",
+          "I am hot"
+        ],
+        [
+          "\\bsobe (a )?musica",
+          "volume up"
+        ]
+      ]
+    },
+    "en": {
+      "q": "{a}?",
+      "capitalize": true,
+      "done": "That's done.",
+      "cannot": "That's not possible right now.",
+      "driving": "I can't do that while the car is moving.",
+      "and": "and",
+      "yes": [
+        "yes",
+        "yeah",
+        "yep",
+        "sure",
+        "ok",
+        "okay",
+        "please",
+        "do it",
+        "go ahead"
+      ],
+      "no": [
+        "no",
+        "nope",
+        "no thanks",
+        "cancel",
+        "never mind"
+      ],
+      "window": {
+        "all": "all the windows",
+        "driver": "the driver's window",
+        "passenger": "the passenger window",
+        "front_left": "the front left window",
+        "front_right": "the front right window",
+        "rear_left": "the rear left window",
+        "rear_right": "the rear right window",
+        "front": "the front windows",
+        "rear": "the rear windows",
+        "left": "the left windows",
+        "right": "the right windows"
+      },
+      "door": {
+        "all": "all the doors",
+        "driver": "the driver's door",
+        "passenger": "the passenger door",
+        "front_left": "the front left door",
+        "front_right": "the front right door",
+        "rear_left": "the rear left door",
+        "rear_right": "the rear right door",
+        "front": "the front doors",
+        "rear": "the rear doors",
+        "left": "the left doors",
+        "right": "the right doors",
+        "car": "the car"
+      },
+      "seat": {
+        "driver": "of the driver's seat",
+        "passenger": "of the passenger seat",
+        "rear_left": "of the rear left seat",
+        "rear_right": "of the rear right seat"
+      },
+      "zone": {
+        "driver": "for the driver",
+        "passenger": "for the passenger",
+        "rear": "in the back",
+        "all": "everywhere"
+      },
+      "feature": {
+        "heater": "the heating",
+        "ventilation": "the ventilation"
+      },
+      "level": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "air": {
+        "face": "to your face",
+        "feet": "to your feet",
+        "face_and_feet": "to your face and feet",
+        "windshield": "to the windshield"
+      },
+      "source": {
+        "bluetooth": "Bluetooth",
+        "radio": "the radio",
+        "usb": "USB",
+        "streaming": "streaming"
+      },
+      "avoid": {
+        "tolls": "tolls",
+        "traffic": "traffic",
+        "highways": "highways",
+        "ferries": "ferries"
+      },
+      "place": {
+        "gas_station": "a gas station",
+        "ev_charger": "an EV charger",
+        "parking": "a parking spot",
+        "restaurant": "a restaurant",
+        "coffee": "a coffee shop",
+        "rest_area": "a rest area"
+      },
+      "t": {
+        "window.open": "open {window}",
+        "window.close": "close {window}",
+        "window.half": "open {window} halfway",
+        "window.crack": "open {window} a crack",
+        "door.open": "open {door}",
+        "door.close": "close {door}",
+        "lock": "lock {door}",
+        "unlock": "unlock {door}",
+        "sunroof.open": "open the sunroof",
+        "sunroof.tilt": "tilt the sunroof",
+        "sunroof.close": "close the sunroof",
+        "trunk.open": "open the trunk",
+        "trunk.close": "close the trunk",
+        "frunk.open": "open the front trunk",
+        "frunk.close": "close the front trunk",
+        "temp.set": "set the temperature to {t}",
+        "temp.setZone": "set the temperature {zone} to {t}",
+        "temp.up": "raise the temperature {n} degrees",
+        "temp.down": "lower the temperature {n} degrees",
+        "dual": "set the driver to {d} and the passenger to {p}",
+        "feel.cold": "warm up the car",
+        "feel.hot": "cool down the car",
+        "fan.set": "set the fan to {n}",
+        "fan.up": "turn the fan up",
+        "fan.down": "turn the fan down",
+        "air": "point the air {mode}",
+        "defrost.windshield.on": "defrost the windshield",
+        "defrost.windshield.off": "turn off the windshield defrost",
+        "defrost.rear.on": "turn on the rear defrost",
+        "defrost.rear.off": "turn off the rear defrost",
+        "seat.set": "set {feature} {seat} to {level}",
+        "seat.off": "turn off {feature} {seat}",
+        "wheel.on": "turn on the steering wheel heater",
+        "wheel.off": "turn off the steering wheel heater",
+        "media": "play {q}",
+        "radio": "tune the radio to {band} {f}",
+        "source": "switch to {source}",
+        "vol.up": "turn the volume up",
+        "vol.down": "turn the volume down",
+        "vol.mute": "mute the sound",
+        "vol.unmute": "unmute the sound",
+        "vol.set": "set the volume to {n}",
+        "nav": "navigate to {dest}",
+        "nav.home": "take you home",
+        "nav.work": "take you to work",
+        "avoid": "avoid {avoid}",
+        "generic": "do that"
+      },
+      "answer": {
+        "eta": "Arriving in about {min} minutes.",
+        "eta.none": "There's no active route.",
+        "find": "I found {place} along the route.",
+        "status.range": "You have about {km} km of range left.",
+        "status.fuel": "The tank is at {pct}%, about {km} km.",
+        "status.battery": "The battery is at {pct}%.",
+        "status.energy_consumption": "Average consumption is {v} km per liter.",
+        "status.tire_pressure": "The tires are fine: 31 to 32 psi.",
+        "status.warnings": "No warning lights are on."
+      },
+      "messages": {},
+      "pack": {}
+    }
+  },
+  "_hints": "'hints' (2026-11-21): English words the app adds in brackets to what the user said, e.g. 'Mach die Musik leiser (music, volume down)': the model only knows English and Portuguese, and with them it picks the right car action far more often (9 languages, 108 fresh sentences: 49% -> 78% right; 86% after adding the words that test showed were missing). Patterns match the user's words folded: lower case, accents removed (ß, ø, æ stay), anything else between words is one space."
+}

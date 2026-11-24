@@ -79,6 +79,23 @@ describe('doors and locks are separate operations', () => {
     expect(getCarState().locked).toBe(true);
     expect(Object.values(getCarState().doors).every((d) => d === 'closed')).toBe(true);
   });
+  test('a refusal that asks carries what a plain "yes" means (the agent core runs it, without the model)', () => {
+    say('lock_car', {});
+    expect(run('open_door', { door: 'all' }).result.offer).toEqual({
+      calls: [{ name: 'unlock_car', arguments: {} }, { name: 'open_door', arguments: { door: 'all' } }],
+    });
+    say('unlock_car', {});
+    say('open_door', { door: 'front' });
+    const r = run('lock_car', {});
+    expect(r.say).toBe("I can't lock the car while doors are open. Close them first?");
+    expect(r.result.offer).toEqual({
+      calls: [{ name: 'close_doors', arguments: { door: 'all' } }, { name: 'lock_car', arguments: {} }],
+    });
+    for (const c of r.result.offer.calls) say(c.name, c.arguments);   // what the core does on "yes"
+    expect(getCarState().locked).toBe(true);
+    expect(Object.values(getCarState().doors).every((d) => d === 'closed')).toBe(true);
+    expect(run('set_volume', { action: 'set', level: 99 }).result.offer).toBeUndefined();   // a refusal without a question: no offer
+  });
   test('one door locked, en + pt', () => {
     expect(say('lock_car', { door: 'front_right' })).toBe('I locked the front right door.');
     expect(getCarState().doorLocks.front_right).toBe(true);

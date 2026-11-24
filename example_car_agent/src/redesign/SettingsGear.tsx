@@ -5,6 +5,7 @@ import type { ConversationSettings } from '../conversation/settings';
 import { PrimaryButton, SecondaryButton, statusBarHeight } from './chrome';
 import { C, F } from './theme';
 import { GearIcon } from './icons';
+import PrivacyPolicyLink from './PrivacyPolicyLink';
 
 /**
  * The settings gear on every setup screen (language, voice, speaker, wake word...). It floats at the top right and opens the
@@ -51,6 +52,9 @@ export default function SettingsGear({
                 theme={{ text: C.text, text2: C.text2, accent: C.mint, selectedBg: '#1C4636', control: C.carbon, controlBorder: C.controlBorder, fontMedium: F.medium, fontBold: F.bold }}
               />
               <Text style={styles.note}>The model and local confidence settings are on the car screen (the gear at its top).</Text>
+              <View style={styles.divider} />
+              <Text style={styles.title}>ABOUT</Text>
+              <PrivacyPolicyLink />
             </ScrollView>
             <View style={styles.buttons}>
               <SecondaryButton label="Cancel" onPress={() => setOpen(false)} style={{ flex: 1 }} />
@@ -101,6 +105,7 @@ const styles = StyleSheet.create({
   buttons: { flexDirection: 'row', gap: 10, paddingTop: 12 },
   title: { fontFamily: F.bold, fontSize: 11, letterSpacing: 2, color: C.mint },
   note: { fontFamily: F.medium, fontSize: 12, color: C.text2 },
+  divider: { height: 1, backgroundColor: C.titanium, marginVertical: 4 },
 });
 
 // A wrapper so App.tsx can put the gear over any screen.

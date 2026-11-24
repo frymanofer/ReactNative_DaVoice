@@ -5,6 +5,7 @@ import type { GeminiChatMessage } from './index';
 import { LOCAL_LLM_LAYER2, LOCAL_LLM_LOW_CONFIDENCE_MESSAGE, LOCAL_LLM_NO_REMOTE_MESSAGE, LOCAL_LLM_NOT_IN_DEMO_MESSAGE } from '../local_llm/constants';
 import { DID_NOT_CATCH, isTooShortForDecline } from './fragments';
 import { getTTSLanguage } from '../tts';
+import { basicMessage } from '../car/basicLanguage';
 
 // The remote assistant of Local AI Chat's DaVoice Agent model: Gemini (the
 // same model, key and Google Search grounding as AI Chat) answers what the
@@ -46,17 +47,17 @@ export async function answerRemoteRequest(
     // A fragment of speech the model declined is noise, not an unsupported feature (2026-11-10 phone: "Alma Alma.").
     if (isTooShortForDecline(request.userText ?? request.query ?? '')) {
       console.log('[AIChat][REMOTE] declined fragment: asking to repeat');
-      return { text: DID_NOT_CATCH[language] ?? DID_NOT_CATCH.en };
+      return { text: DID_NOT_CATCH[language] ?? basicMessage(language, 'didNotCatch') ?? DID_NOT_CATCH.en };
     }
     console.log('[AIChat][REMOTE] not available in this demo (the model declined)');
-    return { text: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en };
+    return { text: LOCAL_LLM_NOT_IN_DEMO_MESSAGE[language] ?? basicMessage(language, 'notInDemo') ?? LOCAL_LLM_NOT_IN_DEMO_MESSAGE.en };
   }
   // The on-device model was not sure enough of its car action (Local confidence, core reason "low-confidence") and no remote model is set
   // up: nothing ran, and the user hears that this command needs the remote agent.
   if ((request.reason as string) === 'low-confidence' && LOCAL_LLM_LAYER2 === 'none') {   // a reason newer than the published typings
     const language = getTTSLanguage();
     console.log('[AIChat][REMOTE] low confidence, no remote model set up: telling the user');
-    return { text: LOCAL_LLM_LOW_CONFIDENCE_MESSAGE[language] ?? LOCAL_LLM_LOW_CONFIDENCE_MESSAGE.en };
+    return { text: LOCAL_LLM_LOW_CONFIDENCE_MESSAGE[language] ?? basicMessage(language, 'lowNoRemote') ?? LOCAL_LLM_LOW_CONFIDENCE_MESSAGE.en };
   }
   // No remote model set up (constants.ts LOCAL_LLM_LAYER2 'none'): say so instead of answering.
   if (LOCAL_LLM_LAYER2 === 'none') {

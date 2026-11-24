@@ -266,6 +266,20 @@ This repository targets the following use cases and search intents:
 - React Native on-device voice AI
 - iOS and Android voice AI for React Native
 
+## Learn more on davoice.io
+
+- [React Native voice AI agent tutorial (on-device LLM)](https://davoice.io/voice-agent-guide/react-native)
+- [Expo voice AI agent tutorial](https://davoice.io/voice-agent-guide/expo)
+- [On-device voice-to-voice AI agent SDK](https://davoice.io/voice-agent-sdk): wake word, speech to text, a local LLM with tool calling and text to speech, with no per-token API fees
+- [React Native wake word detection guide](https://davoice.io/integration-guides-wake-word/react-native)
+- [Wake word benchmark](https://davoice.io/wake-word-benchmark): two independent customer studies, DaVoice vs. commercial engines and openWakeWord
+- [On-device speech to text SDK](https://davoice.io/speech-to-text): real-time and offline, no per-minute fees
+- [On-device text to speech SDK and TTS API](https://davoice.io/text-to-speech): natural voices and voice cloning, no per-character fees
+- [Run an LLM on the phone for a voice agent](https://davoice.io/voice-agent-guide/on-device-llm)
+- [On-device tool calling for voice agents](https://davoice.io/voice-agent-guide/tool-calling)
+- [Free online text to speech](https://davoice.io/free-text-to-speech): free and unlimited, with no sign-up, no login and no subscription. Natural AI voices in 11 languages, voice cloning, MP3 and WAV download, generated in your browser
+- [Pricing](https://davoice.io/pricing): free license for proof-of-concept, academic and non-commercial projects
+
 ## Contact
 
 For licensing, custom wake words, speaker models, deployment help, or production integration support:

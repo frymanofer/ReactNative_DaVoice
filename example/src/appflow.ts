@@ -40,11 +40,37 @@ export const APP_LANGUAGES: {
   /** Supported but not offered on the language screen (still works if selected in code / stored). */
   hidden?: boolean;
 }[] = [
+  // Order = quality (2026-11-19): English; Spanish, Italian, German, Dutch (some word errors); Brazilian Portuguese (kept here for
+  // VW Brazil); Greek, Swedish, Danish (a bit robotic); French, European Portuguese (more mistakes). Hebrew is hidden.
   {
     id: 'en',
     label: 'English',
     sttLocale: 'en-US',
     llmReplyInstruction: 'The user speaks English. Always reply in English.',
+  },
+  {
+    id: 'es',
+    label: 'Español (Spanish)',
+    sttLocale: 'es-ES',
+    llmReplyInstruction: 'The user speaks Spanish. Always reply in Spanish.',
+  },
+  {
+    id: 'it',
+    label: 'Italiano (Italian)',
+    sttLocale: 'it-IT',
+    llmReplyInstruction: 'The user speaks Italian. Always reply in Italian.',
+  },
+  {
+    id: 'de',
+    label: 'Deutsch (German)',
+    sttLocale: 'de-DE',
+    llmReplyInstruction: 'The user speaks German. Always reply in German.',
+  },
+  {
+    id: 'nl',
+    label: 'Nederlands (Dutch)',
+    sttLocale: 'nl-NL',
+    llmReplyInstruction: 'The user speaks Dutch. Always reply in Dutch.',
   },
   {
     id: 'pt-BR',
@@ -57,29 +83,22 @@ export const APP_LANGUAGES: {
       'Important: always reply in Brazilian Portuguese (pt-BR). Sempre responda em português do Brasil.',
   },
   {
-    id: 'pt-PT',
-    label: 'Português de Portugal (European Portuguese)',
-    sttLocale: 'pt-PT',
-    llmReplyInstruction:
-      'Important: always reply in European Portuguese (pt-PT), never Brazilian Portuguese. Responde sempre em português de Portugal.',
-  },
-  {
-    id: 'de',
-    label: 'Deutsch (German)',
-    sttLocale: 'de-DE',
-    llmReplyInstruction: 'The user speaks German. Always reply in German.',
-  },
-  {
     id: 'el',
     label: 'Ελληνικά (Greek)',
     sttLocale: 'el-GR',
     llmReplyInstruction: 'The user speaks Greek. Always reply in Greek. Απάντα πάντα στα ελληνικά.',
   },
   {
-    id: 'es',
-    label: 'Español (Spanish)',
-    sttLocale: 'es-ES',
-    llmReplyInstruction: 'The user speaks Spanish. Always reply in Spanish.',
+    id: 'sv',
+    label: 'Svenska (Swedish)',
+    sttLocale: 'sv-SE',
+    llmReplyInstruction: 'The user speaks Swedish. Always reply in Swedish. Svara alltid på svenska.',
+  },
+  {
+    id: 'da',
+    label: 'Dansk (Danish)',
+    sttLocale: 'da-DK',
+    llmReplyInstruction: 'The user speaks Danish. Always reply in Danish. Svar altid på dansk.',
   },
   {
     id: 'fr',
@@ -88,16 +107,11 @@ export const APP_LANGUAGES: {
     llmReplyInstruction: 'The user speaks French. Always reply in French.',
   },
   {
-    id: 'it',
-    label: 'Italiano (Italian)',
-    sttLocale: 'it-IT',
-    llmReplyInstruction: 'The user speaks Italian. Always reply in Italian.',
-  },
-  {
-    id: 'nl',
-    label: 'Nederlands (Dutch)',
-    sttLocale: 'nl-NL',
-    llmReplyInstruction: 'The user speaks Dutch. Always reply in Dutch.',
+    id: 'pt-PT',
+    label: 'Português de Portugal (European Portuguese)',
+    sttLocale: 'pt-PT',
+    llmReplyInstruction:
+      'Important: always reply in European Portuguese (pt-PT), never Brazilian Portuguese. Responde sempre em português de Portugal.',
   },
   {
     // TTS v1 model (Piper + voice converter): voices, cloning, no emotion styles.
@@ -107,20 +121,6 @@ export const APP_LANGUAGES: {
     label: 'עברית (Hebrew)',
     sttLocale: 'he-IL',
     llmReplyInstruction: 'The user speaks Hebrew. Always reply in Hebrew. ענה תמיד בעברית.',
-  },
-  // Danish, Swedish, Greek: TTS v1 models (Piper + voice converter) like Hebrew, with commercial-OK
-  // Piper voices (TTS2/TTSv1/voices_commercial_ok.txt): voices and cloning, no emotion styles.
-  {
-    id: 'da',
-    label: 'Dansk (Danish)',
-    sttLocale: 'da-DK',
-    llmReplyInstruction: 'The user speaks Danish. Always reply in Danish. Svar altid på dansk.',
-  },
-  {
-    id: 'sv',
-    label: 'Svenska (Swedish)',
-    sttLocale: 'sv-SE',
-    llmReplyInstruction: 'The user speaks Swedish. Always reply in Swedish. Svara alltid på svenska.',
   },
 ];
 

@@ -1,5 +1,6 @@
 PODS:
   - boost (1.84.0)
+  - DaVoiceOnnxRuntime (1.31.0)
   - DoubleConversion (1.1.6)
   - fast_float (8.0.0)
   - FBLazyVector (0.82.0)
@@ -8,14 +9,9 @@ PODS:
   - hermes-engine (0.82.0):
     - hermes-engine/Pre-built (= 0.82.0)
   - hermes-engine/Pre-built (0.82.0)
-  - KeyWordRNBridge (1.0.13):
-    - onnxruntime-objc (~> 1.20.0)
+  - KeyWordRNBridge (1.0.43):
+    - DaVoiceOnnxRuntime (= 1.31.0)
     - React-Core
-  - onnxruntime-c (1.20.0)
-  - onnxruntime-objc (1.20.0):
-    - onnxruntime-objc/Core (= 1.20.0)
-  - onnxruntime-objc/Core (1.20.0):
-    - onnxruntime-c (= 1.20.0)
   - RCT-Folly (2024.11.18.00):
     - boost
     - DoubleConversion
@@ -2412,8 +2408,7 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - onnxruntime-c
-    - onnxruntime-objc
+    - DaVoiceOnnxRuntime
     - SocketRocket
 
 EXTERNAL SOURCES:
@@ -2569,15 +2564,14 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
+  DaVoiceOnnxRuntime: cadb788cade92b31a7e00d5af693cd3f110e694a
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
   FBLazyVector: 41b4dd99afd0aad861444ee141abdedaa6c3d238
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 8642d8f14a548ab718ec112e9bebdfdd154138b5
-  KeyWordRNBridge: 2d44488bc71267844e9c0e602826745b732d2200
-  onnxruntime-c: 07cfff40dda7e1c54a4350bb2ad226c63150fce3
-  onnxruntime-objc: b22c5d4517e9804e47c66f1f122ec4a6aa923f86
+  KeyWordRNBridge: d3edbeaecd64374836328dc8eebfeee676f9c737
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 22bf66112da540a7d40e536366ddd8557934fca1
   RCTRequired: a0ed4dc41b35f79fbb6d8ba320e06882a8c792cf

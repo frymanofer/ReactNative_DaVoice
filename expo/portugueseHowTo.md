@@ -663,96 +663,24 @@ começa uma conversa nova) como se fossem faladas. Nenhum dos dois existe numa b
    pessoa falando, que `speakerId` aparece nos resultados do STT, e que outra voz não
    consegue destrancar o carro.
 
-### 2.5 Conversa por turnos: o usuário espera a IA terminar
+### 2.5 Modos de conversa: turnos, a palavra para parar e interromper
 
-**Como funciona hoje.** O chat de IA (local e Gemini) é **por turnos**. O usuário **não
-consegue interromper** a IA:
+A engrenagem ao lado da linha do microfone nas telas de chat define como a conversa funciona (`src/conversation/`). As mudanças são
+um rascunho até **Save**.
 
-1. O usuário fala. Quando ele faz silêncio, o app envia a frase para a IA.
-2. Nesse momento o STT é pausado (`Speech.pauseSpeechRecognition()` em `processAIChatTurn`,
-   `App.tsx`). Enquanto `aiChatInFlightRef` está ligado, os resultados do STT são ignorados
-   (`src/stt/index.ts`).
-3. A IA pensa e fala a resposta, frase por frase.
-4. Só depois que o último áudio termina, `finishAIChatSpeechFlow` reabre o microfone para o
-   próximo turno.
+- **Turnos** (padrão): a escuta pausa enquanto a IA pensa e fala, então ela nunca ouve a própria voz. A resposta termina → escuta de
+  novo (just talk), ou volta para a wake word (modo wake word; depois de uma resposta que faz uma pergunta, a resposta do usuário
+  não precisa da wake word).
+- **A wake word para o agente** (modo wake word, desligado por padrão): a wake word escuta enquanto a IA fala; dizer a wake word
+  para a resposta e abre um turno novo. Esse turno começa com pré-captura 0, para nem a palavra de parar nem a voz da IA voltarem
+  para ele, e o que foi ouvido nesse meio tempo é descartado, nunca enviado.
+- **Interromper**: o reconhecimento de fala fica aberto por baixo da voz da IA. Palavras que a IA não está dizendo param a IA e
+  começam o próximo pedido do usuário; palavras que ela está dizendo são o eco dela e são ignoradas (`src/conversation/bargeIn.ts`).
+  Precisa de cancelamento de eco (`AEC: { mode: 'always' }` na configuração de roteamento no iOS; experimental no Android). Num
+  carro, junte com a verificação de locutor (1.3) para só a voz do dono poder interromper.
 
-Enquanto a IA pensa ou fala, nada do que o usuário diz é ouvido. Dizer "Hey Coach" também
-não para a resposta, e não há botão de parar. Isso é proposital: é o jeito mais simples e
-seguro de evitar que a IA escute a própria voz e transcreva o que ela mesma está falando.
-
-**Se você quiser que o usuário possa interromper a IA, é preciso mudar o app.** O modelo
-recomendado é o do app LunaFit (`../LunaFitTech.Mobileapp`), no modo de treino (workout):
-lá o usuário diz "Hey Coach" por cima do treinador e o treinador para na hora. Arquivos de
-referência no LunaFit:
-- `src/components/utility-components/WakewordLibHeadless.ts` (`keywordCallback`);
-- `src/components/utility-components/wakewordDetectionRouting.ts`
-  (`resolveWakewordDetectionAction`);
-- `src/components/ai-chat/SpeechLibHeadless.ts` (handler `COACH_BTN_STOP_PRESS`);
-- `src/components/utility-components/audioRoutingConfigs.ts`.
-
-O que o LunaFit faz, e como aplicar aqui:
-
-1. **A wake word fica ouvindo enquanto a IA fala** (o STT continua fechado). No LunaFit,
-   quando o turno do usuário termina, o STT fecha e a detecção da wake word volta
-   (`unPauseDetection`) antes de o treinador falar. Aqui: chame
-   `myInstanceRef.current?.unPauseDetection()` logo depois do `pauseSpeechRecognition()` em
-   `processAIChatTurn`.
-2. **Cancelamento de eco ligado sempre.** No LunaFit: `AEC: { mode: 'always' }` no
-   `defaultAudioRoutingConfig`. Aqui o `defaultAudioRoutingConfig` em `src/wakeword/index.ts`
-   usa `WakewordAEC: { regular: false, duringTTS: false }`. Troque por
-   `AEC: { mode: 'always' }`, para que a voz da própria IA não dispare a wake word nem
-   entre no STT. Suporte (documentado em `react-native-wakeword`, `audioRoutingConfig.d.ts`):
-   - iPhones mais novos usam o AEC do próprio iOS; os mais antigos, um motor de áudio com
-     cancelamento de eco;
-   - no Android vale para a wake word e o TTS; para o STT, Android 13+ no alto-falante.
-3. **Wake word durante a fala da IA = parar.** No LunaFit, `resolveWakewordDetectionAction`
-   devolve `'stop-coach'` quando o treinador está falando, e isso tem prioridade sobre
-   qualquer outro estado. Aqui, no começo do `keywordCallback` em `App.tsx`:
-   ```ts
-   if (aiChatInFlightRef.current) {             // a IA está pensando ou falando
-     if (interruptInFlightRef.current) return;  // a mesma "Hey Coach" detectada duas vezes
-     interruptInFlightRef.current = true;
-     try {
-       aiChatRequestIdRef.current += 1;         // textos e eventos atrasados do turno antigo são ignorados
-       (await getLocalAgent()).cancel();        // para o turno do LLM (src/agent/LocalAgent.ts)
-       aiChatSpeechQueueRef.current = [];       // descarta as frases que ainda não foram faladas
-       ignoreNextFinishedSpeakingRef.current = true; // o "terminou de falar" do stop não abre outro turno
-       await Speech.stopSpeaking();             // cala a voz agora
-       resetSpeechTranscriptState();            // descarta o que o STT pegou no meio (não envia para a IA)
-       aiChatInFlightRef.current = false;
-       await myInstanceRef.current?.pauseDetection(false);
-       await Speech.unPauseSpeechRecognition(-1, 0); // novo turno do usuário; preFetchMs 0, veja abaixo
-     } finally {
-       interruptInFlightRef.current = false;
-     }
-     return;
-   }
-   ```
-   `interruptInFlightRef` e `ignoreNextFinishedSpeakingRef` são refs novos.
-   `finishAIChatSpeechFlow` precisa respeitar o segundo e não reabrir o microfone de novo.
-4. **Detalhes que o LunaFit aprendeu na prática:**
-   - **Proteja contra detecção dupla** (o `coachStopInFlightRef` do LunaFit): a mesma
-     palavra pode disparar duas vezes.
-   - **Descarte a transcrição acidental, não envie.** Interromper a fala não pode mandar
-     para a IA um pedaço de frase ou o eco da própria IA.
-   - **Abra o STT com `preFetchMs: 0`.** Senão o STT repete os ~2 s de áudio anteriores e
-     transcreve o "Hey Coach" (ou a voz da IA) como se fosse a nova mensagem.
-   - **Botão vs. voz.** Num botão de parar, o LunaFit só faz silêncio. Pela wake word, ele
-     abre o microfone, porque o usuário quer falar.
-   - **Toque um som curto de "ouvindo"** quando o microfone abre, para o usuário saber que
-     pode falar.
-   - **Histórico:** guarde no histórico só o que a IA chegou a falar, para o próximo turno
-     fazer sentido.
-5. **No carro, combine com a verificação de locutor (1.3).** Com locutor cadastrado, só a
-   voz do dono consegue interromper. O rádio ou um passageiro, não.
-
-**Variante "qualquer fala interrompe" (duplex).** No LunaFit isso existe só numa tela de
-conversa contínua ("Surprise Me", `AEC_DUPLEX_ROUTES` em `voiceRouteAudioPolicy.ts`) e
-**só no iOS**. Lá o STT fica aberto por baixo da fala do treinador, com `AEC 'always'`.
-Palavras que **não** são eco do que o treinador está dizendo param a fala e começam um turno
-normal (`interruptCoachForUserSpeech` em `SpeechLibHeadless.ts`). É mais complexo, porque é
-preciso filtrar o eco comparando a transcrição com a frase que a IA está falando. Para o
-carro, a versão com wake word acima é mais segura.
+As regras completas, com código para levar esses modos para outro app, estão na Parte B do guia do agente do carro
+(`../example_car_agent/portugueseHowTo.md`, B5).
 
 ### 2.6 Confiança local: comandos incertos vão para o agente remoto
 

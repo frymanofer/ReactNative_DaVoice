@@ -447,6 +447,7 @@ export async function finishAIChatSpeechFlow({
   setIsAIChatLoading,
   resetSpeechTranscriptState,
   setAiChatStatus,
+  reopenMicrophone,
 }: any) {
   aiChatStreamingActiveRef.current = false;
   aiChatStreamGenerationDoneRef.current = false;
@@ -459,6 +460,11 @@ export async function finishAIChatSpeechFlow({
   setIsAIChatLoading(false);
   resetSpeechTranscriptState();
   setAiChatStatus('Listening for your next question...');
+  // The app's conversation mode decides what comes next (src/conversation: listen, or back to the wake word).
+  if (typeof reopenMicrophone === 'function') {
+    await reopenMicrophone();
+    return;
+  }
   console.log('[STT_UNPAUSE_TRACE] before Speech.unPauseSpeechRecognition(-1) in finishAIChatSpeechFlow');
   await Speech.unPauseSpeechRecognition(-1);
   console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in finishAIChatSpeechFlow');
