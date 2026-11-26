@@ -32,8 +32,8 @@ import { BUNDLED_LANGUAGE_FILES } from './languagePacks.generated';
 // Which languages are built into the app (default English + Brazilian Portuguese) and which are downloaded
 // as language packs: language_packs.json -> languagePacks.generated.ts (BUNDLED_LANGUAGE_FILES holds the
 // require()s; see src/tts/languagePacks.ts). A language's voice-cloning embedder must match its model. Each language keeps its own
-// configured embedder FILE, even when the weights are identical (pt-PT's embedder_pt_pt.dm is a copy of pt-BR's embedder_brv1.dm since
-// the 2026-11-12 pt-PT model): one language can change without touching another. A v1 embedder (da/sv/el) fits only its own v1 model.
+// configured embedder FILE, even when the weights are identical (pt-PT's embedder_pt_pt1.dm has the same bytes as pt-BR's embedder_brv3.dm since
+// the 2026-11-26 pt-PT model): one language can change without touching another. A v1 embedder (da/sv/el) fits only its own v1 model.
 // Hebrew is in neither (hidden; its TTS v1 base voice is non-commercial, never ship or upload it): to bring
 // it back, add it to the JSON with model_v1_hebrew.dm + embedder_he.dm and remove `hidden` in src/appflow.ts.
 
