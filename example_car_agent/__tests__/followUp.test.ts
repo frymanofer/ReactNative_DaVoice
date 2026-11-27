@@ -26,3 +26,21 @@ test('dismissals rotate between two short replies', () => {
   resetFollowUp();
   expect([carTurnInput('Never mind', 'en', null), carTurnInput('Cancel', 'en', null)]).toEqual([{ reply: 'Okay.' }, { reply: 'No problem.' }]);
 });
+
+test('something the car cannot do is offered the way it can ("Lock the sunroof" -> close it); a yes sends that request', () => {
+  resetFollowUp();
+  expect(carTurnInput('Can you lock the sunroof?', 'en', null)).toEqual({ reply: "I can't lock the sunroof, but I can close it. Want me to close it?" });
+  expect(carTurnInput('Yes', 'en', null)).toEqual({ text: 'Close the sunroof' });
+  resetFollowUp();
+  carTurnInput('Lock the sunroof', 'en', null);
+  expect(carTurnInput('Close it', 'en', null)).toEqual({ text: 'Close the sunroof' });
+  resetFollowUp();
+  carTurnInput('Unlock the windows', 'en', null);
+  expect(carTurnInput('No', 'en', null)).toEqual({ reply: 'Okay.' });
+  resetFollowUp();
+  carTurnInput('Tranca o teto solar', 'pt-BR', null);
+  expect(carTurnInput('Sim', 'pt-BR', null)).toEqual({ text: 'Fecha o teto solar' });
+  resetFollowUp();
+  carTurnInput('Destranca os vidros', 'pt-BR', null);
+  expect(carTurnInput('Pode abrir', 'pt-BR', null)).toEqual({ text: 'Abre todos os vidros' });
+});

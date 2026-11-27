@@ -2,8 +2,8 @@ module.exports = {
   name: 'ExpoExampleApp',
   slug: 'expoexample',
   displayName: 'ExpoExampleApp',
-  androidPackage: 'com.exampleapp',
-  iosBundleIdentifier: 'com.exampleapp',
+  androidPackage: 'io.davoice.expo.example',
+  iosBundleIdentifier: 'io.davoice.expo.example',
   // Optional: the Apple team Xcode signs with (developer.apple.com -> Membership).
   // appleTeamId: 'XXXXXXXXXX',
   // Optional: your EAS project (written here after `eas init`).

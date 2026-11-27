@@ -1,3 +1,5 @@
+// first: every console line of the app gets the time (src/debug/logTimestamps.ts)
+import './src/debug/logTimestamps';
 import { AppRegistry } from 'react-native';
 import { registerRootComponent } from 'expo';
 import App from './App';

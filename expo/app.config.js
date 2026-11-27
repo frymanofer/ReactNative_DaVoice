@@ -7,8 +7,8 @@ const defaultConfig = {
   name: 'ExpoExampleApp',
   slug: 'expoexample',
   displayName: 'ExpoExampleApp',
-  androidPackage: 'com.anonymous.expoexample',
-  iosBundleIdentifier: 'com.anonymous.expoexample',
+  androidPackage: 'io.davoice.expo.example',
+  iosBundleIdentifier: 'io.davoice.expo.example',
 };
 
 const localConfig = fs.existsSync(localExpoConfigPath)

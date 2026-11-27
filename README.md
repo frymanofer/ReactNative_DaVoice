@@ -1,6 +1,6 @@
 # React Native Voice AI On Device by DaVoice
 
-[License](LICENSE) · [Model and Voice Asset Notice](MODEL_NOTICES.md)
+[License](LICENSE) · [Model and Voice Asset Notice](MODEL_NOTICES.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 On-Device, complete Voice AI for React Native. Including <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer"><strong>speaker identification</strong></a>, <a href="https://davoice.io/speaker-recognition" target="_blank" rel="noopener noreferrer"><strong>speaker verification</strong></a>, <a href="https://davoice.io/wake-word" target="_blank" rel="noopener noreferrer"><strong>wake word detection</strong></a>, **speech to text**, and **text to speech** on **iOS** and **Android**.
 

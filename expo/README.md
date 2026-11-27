@@ -66,8 +66,8 @@ module.exports = {
   name: 'ExpoExampleApp',
   slug: 'expoexample',
   displayName: 'ExpoExampleApp',
-  androidPackage: 'com.exampleapp',
-  iosBundleIdentifier: 'com.exampleapp',
+  androidPackage: 'io.davoice.expo.example',
+  iosBundleIdentifier: 'io.davoice.expo.example',
 };
 ```
 
@@ -75,8 +75,8 @@ This file is local-only and git-ignored.
 
 These values match the example app identifiers:
 
-- Android package: `com.exampleapp`
-- iOS bundle identifier: `com.exampleapp`
+- Android package: `io.davoice.expo.example`
+- iOS bundle identifier: `io.davoice.expo.example`
 
 If `local.expo.config.js` does not exist, `app.config.js` falls back to its committed default values.
 

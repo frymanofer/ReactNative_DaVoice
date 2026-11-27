@@ -647,7 +647,7 @@ começa uma conversa nova) como se fossem faladas. Nenhum dos dois existe numa b
    - `h3`, `h2` (modelos mais antigos);
    - `v1` (a redação original dos primeiros modelos).
 5. **Log da conversa:**
-   - build debug: `adb shell run-as com.exampleapp cat files/davoice_chat.log`;
+   - build debug: `adb shell run-as io.davoice.expo.example cat files/davoice_chat.log`;
    - build release: `adb logcat | grep DavoiceChat` (mesmo conteúdo).
 
    Mostra as palavras do usuário, o que o modelo gerou, as decisões dos guards, as chamadas

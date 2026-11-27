@@ -311,13 +311,49 @@ export function carTurnInput(userText: string, language: string, offer: string[]
     pending = { kind: 'seat', request: seats };
     return { reply: WHICH_SEAT[lang] };
   }
+  // something the car can't do, with the action it can ("Lock the sunroof" -> close it): asked, nothing runs without a yes
+  const near = nearMiss(userText, lang);
+  if (near) {
+    pending = { kind: 'command', request: near.request };
+    return { reply: near.reply };
+  }
   return { text: canonical(userText, lang) ?? userText };
+}
+
+/**
+ * "Lock the sunroof" / "Unlock the windows": the car has no such lock (2026-11-25 iPhone: the model declined and the driver heard "not
+ * available in this demo"). The app says what it can do instead and asks; a yes ("Yes", "Close it") sends that request to the agent.
+ */
+function nearMiss(userText: string, lang: Lang): { reply: string; request: string } | null {
+  const f = fold(userText);
+  if (lang === 'en') {
+    const m = /^(?:(?:can|could|would|will) you |please )*(lock|unlock) (?:up )?(?:the |my |our |all the |all )?(sunroof|moonroof|roof|windows)(?: please| for me)?$/.exec(f);
+    if (!m) return null;
+    const lock = m[1] === 'lock';
+    const roof = m[2] !== 'windows';
+    const what = roof ? 'the sunroof' : 'the windows';
+    const verb = lock ? 'close' : 'open';
+    return {
+      reply: `I can't ${m[1]} ${what}, but I can ${verb} ${roof ? 'it' : 'them'}. Want me to ${verb} ${roof ? 'it' : 'them'}?`,
+      request: roof ? `${lock ? 'Close' : 'Open'} the sunroof` : `${lock ? 'Close' : 'Open'} all the windows`,
+    };
+  }
+  // pt-BR: every sentence about six words or more; both tested 2026-11-25 (brv3 voice, 5/5 heard right; "Quer que eu feche..." was 3/5) (src/car/speechComposer.ts, the pt-BR voice)
+  const m = /^(?:(?:voce|vc) pode |pode |por favor )*(tranca|trancar|tranque|destranca|destrancar|destranque) (?:o |os |as |todos os |todas as )?(teto solar|teto|vidros|janelas)(?: do carro)?(?: por favor| pra mim)?$/.exec(f);
+  if (!m) return null;
+  const lock = !m[1].startsWith('des');
+  const roof = m[2].startsWith('teto');
+  const said = roof ? 'o teto solar do carro' : 'as janelas do carro';
+  return {
+    reply: `Não consigo ${lock ? 'trancar' : 'destrancar'} ${said}. Posso ${lock ? 'fechar' : 'abrir'} ${roof ? 'o teto solar' : 'todas as janelas'} para você?`,
+    request: roof ? `${lock ? 'Fecha' : 'Abre'} o teto solar` : `${lock ? 'Fecha' : 'Abre'} todos os vidros`,
+  };
 }
 
 /** The driver says the offered request short ("Close it", "Lock it", "Turn it on", "Fecha", "Pode trancar"): the offer itself. */
 const OFFER_VERBS: Record<Lang, [RegExp, RegExp][]> = {
-  en: [[/^close\b/i, /^(?:close|shut)$/], [/^lock\b/i, /^lock$/], [/^(?:heat|cool)\b/i, /^(?:turn on|switch on|heat|cool|turn on)$/]],
-  pt: [[/^fecha\b/i, /^(?:fecha|fechar|feche|pode fechar)$/], [/^tranca\b/i, /^(?:tranca|trancar|tranque|pode trancar)$/],
+  en: [[/^close\b/i, /^(?:close|shut)$/], [/^open\b/i, /^open$/], [/^lock\b/i, /^lock$/], [/^(?:heat|cool)\b/i, /^(?:turn on|switch on|heat|cool|turn on)$/]],
+  pt: [[/^fecha\b/i, /^(?:fecha|fechar|feche|pode fechar)$/], [/^abre\b/i, /^(?:abre|abrir|abra|pode abrir)$/], [/^tranca\b/i, /^(?:tranca|trancar|tranque|pode trancar)$/],
     [/^(?:esquenta|refresca)\b/i, /^(?:liga|ligar|ligue|pode ligar|esquenta|refresca)$/]],
 };
 function sameRequest(userText: string, request: string, lang: Lang): boolean {

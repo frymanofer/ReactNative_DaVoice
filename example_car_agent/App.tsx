@@ -108,6 +108,8 @@ import { carTurnInput, noteCarReply, noteCarSpoken } from './src/car/followUp';
 
 /** How long a car request may take before the car says "Got it." (Otto's "Entendido."). */
 const CAR_ACK_AFTER_MS = 1200;
+/** The same words this soon after the microphone came back are dropped as the recognizer's repeat (ms). */
+const SAME_WORDS_ECHO_MS = 1500;
 import { basicMessage, basicReplyFix, isBasicLanguage, normalizeYesNo } from './src/car/basicLanguage';
 import { REMOTE_ANSWERS_ONLINE } from './src/aichat/remote';
 import { getActiveModelId, isModelReady } from './src/local_llm/LocalLLMLoader';
@@ -204,7 +206,7 @@ const FULL_AI_CHAT_STT_OPTIONS = {
 // library, so one license key validates for all of them (see the
 // local-llm-scaffold memory notes).
 const LOCAL_LLM_DEMO_LICENSE =
-  'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=';
+  'DV2.eyJ2IjoyLCJraWQiOiJrMSIsImlkIjoiYWI2MjM2NzY4Zjc3IiwiY3VzdCI6IkRhVm9pY2UgZGVtbyBhcHAgUmVhY3ROYXRpdmVfRGFWb2ljZS9leGFtcGxlX2Nhcl9hZ2VudCAoZXhhY3QgYXBwIGlkcyBvbmx5KSIsImlhdCI6MTc5NTcxMTA3NTM2MiwiZXhwIjoxODMwMjk3NjAwMDAwLCJwcm9kIjpbIioiXSwicGxhdCI6WyJhbmRyb2lkIiwiaW9zIl0sImFwcHMiOnsiYW5kcm9pZCI6WyJpby5kYXZvaWNlLnZvaWNlMnZvaWNlLmNhcmFnZW50Il0sImlvcyI6WyJpby5kYXZvaWNlLnZvaWNlMnZvaWNlLmNhcmFnZW50IiwiaW8uZGF2b2ljZS52b2ljZTJ2b2ljZS5jYXJhZ2VudC5yZWxlYXNlIl19LCJtb2RlbHMiOlsidHRzLyoiLCJ3dy8qIl19.E_wIYeJ-f0G-44szyCnmOQQSaGNw2g9WK-l-ChDAezbWI7vTALUot26taJDqUczfSiBnxF9x05LJQB13tWFANA';
 let calledOnce = false;
 
 function App(): React.JSX.Element {
@@ -587,7 +589,7 @@ function App(): React.JSX.Element {
   const isGoingBackRef = useRef(false);
   const modeAlreadyEnteredRef = useRef(false);
   let vadCBintervalID: any = null;
-  const silenceThresholdMsRef = useRef(2000);
+  const silenceThresholdMsRef = useRef(endOfSpeechMs(DEFAULT_CONVERSATION_SETTINGS));
   const lastTranscriptRef = useRef('');
   const lastProcessedRef = useRef('');
   const speechUiEpochRef = useRef(0);
@@ -655,6 +657,8 @@ function App(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiChatLiveTranscript]);
   const lastAIChatSubmitAtRef = useRef(0);
+  /** When the microphone came back after the last reply (the same words right after it are the recognizer repeating itself). */
+  const micReopenedAtRef = useRef(0);
   const aiChatBlockedUntilRef = useRef(0);
   const lastAIChatSubmittedTextRef = useRef('');
   const geminiNetworkRequestCountRef = useRef(0);
@@ -840,6 +844,7 @@ function App(): React.JSX.Element {
 
   // A request ended: the conversation mode decides what's next (listen again, or back to the wake word).
   const reopenAfterReply = async () => {
+    micReopenedAtRef.current = Date.now();
     const c = conversationRef.current!;
     if (c.phase === 'off') {
       await restartFullAIChatMicrophone('reply finished (outside the conversation)');
@@ -1450,18 +1455,22 @@ function App(): React.JSX.Element {
       return;
     }
 
-    if (now - lastAIChatSubmitAtRef.current < AI_CHAT_MIN_REQUEST_GAP_MS) {
+    // Gemini's request gap doesn't apply to the on-device model either (a quick "Yes" after a short reply was dropped).
+    if (selectedAppModeRef.current !== 'local_ai_chat' && now - lastAIChatSubmitAtRef.current < AI_CHAT_MIN_REQUEST_GAP_MS) {
       const waitSeconds = Math.ceil(
         (AI_CHAT_MIN_REQUEST_GAP_MS - (now - lastAIChatSubmitAtRef.current)) / 1000,
       );
+      console.log(`[AIChat] dropped (Gemini request gap, ${waitSeconds}s left): "${userText}"`);
       setAiChatStatus(`Waiting ${waitSeconds}s before the next Gemini request.`);
       return;
     }
 
-    if (
-      userText === lastAIChatSubmittedTextRef.current &&
-      now - lastAIChatSubmitAtRef.current < 15000
-    ) {
+    // The same words right after the microphone came back are the recognizer repeating the last request, not the driver: dropped.
+    // Said again later, they are a new request (2026-11-25 iPhone: "Can you lock the sunroof?" said twice; the second was dropped
+    // without a word because the old rule dropped the same words for 15 s).
+    // (the words are sent after the end-of-speech silence, so that silence is part of the window)
+    if (userText === lastAIChatSubmittedTextRef.current && now - micReopenedAtRef.current < silenceThresholdMsRef.current + SAME_WORDS_ECHO_MS) {
+      console.log(`[AIChat] dropped (the same words ${now - micReopenedAtRef.current} ms after the reply): "${userText}"`);
       setAiChatStatus('Same transcript received again. Waiting for a new phrase.');
       return;
     }
@@ -2138,9 +2147,9 @@ function App(): React.JSX.Element {
           listenerRef,
           myInstanceRef,
           keywordLicense:
-            'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=',
+            'DV2.eyJ2IjoyLCJraWQiOiJrMSIsImlkIjoiYWI2MjM2NzY4Zjc3IiwiY3VzdCI6IkRhVm9pY2UgZGVtbyBhcHAgUmVhY3ROYXRpdmVfRGFWb2ljZS9leGFtcGxlX2Nhcl9hZ2VudCAoZXhhY3QgYXBwIGlkcyBvbmx5KSIsImlhdCI6MTc5NTcxMTA3NTM2MiwiZXhwIjoxODMwMjk3NjAwMDAwLCJwcm9kIjpbIioiXSwicGxhdCI6WyJhbmRyb2lkIiwiaW9zIl0sImFwcHMiOnsiYW5kcm9pZCI6WyJpby5kYXZvaWNlLnZvaWNlMnZvaWNlLmNhcmFnZW50Il0sImlvcyI6WyJpby5kYXZvaWNlLnZvaWNlMnZvaWNlLmNhcmFnZW50IiwiaW8uZGF2b2ljZS52b2ljZTJ2b2ljZS5jYXJhZ2VudC5yZWxlYXNlIl19LCJtb2RlbHMiOlsidHRzLyoiLCJ3dy8qIl19.E_wIYeJ-f0G-44szyCnmOQQSaGNw2g9WK-l-ChDAezbWI7vTALUot26taJDqUczfSiBnxF9x05LJQB13tWFANA',
           speechLicense:
-            'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=',
+            'DV2.eyJ2IjoyLCJraWQiOiJrMSIsImlkIjoiYWI2MjM2NzY4Zjc3IiwiY3VzdCI6IkRhVm9pY2UgZGVtbyBhcHAgUmVhY3ROYXRpdmVfRGFWb2ljZS9leGFtcGxlX2Nhcl9hZ2VudCAoZXhhY3QgYXBwIGlkcyBvbmx5KSIsImlhdCI6MTc5NTcxMTA3NTM2MiwiZXhwIjoxODMwMjk3NjAwMDAwLCJwcm9kIjpbIioiXSwicGxhdCI6WyJhbmRyb2lkIiwiaW9zIl0sImFwcHMiOnsiYW5kcm9pZCI6WyJpby5kYXZvaWNlLnZvaWNlMnZvaWNlLmNhcmFnZW50Il0sImlvcyI6WyJpby5kYXZvaWNlLnZvaWNlMnZvaWNlLmNhcmFnZW50IiwiaW8uZGF2b2ljZS52b2ljZTJ2b2ljZS5jYXJhZ2VudC5yZWxlYXNlIl19LCJtb2RlbHMiOlsidHRzLyoiLCJ3dy8qIl19.E_wIYeJ-f0G-44szyCnmOQQSaGNw2g9WK-l-ChDAezbWI7vTALUot26taJDqUczfSiBnxF9x05LJQB13tWFANA',
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,

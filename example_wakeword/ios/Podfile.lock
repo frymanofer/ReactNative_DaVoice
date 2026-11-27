@@ -9,7 +9,7 @@ PODS:
   - hermes-engine (0.82.0):
     - hermes-engine/Pre-built (= 0.82.0)
   - hermes-engine/Pre-built (0.82.0)
-  - KeyWordRNBridge (1.0.43):
+  - KeyWordRNBridge (1.0.46):
     - DaVoiceOnnxRuntime (= 1.31.0)
     - React-Core
   - RCT-Folly (2024.11.18.00):
@@ -2571,7 +2571,7 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 8642d8f14a548ab718ec112e9bebdfdd154138b5
-  KeyWordRNBridge: d3edbeaecd64374836328dc8eebfeee676f9c737
+  KeyWordRNBridge: c245add0f4caf73a53034fbb6ca70d3a6178d516
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 22bf66112da540a7d40e536366ddd8557934fca1
   RCTRequired: a0ed4dc41b35f79fbb6d8ba320e06882a8c792cf

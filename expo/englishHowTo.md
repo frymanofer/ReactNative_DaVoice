@@ -639,7 +639,7 @@ conversation) as if spoken. Neither exists in a release build.
    - `h3`, `h2` (older models);
    - `v1` (the original wording of the first models).
 5. **Conversation log:**
-   - debug build: `adb shell run-as com.exampleapp cat files/davoice_chat.log`;
+   - debug build: `adb shell run-as io.davoice.expo.example cat files/davoice_chat.log`;
    - release build: `adb logcat | grep DavoiceChat` (same content).
 
    It shows the user's words, what the model generated, guard decisions, the tool calls and

@@ -8,20 +8,17 @@
 
 /* Begin PBXBuildFile section */
 		00E356F31AD99517003FC87E /* ExampleAppTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F21AD99517003FC87E /* ExampleAppTests.m */; };
+		034B7AE07664924568F68F3A /* hey_davoice_model_28_06042026.dm in Resources */ = {isa = PBXBuildFile; fileRef = E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */; };
+		038A7658AD31A6879731EBF0 /* hello_davoice_model_28_17082026.dm in Resources */ = {isa = PBXBuildFile; fileRef = 4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */; };
 		0E6A2A37ABE896C6366217AA /* libPods-ExampleAppShared-ExampleAppRelease.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AE432827593C9C83D0B648E /* libPods-ExampleAppShared-ExampleAppRelease.a */; };
+		137E88636D0CE4A3229371AF /* hello_davoice_model_28_17082026.dm in Resources */ = {isa = PBXBuildFile; fileRef = 4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */; };
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		3624887F2FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */; };
-		9760B91D3BE21A5A3444988C /* hey_davoice_model_28_06042026.dm in Resources */ = {isa = PBXBuildFile; fileRef = E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */; };
-		038A7658AD31A6879731EBF0 /* hello_davoice_model_28_17082026.dm in Resources */ = {isa = PBXBuildFile; fileRef = 4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */; };
 		362488802FC8608200325B19 /* sv.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887E2FC8608200325B19 /* sv.dm */; };
 		362488812FC8608200325B19 /* hey_coach_model_28_22012026b.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */; };
-		034B7AE07664924568F68F3A /* hey_davoice_model_28_06042026.dm in Resources */ = {isa = PBXBuildFile; fileRef = E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */; };
-		137E88636D0CE4A3229371AF /* hello_davoice_model_28_17082026.dm in Resources */ = {isa = PBXBuildFile; fileRef = 4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */; };
 		362488822FC8608200325B19 /* sv.dm in Resources */ = {isa = PBXBuildFile; fileRef = 3624887E2FC8608200325B19 /* sv.dm */; };
-		CA19F0182FD0000000C0FFEE /* car3d_viewer.html in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0172FD0000000C0FFEE /* car3d_viewer.html */; };
-		CA19F0192FD0000000C0FFEE /* car3d_viewer.html in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0172FD0000000C0FFEE /* car3d_viewer.html */; };
 		36C8BB7F2F3CDF8E00E94A82 /* words_flattened.txt in Resources */ = {isa = PBXBuildFile; fileRef = 36C8BB7E2F3CDF8E00E94A82 /* words_flattened.txt */; };
 		36C8BE1B2F474C9400E94A82 /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		36C8BE1C2F474C9400E94A82 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
@@ -35,6 +32,7 @@
 		5411D847DD9B9D40AF61D629 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0F9666B97F31F82F187B3C7C /* PrivacyInfo.xcprivacy */; };
 		8195BC3D08EA404CB547974B /* SceneDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = D926AE12FA284D659A661748 /* SceneDelegate.mm */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		9760B91D3BE21A5A3444988C /* hey_davoice_model_28_06042026.dm in Resources */ = {isa = PBXBuildFile; fileRef = E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */; };
 		BEF98DF6DF0039C42800D104 /* libPods-ExampleAppShared-ExampleApp-ExampleAppTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AC897A04AACA34CEBF037E7 /* libPods-ExampleAppShared-ExampleApp-ExampleAppTests.a */; };
 		CA19F0022FD0000000C0FFEE /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0012FD0000000C0FFEE /* Inter-Regular.ttf */; };
 		CA19F0032FD0000000C0FFEE /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0012FD0000000C0FFEE /* Inter-Regular.ttf */; };
@@ -46,6 +44,8 @@
 		CA19F0122FD0000000C0FFEE /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0102FD0000000C0FFEE /* Inter-Bold.ttf */; };
 		CA19F0142FD0000000C0FFEE /* Inter-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0132FD0000000C0FFEE /* Inter-ExtraBold.ttf */; };
 		CA19F0152FD0000000C0FFEE /* Inter-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0132FD0000000C0FFEE /* Inter-ExtraBold.ttf */; };
+		CA19F0182FD0000000C0FFEE /* car3d_viewer.html in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0172FD0000000C0FFEE /* car3d_viewer.html */; };
+		CA19F0192FD0000000C0FFEE /* car3d_viewer.html in Resources */ = {isa = PBXBuildFile; fileRef = CA19F0172FD0000000C0FFEE /* car3d_viewer.html */; };
 		DA622E986EEAF386C29B2DB1 /* libPods-ExampleAppShared-ExampleApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F0A0C25465C482554272BD68 /* libPods-ExampleAppShared-ExampleApp.a */; };
 /* End PBXBuildFile section */
 
@@ -76,15 +76,13 @@
 		21F02327251F475799E93666 /* SceneDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SceneDelegate.h; path = ExampleApp/SceneDelegate.h; sourceTree = "<group>"; };
 		29F3884A3F33CBAE9F3F95D3 /* Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig"; path = "Target Support Files/Pods-ExampleAppShared-ExampleAppRelease/Pods-ExampleAppShared-ExampleAppRelease.release.xcconfig"; sourceTree = "<group>"; };
 		3624887D2FC8608200325B19 /* hey_coach_model_28_22012026b.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hey_coach_model_28_22012026b.dm; path = ../assets/models/hey_coach_model_28_22012026b.dm; sourceTree = SOURCE_ROOT; };
-		E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hey_davoice_model_28_06042026.dm; path = ../assets/models/hey_davoice_model_28_06042026.dm; sourceTree = SOURCE_ROOT; };
-		4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hello_davoice_model_28_17082026.dm; path = ../assets/models/hello_davoice_model_28_17082026.dm; sourceTree = SOURCE_ROOT; };
 		3624887E2FC8608200325B19 /* sv.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = sv.dm; path = ../assets/models/sv.dm; sourceTree = SOURCE_ROOT; };
-		CA19F0172FD0000000C0FFEE /* car3d_viewer.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = car3d_viewer.html; path = ../assets/car3d/car3d_viewer.html; sourceTree = SOURCE_ROOT; };
 		36C8BB7E2F3CDF8E00E94A82 /* words_flattened.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = words_flattened.txt; path = ../assets/stt_bias_conf/words_flattened.txt; sourceTree = SOURCE_ROOT; };
 		36C8BE2D2F474C9400E94A82 /* ExampleAppRelease.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ExampleAppRelease.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36C8BE2E2F474C9500E94A82 /* ExampleApp copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "ExampleApp copy-Info.plist"; path = "/Volumes/T9/projects/ReactNative_WakeWordDetection_new/example_full_voice/ios/ExampleApp copy-Info.plist"; sourceTree = "<absolute>"; };
 		3AE432827593C9C83D0B648E /* libPods-ExampleAppShared-ExampleAppRelease.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ExampleAppShared-ExampleAppRelease.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D8EABB19A212DF13A4BEFC1 /* VoiceRecorder.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = VoiceRecorder.m; path = ExampleApp/VoiceRecorder.m; sourceTree = "<group>"; };
+		4B00648CA2655426785CF144 /* hello_davoice_model_28_17082026.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hello_davoice_model_28_17082026.dm; path = ../assets/models/hello_davoice_model_28_17082026.dm; sourceTree = SOURCE_ROOT; };
 		74E75225153D84A0D6E129A1 /* Pods-ExampleAppShared-ExampleApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppShared-ExampleApp.debug.xcconfig"; path = "Target Support Files/Pods-ExampleAppShared-ExampleApp/Pods-ExampleAppShared-ExampleApp.debug.xcconfig"; sourceTree = "<group>"; };
 		782EF8A1EDCBE268DAC42308 /* Pods-ExampleAppShared-ExampleApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppShared-ExampleApp.release.xcconfig"; path = "Target Support Files/Pods-ExampleAppShared-ExampleApp/Pods-ExampleAppShared-ExampleApp.release.xcconfig"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ExampleApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -94,8 +92,10 @@
 		CA19F0072FD0000000C0FFEE /* Inter-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-SemiBold.ttf"; path = "../assets/fonts/Inter-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
 		CA19F0102FD0000000C0FFEE /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-Bold.ttf"; path = "../assets/fonts/Inter-Bold.ttf"; sourceTree = SOURCE_ROOT; };
 		CA19F0132FD0000000C0FFEE /* Inter-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Inter-ExtraBold.ttf"; path = "../assets/fonts/Inter-ExtraBold.ttf"; sourceTree = SOURCE_ROOT; };
+		CA19F0172FD0000000C0FFEE /* car3d_viewer.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = car3d_viewer.html; path = ../assets/car3d/car3d_viewer.html; sourceTree = SOURCE_ROOT; };
 		D5667636AC35DB33DB77253C /* Pods-ExampleAppShared-ExampleApp-ExampleAppTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppShared-ExampleApp-ExampleAppTests.debug.xcconfig"; path = "Target Support Files/Pods-ExampleAppShared-ExampleApp-ExampleAppTests/Pods-ExampleAppShared-ExampleApp-ExampleAppTests.debug.xcconfig"; sourceTree = "<group>"; };
 		D926AE12FA284D659A661748 /* SceneDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = SceneDelegate.mm; path = ExampleApp/SceneDelegate.mm; sourceTree = "<group>"; };
+		E631B57368B972199E5A5071 /* hey_davoice_model_28_06042026.dm */ = {isa = PBXFileReference; lastKnownFileType = file; name = hey_davoice_model_28_06042026.dm; path = ../assets/models/hey_davoice_model_28_06042026.dm; sourceTree = SOURCE_ROOT; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F0A0C25465C482554272BD68 /* libPods-ExampleAppShared-ExampleApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ExampleAppShared-ExampleApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F905EA4786329BDCFD580668 /* Pods-ExampleAppShared-ExampleApp-ExampleAppTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppShared-ExampleApp-ExampleAppTests.release.xcconfig"; path = "Target Support Files/Pods-ExampleAppShared-ExampleApp-ExampleAppTests/Pods-ExampleAppShared-ExampleApp-ExampleAppTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -773,7 +773,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = davoice.com;
+				PRODUCT_BUNDLE_IDENTIFIER = io.davoice.voice2voice.caragent.release;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -803,7 +803,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = davoice.com;
+				PRODUCT_BUNDLE_IDENTIFIER = io.davoice.voice2voice.caragent.release;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";

@@ -116,7 +116,7 @@ const FULL_AI_CHAT_STT_OPTIONS = {
 let calledOnce = false;
 // DaVoice demo license for wake word and speech. Kept in one place so the wake word model
 // reload after a CDN update can apply it again.
-const DAVOICE_DEMO_LICENSE = 'MTc5MzQ4NDAwMDAwMA==-cpeHAmR/9wRKvv9rBJ+36JqMUxmXR3RIpi5lK67VsUQ=';
+const DAVOICE_DEMO_LICENSE = 'DV2.eyJ2IjoyLCJraWQiOiJrMSIsImlkIjoiMzBhNjRlNjY5ZTE0IiwiY3VzdCI6IkRhVm9pY2UgZGVtbyBhcHAgUmVhY3ROYXRpdmVfRGFWb2ljZS9leGFtcGxlX2xvYWRpbmdfcmVtb3RlX21vZGVsIChleGFjdCBhcHAgaWRzIG9ubHkpIiwiaWF0IjoxNzk1NzExMDc1NDE5LCJleHAiOjE4MzAyOTc2MDAwMDAsInByb2QiOlsiKiJdLCJwbGF0IjpbImFuZHJvaWQiLCJpb3MiXSwiYXBwcyI6eyJhbmRyb2lkIjpbImlvLmRhdm9pY2UuZXhhbXBsZS5yZW1vdGVtb2RlbCJdLCJpb3MiOlsiaW8uZGF2b2ljZS5leGFtcGxlLnJlbW90ZW1vZGVsIl19LCJtb2RlbHMiOlsidHRzLyoiLCJ3dy8qIl19.b1b00OwWY06Ly6VrC93mGBYjcSscubw2qOQvRHrK2h-8qykY9mFQHNNPe2_p62Ch5hHz-_EC4s4q-6_DoES8_w';
 
 function App(): React.JSX.Element {
   const [isFlashing, setIsFlashing] = useState(false);

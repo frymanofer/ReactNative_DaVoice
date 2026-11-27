@@ -246,15 +246,19 @@ function merged(run: CarTurnAction[], pt: boolean, friendly: boolean, driving = 
   const sentence = pt ? body.charAt(0).toUpperCase() + body.slice(1) : `I ${body}`;
   // the friendly closing line of the last action that has one ("I unlocked the car and opened all the doors. Come on in!")
   const tail = !secures && friendly && run.every(did) ? [...run].reverse().map((a) => friendlyTail(a, lang, driving)).find(Boolean) ?? null : null;
-  return `${opener} ${sentence}.${secures ? ` ${SECURE[lang]}` : ''}${tail ? ` ${tail}` : ''}`;
+  // one extra phrase at most (2026-11-25, the reply is said before the driver can talk again): the closing line, else the opener
+  const extra = secures ? SECURE[lang] : tail;
+  return extra ? `${sentence}. ${extra}` : `${opener} ${sentence}.`;
 }
 
-/** One action that ran, said with a warm opener (none when the car already said "Got it.") and, every other time, its closing line. */
+/** One action that ran, said with ONE friendly phrase (2026-11-25: opener + sentence + closing line made every reply long): every other
+ * time its closing line when it has one, else a warm opener (none when the car already said "Got it."). */
 function friendlyOne(a: CarTurnAction, lang: 'en' | 'pt', acked: boolean, driving = false): string {
   const v = variant++;
-  const opener = acked ? '' : `${FRIENDLY_OPENERS[lang][v % FRIENDLY_OPENERS[lang].length]} `;
   const tail = v % 2 === 0 ? friendlyTail(a, lang, driving) : null;
-  return `${opener}${a.say}${tail ? ` ${tail}` : ''}`;
+  if (tail) return `${a.say} ${tail}`;
+  const opener = acked ? '' : `${FRIENDLY_OPENERS[lang][v % FRIENDLY_OPENERS[lang].length]} `;
+  return `${opener}${a.say}`;
 }
 
 /**

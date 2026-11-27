@@ -132,8 +132,8 @@ They are deliberately two different wake words so you can hear which model is ru
 3. Say **"hey look deep"** — wake-word detection fires. Saying "hey coach" now does nothing.
 4. To A/B against the bundled model, clear the downloaded copy and relaunch **with networking off**:
    ```bash
-   # Android (debug build, package com.exampleapp)
-   adb shell run-as com.exampleapp rm -rf files/wakeword_models
+   # Android (debug build, app id io.davoice.example.remotemodel)
+   adb shell run-as io.davoice.example.remotemodel rm -rf files/wakeword_models
    # iOS: delete and reinstall the app, then launch in Airplane Mode
    ```
    Now "hey coach" works and "hey look deep" does not — that is the bundled model. Turn networking back on and relaunch to pull the remote model again.

@@ -11,19 +11,19 @@ const run = (says: Array<[string, string, boolean?, Record<string, unknown>?]>, 
 describe('speech composer: several car actions said as one sentence', () => {
   it('closes the doors and locks the car (the phone session of 2026-11-19)', () => {
     expect(run([['close_doors', 'I closed all the doors.'], ['lock_car', 'I locked the car.']], 'I closed all the doors. I locked the car.'))
-      .toBe('All set. I closed all the doors and locked the car. Everything is secure.');
+      .toBe('I closed all the doors and locked the car. Everything is secure.');
   });
   it('the offer: unlock then open', () => {
     expect(run([['unlock_car', 'I unlocked the car.'], ['open_door', 'I opened all the doors.']], 'I unlocked the car. I opened all the doors.'))
-      .toBe('All set. I unlocked the car and opened all the doors. Come on in!');
+      .toBe('I unlocked the car and opened all the doors. Come on in!');
   });
   it('pt-BR, three actions', () => {
     expect(run([['set_window', 'Fechei todas as janelas.'], ['close_doors', 'Fechei todas as portas.'], ['lock_car', 'Tranquei o carro.']],
       'Fechei todas as janelas. Fechei todas as portas. Tranquei o carro.', 'pt-BR'))
-      .toBe('Pronto, já fiz isso para você. Fechei todas as janelas, fechei todas as portas e tranquei o carro. Agora o carro está todo seguro.');
+      .toBe('Fechei todas as janelas, fechei todas as portas e tranquei o carro. Agora o carro está todo seguro.');
   });
-  it('one action: a warm opener and, every other time, a closing line that fits', () => {
-    expect(run([['lock_car', 'I locked the car.']], 'I locked the car.')).toBe("Sure, you got it. I locked the car. You're good to go.");
+  it('one action: one friendly phrase, the closing line every other time, else a warm opener', () => {
+    expect(run([['lock_car', 'I locked the car.']], 'I locked the car.')).toBe("I locked the car. You're good to go.");
   });
   it('a refusal or an undo is never merged; other text passes through', () => {
     expect(run([['lock_car', 'I locked the car.'], ['open_door', 'The car is locked. Should I unlock it?', false]],
@@ -51,20 +51,20 @@ describe('a friendlier voice (2026-11-21, "more like Otto")', () => {
     beginCarTurn();
     resetSpeechVariant();
     noteCarSay('set_window', "I opened the driver's window.", true, { args: { window: 'driver', position: 'open' } });
-    expect(composeCarSpeech("I opened the driver's window.", carTurnActions(), 'en')).toBe("Sure, you got it. I opened the driver's window. Enjoy the fresh air.");
+    expect(composeCarSpeech("I opened the driver's window.", carTurnActions(), 'en')).toBe("I opened the driver's window. Enjoy the fresh air.");
     beginCarTurn();
     noteCarSay('set_window', "I opened the driver's window.", true, { args: { window: 'driver', position: 'open' } });
     expect(composeCarSpeech("I opened the driver's window.", carTurnActions(), 'en')).toBe("You got it! I opened the driver's window.");
   });
   it('pt-BR', () => {
     // short sentences said on their own are said longer (tested pt-BR wording); a merged sentence keeps the short form
-    expect(run([['lock_car', 'Tranquei o carro.']], 'Tranquei o carro.', 'pt-BR')).toBe('Claro, já fiz isso para você. Tranquei todas as portas do carro. Pode ficar tranquilo, está tudo seguro.');
+    expect(run([['lock_car', 'Tranquei o carro.']], 'Tranquei o carro.', 'pt-BR')).toBe('Tranquei todas as portas do carro. Pode ficar tranquilo, está tudo seguro.');
     expect(run([['play_media', 'Tocando Anitta.', true, { query: 'Anitta' }]], 'Tocando Anitta.', 'pt-BR'))
-      .toBe('Claro, já fiz isso para você. Agora tocando Anitta para você. Aproveite a música durante a viagem.');
-    expect(run([['unlock_car', 'Destranquei o carro.']], 'Destranquei o carro.', 'pt-BR')).toBe('Claro, já fiz isso para você. Destranquei todas as portas do carro. Pode entrar, o carro já está aberto.');
+      .toBe('Agora tocando Anitta para você. Aproveite a música durante a viagem.');
+    expect(run([['unlock_car', 'Destranquei o carro.']], 'Destranquei o carro.', 'pt-BR')).toBe('Destranquei todas as portas do carro. Pode entrar, o carro já está aberto.');
     expect(run([['comfort_feeling', 'Deixei mais quente: subi o ar dois graus e liguei o aquecimento do banco no médio.', true, { feeling: 'cold' }]],
       'Deixei mais quente: subi o ar dois graus e liguei o aquecimento do banco no médio.', 'pt-BR'))
-      .toBe('Claro, já fiz isso para você. Deixei mais quente: subi o ar dois graus e liguei o aquecimento do banco no médio. Já já o carro fica mais quentinho.');
+      .toBe('Deixei mais quente: subi o ar dois graus e liguei o aquecimento do banco no médio. Já já o carro fica mais quentinho.');
   });
   it('after "Got it." there is no second opener', () => {
     expect(run([['navigate_to', 'Navigating to home: about 24 minutes, 18 km.']], 'Navigating to home: about 24 minutes, 18 km.', 'en', true))
@@ -101,9 +101,9 @@ describe('how a tool sentence is said', () => {
   });
   it('in a full reply: smoother words, the same facts', () => {
     expect(run([['set_temperature', 'I raised the whole cabin to 23°C.', true, { change: 2 }]], 'I raised the whole cabin to 23°C.'))
-      .toBe("Sure, you got it. I turned the temperature up to 23°C. It'll warm up soon.");
+      .toBe("I turned the temperature up to 23°C. It'll warm up soon.");
     expect(run([['navigate_to', 'Indo para aeroporto: cerca de 24 minutos, 18 km.', true, { destination: 'aeroporto' }]], 'Indo para aeroporto: cerca de 24 minutos, 18 km.', 'pt-BR'))
-      .toBe('Claro, já fiz isso para você. Indo para o aeroporto: cerca de 24 minutos, 18 km. Vamos lá, tenha uma ótima viagem!');
+      .toBe('Indo para o aeroporto: cerca de 24 minutos, 18 km. Vamos lá, tenha uma ótima viagem!');
     expect(run([['set_temperature', "I didn't change it: the temperature must be between 16 and 30.", false]], "I didn't change it: the temperature must be between 16 and 30."))
       .toBe('Sorry, the temperature only goes from 16 to 30.');
   });
@@ -150,6 +150,6 @@ describe('both seats (the answer "both" to the seat question)', () => {
     noteCarSay('set_seat_climate', "I set the heater in the driver's seat to high.", true, { args: { seat: 'driver', feature: 'heater', level: 'high' }, kind: 'did' });
     noteCarSay('set_seat_climate', 'I set the heater in the passenger seat to high.', true, { args: { seat: 'passenger', feature: 'heater', level: 'high' }, kind: 'did' });
     expect(composeCarSpeech("I set the heater in the driver's seat to high. I set the heater in the passenger seat to high.", carTurnActions(), 'en'))
-      .toBe("All set. I set the driver's seat heater to high and set the passenger seat heater to high. Nice and cozy.");
+      .toBe("I set the driver's seat heater to high and set the passenger seat heater to high. Nice and cozy.");
   });
 });

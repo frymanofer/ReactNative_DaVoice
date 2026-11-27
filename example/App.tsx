@@ -184,7 +184,7 @@ const FULL_AI_CHAT_STT_OPTIONS = {
 // library, so one license key validates for all of them (see the
 // local-llm-scaffold memory notes).
 const LOCAL_LLM_DEMO_LICENSE =
-  'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=';
+  'DV2.eyJ2IjoyLCJraWQiOiJrMSIsImlkIjoiNTU0YTQ0YTYxYWJmIiwiY3VzdCI6IkRhVm9pY2UgZGVtbyBhcHAgUmVhY3ROYXRpdmVfRGFWb2ljZS9leGFtcGxlIChleGFjdCBhcHAgaWRzIG9ubHkpIiwiaWF0IjoxNzk1NzExMDc1MjkyLCJleHAiOjE4MzAyOTc2MDAwMDAsInByb2QiOlsiKiJdLCJwbGF0IjpbImFuZHJvaWQiLCJpb3MiXSwiYXBwcyI6eyJhbmRyb2lkIjpbImlvLmRhdm9pY2UuZXhhbXBsZSJdLCJpb3MiOlsiaW8uZGF2b2ljZS5leGFtcGxlIiwiaW8uZGF2b2ljZS5leGFtcGxlLnJlbGVhc2UiXX0sIm1vZGVscyI6WyJ0dHMvKiIsInd3LyoiXX0.84nfYOonqE_h3UzWxp1BO2-Ga5f0TLvkJ6E-vu6k_OELTYxyN0zcss2jnO0ffVEocKASrtjtME_8Rdpz0UzZLQ';
 let calledOnce = false;
 
 function App(): React.JSX.Element {
@@ -2089,9 +2089,9 @@ function App(): React.JSX.Element {
           listenerRef,
           myInstanceRef,
           keywordLicense:
-            'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=',
+            'DV2.eyJ2IjoyLCJraWQiOiJrMSIsImlkIjoiNTU0YTQ0YTYxYWJmIiwiY3VzdCI6IkRhVm9pY2UgZGVtbyBhcHAgUmVhY3ROYXRpdmVfRGFWb2ljZS9leGFtcGxlIChleGFjdCBhcHAgaWRzIG9ubHkpIiwiaWF0IjoxNzk1NzExMDc1MjkyLCJleHAiOjE4MzAyOTc2MDAwMDAsInByb2QiOlsiKiJdLCJwbGF0IjpbImFuZHJvaWQiLCJpb3MiXSwiYXBwcyI6eyJhbmRyb2lkIjpbImlvLmRhdm9pY2UuZXhhbXBsZSJdLCJpb3MiOlsiaW8uZGF2b2ljZS5leGFtcGxlIiwiaW8uZGF2b2ljZS5leGFtcGxlLnJlbGVhc2UiXX0sIm1vZGVscyI6WyJ0dHMvKiIsInd3LyoiXX0.84nfYOonqE_h3UzWxp1BO2-Ga5f0TLvkJ6E-vu6k_OELTYxyN0zcss2jnO0ffVEocKASrtjtME_8Rdpz0UzZLQ',
           speechLicense:
-            'MTc5NjA3NjAwMDAwMA==-FmI0i6C8wjKqQwmvi/PAmUy9ayviOGvWhGLFGHZrg9I=',
+            'DV2.eyJ2IjoyLCJraWQiOiJrMSIsImlkIjoiNTU0YTQ0YTYxYWJmIiwiY3VzdCI6IkRhVm9pY2UgZGVtbyBhcHAgUmVhY3ROYXRpdmVfRGFWb2ljZS9leGFtcGxlIChleGFjdCBhcHAgaWRzIG9ubHkpIiwiaWF0IjoxNzk1NzExMDc1MjkyLCJleHAiOjE4MzAyOTc2MDAwMDAsInByb2QiOlsiKiJdLCJwbGF0IjpbImFuZHJvaWQiLCJpb3MiXSwiYXBwcyI6eyJhbmRyb2lkIjpbImlvLmRhdm9pY2UuZXhhbXBsZSJdLCJpb3MiOlsiaW8uZGF2b2ljZS5leGFtcGxlIiwiaW8uZGF2b2ljZS5leGFtcGxlLnJlbGVhc2UiXX0sIm1vZGVscyI6WyJ0dHMvKiIsInd3LyoiXX0.84nfYOonqE_h3UzWxp1BO2-Ga5f0TLvkJ6E-vu6k_OELTYxyN0zcss2jnO0ffVEocKASrtjtME_8Rdpz0UzZLQ',
           Speech,
           svChoice,
           enrollmentJsonPath: enrollmentJsonPathRef.current,

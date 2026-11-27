@@ -15,7 +15,7 @@ android {
   compileSdkVersion rootProject.ext.compileSdkVersion  // <— use compileSdkVersion (AGP accepts both)
 
   defaultConfig {
-    applicationId "com.exampleapp"           // <-- keep your package
+    applicationId "io.davoice.example.remotemodel"           // <-- keep your package
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 1

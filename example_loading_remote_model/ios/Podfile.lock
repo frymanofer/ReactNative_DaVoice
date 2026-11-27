@@ -9,7 +9,7 @@ PODS:
   - hermes-engine (0.82.0):
     - hermes-engine/Pre-built (= 0.82.0)
   - hermes-engine/Pre-built (0.82.0)
-  - KeyWordRNBridge (1.0.43):
+  - KeyWordRNBridge (1.0.46):
     - DaVoiceOnnxRuntime (= 1.31.0)
     - React-Core
   - RCT-Folly (2024.11.18.00):
@@ -2328,7 +2328,7 @@ PODS:
   - RNFS (2.20.0):
     - React-Core
   - SocketRocket (0.7.1)
-  - TTSRNBridge (1.0.460):
+  - TTSRNBridge (1.0.462):
     - DaVoiceOnnxRuntime (= 1.31.0)
     - React-Core
   - Yoga (0.0.0)
@@ -2582,7 +2582,7 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 8642d8f14a548ab718ec112e9bebdfdd154138b5
-  KeyWordRNBridge: d3edbeaecd64374836328dc8eebfeee676f9c737
+  KeyWordRNBridge: c245add0f4caf73a53034fbb6ca70d3a6178d516
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 22bf66112da540a7d40e536366ddd8557934fca1
   RCTRequired: a0ed4dc41b35f79fbb6d8ba320e06882a8c792cf
@@ -2650,7 +2650,7 @@ SPEC CHECKSUMS:
   ReactCommon: 25c7f94aee74ddd93a8287756a8ac0830a309544
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
-  TTSRNBridge: 945ec8c5d9dc231fbea9997e90f0e67a55d893dc
+  TTSRNBridge: c53ef9405cf1a3473b0ce1b9d7b42b3326a09eaf
   Yoga: edeb9900b9e5bb5b27b9a6a2d5914e4fe4033c1b
 
 PODFILE CHECKSUM: a8e6d3a338f08fdf2aa4e7548e124e59d8fc9503

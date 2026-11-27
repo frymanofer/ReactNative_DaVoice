@@ -55,12 +55,12 @@ class FakeClock {
 }
 
 describe('conversation settings', () => {
-  it('defaults keep the behaviour from before the settings: just talk, take turns, 2 s, never sleeps', () => {
+  it('defaults keep the behaviour from before the settings: just talk, take turns, 1.5 s, never sleeps', () => {
     expect(DEFAULT_CONVERSATION_SETTINGS).toEqual({
       interrupt: false,
       wakeWord: false,
-      wakeWordMode: { endOfSpeechMs: 2000, listenMs: 8000, followUpMs: 8000, preFetchMs: 2000, stopWord: false },
-      freeMode: { endOfSpeechMs: 2000, idleMs: 0 },
+      wakeWordMode: { endOfSpeechMs: 1500, listenMs: 8000, followUpMs: 8000, preFetchMs: 2000, stopWord: false },
+      freeMode: { endOfSpeechMs: 1500, idleMs: 0 },
     });
     expect(describeConversation(DEFAULT_CONVERSATION_SETTINGS)).toBe('Just talk · take turns');
   });
@@ -79,7 +79,7 @@ describe('conversation settings', () => {
       interrupt: true,
       wakeWord: false,
       wakeWordMode: { endOfSpeechMs: 500, listenMs: 7000, followUpMs: 0, preFetchMs: 3000, stopWord: false },
-      freeMode: { endOfSpeechMs: 2000, idleMs: 0 },
+      freeMode: { endOfSpeechMs: 1500, idleMs: 0 },
     });
     expect(normalizeConversationSettings(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });

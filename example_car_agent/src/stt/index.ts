@@ -1,5 +1,14 @@
 import { DeviceEventEmitter, Platform } from 'react-native';
 import { noteSpeechResult } from '../speaker_verification/currentSpeaker';
+import { getTTSLanguage } from '../tts';
+import { silenceFor } from './endOfSpeech';
+
+/** The end-of-speech silence for the words heard so far: longer when they cannot end a request ("Set the", "Please"). */
+function silenceAfter(text: string, baseMs: number): number {
+  const ms = silenceFor(text, baseMs, getTTSLanguage());
+  if (ms !== baseMs) console.log(`[AIChat] sounds unfinished, waiting ${ms} ms: "${text}"`);
+  return ms;
+}
 
 // === minimal coalescer that PRESERVES punctuation ===
 
@@ -231,7 +240,7 @@ export function registerSpeechHandlers({
       console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in onSpeechPartialResults silence timeout');
       await sleep(300);
       clearSpeechSentenceUI(speechUiEpoch);
-    }, silenceThresholdMsRef.current);
+    }, silenceAfter(merged, silenceThresholdMsRef.current));
 
     if (merged === lastTranscriptRef.current) return;
 
@@ -283,7 +292,7 @@ export function registerSpeechHandlers({
           return;
         }
         await speak(newText, SPEAKER, getSelectedSpeakerSpeed());
-      }, silenceThresholdMsRef.current);
+      }, silenceAfter(lastTranscriptRef.current, silenceThresholdMsRef.current));
       return;
     }
 
@@ -318,7 +327,7 @@ export function registerSpeechHandlers({
       console.log('[STT_UNPAUSE_TRACE] after Speech.unPauseSpeechRecognition(-1) in onSpeechResults silence timeout');
       await sleep(300);
       clearSpeechSentenceUI(speechUiEpoch);
-    }, silenceThresholdMsRef.current);
+    }, silenceAfter(current, silenceThresholdMsRef.current));
   };
 
   // Android: DaVoice STT emits events via DeviceEventEmitter, not NativeEventEmitter.
